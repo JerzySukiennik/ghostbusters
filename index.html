@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Ghostbusters: Phase 1</title>
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/",
+    "rapier": "https://cdn.jsdelivr.net/npm/@dimforge/rapier3d-compat@0.19.3/rapier.mjs"
+  }
+}
+</script>
+<style>
+:root{--ink:#f2f0ea;--mute:rgba(242,240,234,.62);--ecto:#9dff6a;--warn:#ffc04a;--err:#ff5a4a;--glass:rgba(12,14,16,.55)}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{width:100%;height:100%;overflow:hidden;background:#000;color:var(--ink);font:15px/1.4 -apple-system,BlinkMacSystemFont,"SF Pro Text","Helvetica Neue",system-ui,sans-serif;-webkit-font-smoothing:antialiased;user-select:none}
+#view{position:fixed;inset:0}
+#view canvas{display:block;width:100%;height:100%;outline:none}
+#hud{position:fixed;inset:0;pointer-events:none;z-index:2;transition:opacity .6s}
+body:not(.playing) #hud{opacity:0}
+#objective{position:absolute;left:28px;top:24px;display:flex;flex-direction:column;gap:4px;max-width:46vw}
+#objective .k{font:600 11px/1 -apple-system,"SF Pro Text",system-ui;letter-spacing:.16em;text-transform:uppercase;color:var(--mute)}
+#objective .t{font:600 19px/1.25 -apple-system,"SF Pro Display",system-ui;letter-spacing:-.01em;text-shadow:0 1px 12px rgba(0,0,0,.6);transition:opacity .4s}
+#prompt{position:absolute;left:50%;bottom:16%;transform:translateX(-50%);display:flex;align-items:center;gap:10px;padding:8px 14px 8px 8px;border-radius:12px;background:var(--glass);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);opacity:0;transition:opacity .25s;font-weight:500}
+#prompt.on{opacity:1}
+#prompt kbd{min-width:28px;height:28px;padding:0 8px;border-radius:7px;background:var(--ink);color:#111;font:700 13px/28px -apple-system,system-ui;text-align:center}
+#cross{position:absolute;left:50%;top:50%;width:64px;height:64px;margin:-32px 0 0 -32px;opacity:0;transition:opacity .2s}
+#cross.on{opacity:1}
+#cross svg{width:100%;height:100%;overflow:visible}
+#ghostbar{position:absolute;left:50%;top:26px;transform:translateX(-50%);width:min(420px,60vw);text-align:center;opacity:0;transition:opacity .35s}
+#ghostbar.on{opacity:1}
+#ghostbar .n{font:600 12px/1 -apple-system,system-ui;letter-spacing:.18em;text-transform:uppercase;margin-bottom:8px;text-shadow:0 1px 8px rgba(0,0,0,.7)}
+#ghostbar .b{height:5px;border-radius:5px;background:rgba(255,255,255,.16);overflow:hidden;position:relative}
+#ghostbar .b i{position:absolute;left:0;top:0;bottom:0;background:var(--ecto);border-radius:5px;transition:width .15s}
+#ghostbar .b u{position:absolute;top:-3px;bottom:-3px;width:2px;background:var(--ink);opacity:.8}
+#ghostbar .s{margin-top:7px;font-size:12px;color:var(--mute);letter-spacing:.04em;min-height:16px}
+#heat{position:absolute;right:28px;bottom:26px;display:flex;align-items:center;gap:10px;opacity:0;transition:opacity .3s}
+#heat.on{opacity:1}
+#heat .l{font:600 11px/1 -apple-system,system-ui;letter-spacing:.16em;color:var(--mute)}
+#heat .b{width:140px;height:5px;border-radius:5px;background:rgba(255,255,255,.16);overflow:hidden}
+#heat .b i{display:block;height:100%;width:0;background:var(--ink);border-radius:5px}
+#heat.hot .b i{background:var(--warn)}
+#heat.over .b i{background:var(--err)}
+#style{position:absolute;left:28px;bottom:24px;font:600 11px/1 -apple-system,system-ui;letter-spacing:.16em;color:var(--mute)}
+#style b{color:var(--ink);font-weight:700}
+#speed{position:absolute;left:28px;bottom:48px;font:300 44px/1 -apple-system,"SF Pro Display",system-ui;letter-spacing:-.02em;opacity:0;transition:opacity .3s;font-variant-numeric:tabular-nums}
+#speed small{font-size:13px;font-weight:600;letter-spacing:.14em;color:var(--mute);margin-left:6px}
+#speed.on{opacity:1}
+#toast{position:absolute;left:50%;top:38%;transform:translate(-50%,-50%) scale(.96);font:700 15px/1 -apple-system,system-ui;letter-spacing:.22em;text-transform:uppercase;opacity:0;transition:opacity .3s,transform .3s;text-shadow:0 2px 20px rgba(0,0,0,.8)}
+#toast.on{opacity:1;transform:translate(-50%,-50%) scale(1)}
+#done{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.35);opacity:0;transition:opacity .6s;pointer-events:none}
+#done.on{opacity:1;pointer-events:auto}
+#done .card{width:min(420px,88vw);padding:26px 26px 22px;border-radius:20px;background:rgba(14,16,18,.82);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);border:1px solid rgba(255,255,255,.08)}
+#done h2{font:700 30px/1.05 -apple-system,"SF Pro Display",system-ui;letter-spacing:-.02em;margin-bottom:4px}
+#done .sub{color:var(--mute);margin-bottom:18px}
+#done .row{display:flex;justify-content:space-between;padding:9px 0;border-top:1px solid rgba(255,255,255,.08);font-variant-numeric:tabular-nums}
+#done .row span:first-child{color:var(--mute)}
+#done .tot{font-weight:700}
+#done .btns{display:flex;gap:10px;margin-top:18px}
+button{font:600 14px/1 -apple-system,system-ui;border:0;border-radius:11px;padding:12px 16px;cursor:pointer;background:var(--ink);color:#111}
+button.ghost{background:rgba(255,255,255,.1);color:var(--ink)}
+#slime{position:absolute;inset:0;pointer-events:none}
+#start{position:fixed;inset:0;z-index:5;display:flex;align-items:flex-end;justify-content:flex-start;padding:7vh 7vw;background:radial-gradient(120% 90% at 30% 100%,rgba(0,0,0,.2),rgba(0,0,0,.78));transition:opacity .6s}
+#start.hide{opacity:0;pointer-events:none}
+#start .wrap{max-width:560px}
+#start h1{font:800 clamp(40px,7vw,84px)/.92 -apple-system,"SF Pro Display",system-ui;letter-spacing:-.04em}
+#start h1 span{display:block;font-weight:300;font-size:.42em;letter-spacing:.02em;color:var(--mute);margin-top:12px}
+#start .row{display:flex;gap:8px;flex-wrap:wrap;margin:26px 0 18px}
+#start .seg{display:flex;background:rgba(255,255,255,.08);border-radius:12px;padding:3px}
+#start .seg button{background:transparent;color:var(--mute);padding:10px 14px;border-radius:9px}
+#start .seg button.on{background:var(--ink);color:#111}
+#start .go{font-size:16px;padding:16px 22px;border-radius:14px}
+#start .go:disabled{opacity:.45;cursor:default}
+#start .keys{margin-top:22px;display:grid;grid-template-columns:auto 1fr;gap:6px 14px;font-size:13px;color:var(--mute)}
+#start .keys b{color:var(--ink);font-weight:600}
+#load{height:3px;width:min(320px,70vw);background:rgba(255,255,255,.12);border-radius:3px;margin-top:16px;overflow:hidden}
+#load i{display:block;height:100%;width:0;background:var(--ink);transition:width .3s}
+#loadtxt{font-size:12px;color:var(--mute);margin-top:8px;min-height:16px}
+#err{position:fixed;left:16px;bottom:16px;z-index:9;color:var(--err);font:12px/1.4 ui-monospace,Menlo,monospace;max-width:80vw;white-space:pre-wrap}
+@media (max-width:600px){#objective{left:16px;top:16px;max-width:80vw}#style{left:16px}#heat{right:16px}#start{padding:6vh 16px}}
+</style>
+</head>
+<body>
+<div id="view"></div>
+<div id="hud">
+  <canvas id="slime"></canvas>
+  <div id="objective"><div class="k">Objective</div><div class="t"></div></div>
+  <div id="ghostbar"><div class="n">Onionhead · Class 5</div><div class="b"><i></i><u></u></div><div class="s"></div></div>
+  <div id="cross"><svg viewBox="-32 -32 64 64"><circle r="3" fill="none" stroke="#f2f0ea" stroke-width="1.6" opacity=".9"/><circle id="ring" r="20" fill="none" stroke="#f2f0ea" stroke-opacity=".18" stroke-width="2.5"/><circle id="tens" r="20" fill="none" stroke="#9dff6a" stroke-width="2.5" stroke-linecap="round" transform="rotate(-90)" stroke-dasharray="0 126"/></svg></div>
+  <div id="prompt"><kbd>E</kbd><span></span></div>
+  <div id="speed"><span>0</span><small>MPH</small></div>
+  <div id="heat"><span class="l">HEAT</span><div class="b"><i></i></div></div>
+  <div id="style">LOOK <b>MODERN</b> · V</div>
+  <div id="toast"></div>
+  <div id="done"><div class="card"><h2>Ghost captured</h2><div class="sub"></div><div class="rows"></div><div class="btns"><button id="again">Bust again</button><button class="ghost" id="free">Free roam</button></div></div></div>
+</div>
+<div id="start">
+  <div class="wrap">
+    <h1>Ghostbusters<span>Phase 1 · one bust, one ghost</span></h1>
+    <div class="row">
+      <div class="seg" id="lookSeg"><button data-v="modern">Modern</button><button data-v="film">1984 film</button></div>
+      <div class="seg" id="qSeg"><button data-v="low">Low</button><button data-v="medium">Medium</button><button data-v="high">High</button></div>
+    </div>
+    <button class="go" id="go" disabled>Loading</button>
+    <div id="load"><i></i></div>
+    <div id="loadtxt"></div>
+    <div class="keys">
+      <b>WASD · Shift</b><span>move · sprint</span>
+      <b>Mouse · LMB</b><span>aim · fire the stream</span>
+      <b>RMB</b><span>boson dart · slam while wrangling</span>
+      <b>Q</b><span>throw the trap · stomp the pedal</span>
+      <b>E · F · H</b><span>use · drive the Ecto-1 · siren</span>
+      <b>R · V</b><span>vent the pack · switch look</span>
+    </div>
+  </div>
+</div>
+<div id="err"></div>
+<script type="module" src="src/main.js"></script>
+</body>
+</html>
