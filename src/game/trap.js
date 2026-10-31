@@ -95,7 +95,7 @@ export class Trap {
     this.audio?.play('trap_close', { pos: this.pos, gain: 1.3 });
     if (full) {
       this.setState('full');
-      this.renderer.addFlash(0.6); this.renderer.addTrauma(0.5);
+      this.renderer.addFlash(0.6); this.renderer.addTrauma(0.5); this.renderer.hitStop(0.14, 0.05);
       this.fx.impact(this.pos.clone().add(V(0, 0.15, 0)), V(0, 1, 0), 'spark');
       this.snd.beep = this.audio?.loop('trap_beep', { pos: this.pos, gain: 0.5, delay: 0.6 });
       this.audio?.play('trap_smoke', { pos: this.pos, delay: 0.25 });

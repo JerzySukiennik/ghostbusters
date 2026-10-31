@@ -79,6 +79,15 @@ button.ghost{background:rgba(255,255,255,.1);color:var(--ink)}
 #load{height:3px;width:min(320px,70vw);background:rgba(255,255,255,.12);border-radius:3px;margin-top:16px;overflow:hidden}
 #load i{display:block;height:100%;width:0;background:var(--ink);transition:width .3s}
 #loadtxt{font-size:12px;color:var(--mute);margin-top:8px;min-height:16px}
+#pause{position:fixed;inset:0;z-index:4;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.45);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);opacity:0;pointer-events:none;transition:opacity .25s}
+#pause.on{opacity:1;pointer-events:auto}
+#pause .card{width:min(380px,90vw);padding:24px;border-radius:20px;background:rgba(14,16,18,.86);border:1px solid rgba(255,255,255,.08);display:flex;flex-direction:column;gap:14px}
+#pause h2{font:700 24px/1 -apple-system,"SF Pro Display",system-ui;letter-spacing:-.02em}
+#pause .seg{display:flex;background:rgba(255,255,255,.08);border-radius:12px;padding:3px}
+#pause .seg button{flex:1;background:transparent;color:var(--mute);padding:10px 8px;border-radius:9px}
+#pause .seg button.on{background:var(--ink);color:#111}
+#pause label{display:flex;justify-content:space-between;align-items:center;font-size:13px;color:var(--mute)}
+#pause input[type=range]{width:55%;accent-color:#f2f0ea}
 #err{position:fixed;left:16px;bottom:16px;z-index:9;color:var(--err);font:12px/1.4 ui-monospace,Menlo,monospace;max-width:80vw;white-space:pre-wrap}
 @media (max-width:600px){#objective{left:16px;top:16px;max-width:80vw}#style{left:16px}#heat{right:16px}#start{padding:6vh 16px}}
 </style>
@@ -117,6 +126,15 @@ button.ghost{background:rgba(255,255,255,.1);color:var(--ink)}
     </div>
   </div>
 </div>
+<div id="pause"><div class="card">
+  <h2>Paused</h2>
+  <button id="resume">Resume</button>
+  <div class="seg" id="pLook"><button data-v="modern">Modern</button><button data-v="film">1984 film</button></div>
+  <div class="seg" id="pQ"><button data-v="low">Low</button><button data-v="medium">Medium</button><button data-v="high">High</button></div>
+  <label>Mouse<input type="range" id="sens" min="0.4" max="2.2" step="0.05" value="1"></label>
+  <label>Volume<input type="range" id="vol" min="0" max="1" step="0.05" value="0.9"></label>
+  <button class="ghost" id="restart">Restart the bust</button>
+</div></div>
 <div id="err"></div>
 <script type="module" src="src/main.js"></script>
 </body>

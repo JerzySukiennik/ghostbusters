@@ -107,6 +107,28 @@ try {
       }
       await shot(`pose_${gy}_${side}`);
     }
+  } else if (scen === 'bot') {
+    await suit(); await wait(7200);
+    await E(() => { const g = window.__gb, V = g.player.feet.constructor; g.player.teleport(new V(4, 0, 6), 0); g.rig.yaw = 0; });
+    let t0 = Date.now(), first = null;
+    for (let i = 0; i < 90; i++) {
+      const s = await E(() => {
+        const g = window.__gb, gp = g.ghost.pos, c = g.camera.position;
+        const lead = gp.clone().addScaledVector(g.ghost.vel, 0.08);
+        const dx = lead.x - c.x, dy = lead.y - c.y, dz = lead.z - c.z;
+        g.rig.yaw = Math.atan2(dx, dz); g.rig.pitch = Math.atan2(dy, Math.hypot(dx, dz));
+        const d = g.player.feet.distanceTo(gp);
+        g.input.btn[0] = g.engaged && d < 20 && g.gear.over <= 0 && g.gear.heat < 0.9;
+        if (!g.engaged || d > 16) { g.input.down.add('KeyW'); } else g.input.down.delete('KeyW');
+        return { t: +g.time.toFixed(1), st: g.ghost.state, will: +g.ghost.will.toFixed(0), d: +d.toFixed(1), heat: +g.gear.heat.toFixed(2), on: g.proton.on ? g.proton.mode : '-', slimed: g.stats.slimed, cap: g.ghost.capturable };
+      });
+      if (i % 6 === 0) console.log('bot', JSON.stringify(s));
+      if (s.cap && !first) first = s.t;
+      if (s.on === 'capture') { console.log('LOCKED at', s.t); break; }
+      if (i === 30 || i === 60) await shot('bot' + i);
+      await wait(250);
+    }
+    console.log('first capturable at', first);
   } else if (scen === 'drive') {
     await E(() => { const g = window.__gb, p = g.ecto.doorPoint(new g.player.feet.constructor()); g.player.teleport(p, 0); });
     await wait(300); await page.keyboard.press('KeyF'); await wait(1600); await shot('seated');

@@ -40,7 +40,7 @@ export class Ghost {
     this.hurt = Math.min(1, this.hurt + (kind === 'stream' ? 0.08 : 0.9));
     this.anger = Math.min(1, this.anger + amount * 0.01);
     if (kind !== 'stream') { this.vel.addScaledVector(dir, 7); this.say('ghost_hurt'); this.set('stagger'); }
-    else if (this.state === 'eat' || this.state === 'roam' || this.state === 'taunt') { this.say(Math.random() < 0.5 ? 'ghost_hurt' : 'ghost_wail'); this.set('flee'); }
+    else if (this.state === 'eat' || this.state === 'roam' || this.state === 'taunt' || this.state === 'prank') { this.say(Math.random() < 0.5 ? 'ghost_hurt' : 'ghost_wail'); this.set('flee'); }
     else if (Math.random() < 0.02) this.say('ghost_hurt', 0.8);
   }
 

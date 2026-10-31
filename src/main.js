@@ -120,8 +120,8 @@ async function boot() {
 
   const start = () => {
     if (running) return;
-    running = true;
-    audio.unlock();
+    running = true; startedAt = performance.now();
+    audio.unlock(); applySettings();
     input.enabled = true;
     input.lock();
     document.getElementById('start').classList.add('hide');
@@ -132,12 +132,30 @@ async function boot() {
   window.__start = start;
   document.getElementById('again').onclick = () => location.reload();
   document.getElementById('free').onclick = () => game.freeRoam();
-  for (const [id, cur, set] of [['lookSeg', style, (v) => { game.setStyle(v); store.set('gb.style', v); }], ['qSeg', quality, (v) => { R.setPreset(v); store.set('gb.q', v); }]]) {
-    const seg = document.getElementById(id);
-    const mark = (v) => seg.querySelectorAll('button').forEach((b) => b.classList.toggle('on', b.dataset.v === v));
+  const segs = [];
+  for (const [ids, cur, set] of [[['lookSeg', 'pLook'], style, (v) => { game.setStyle(v); store.set('gb.style', v); }], [['qSeg', 'pQ'], quality, (v) => { R.setPreset(v); store.set('gb.q', v); }]]) {
+    const all = ids.map((id) => document.getElementById(id));
+    const mark = (v) => all.forEach((seg) => seg.querySelectorAll('button').forEach((b) => b.classList.toggle('on', b.dataset.v === v)));
     mark(cur);
-    seg.querySelectorAll('button').forEach((b) => (b.onclick = () => { mark(b.dataset.v); set(b.dataset.v); }));
+    segs.push(mark);
+    all.forEach((seg) => seg.querySelectorAll('button').forEach((b) => (b.onclick = () => { mark(b.dataset.v); set(b.dataset.v); })));
   }
+  const prevStyle = game.onStyle;
+  game.onStyle = (s) => { prevStyle(s); segs[0](s); };
+  const sens = document.getElementById('sens'), vol = document.getElementById('vol');
+  sens.value = store.get('gb.sens', '1'); vol.value = store.get('gb.vol', '0.9');
+  const applySettings = () => { rig.sensMul = +sens.value; if (audio.master) audio.master.gain.value = +vol.value; store.set('gb.sens', sens.value); store.set('gb.vol', vol.value); };
+  sens.oninput = vol.oninput = applySettings; applySettings();
+  const pauseEl = document.getElementById('pause');
+  let paused = false, startedAt = 0;
+  document.getElementById('resume').onclick = () => { input.lock(); };
+  document.getElementById('restart').onclick = () => location.reload();
+  document.addEventListener('pointerlockchange', () => {
+    const locked = document.pointerLockElement === R.canvas;
+    if (!running || game.done) return;
+    if (!locked && performance.now() - startedAt > 400) { paused = true; pauseEl.classList.add('on'); }
+    if (locked) { paused = false; pauseEl.classList.remove('on'); applySettings(); }
+  });
   addEventListener('keydown', (e) => { if (!running && (e.code === 'Enter' || e.code === 'Space') && !go.disabled) start(); });
 
   window.__ready = true;
@@ -145,9 +163,12 @@ async function boot() {
   const frame = (now) => {
     requestAnimationFrame(frame);
     const dt = Math.min(0.05, Math.max(0, (now - last) / 1000)); last = now; t += dt;
-    if (running) {
-      phys.update(dt, (h) => game.fixed(h), () => ecto.sync());
-      game.update(dt, phys.acc / phys.step);
+    if (running && paused) {
+      input.dx = input.dy = 0;
+    } else if (running) {
+      const gdt = dt * R.timeScale(dt);
+      phys.update(gdt, (h) => game.fixed(h), () => ecto.sync());
+      game.update(gdt, phys.acc / phys.step);
     } else {
       phys.update(dt, (h) => ecto.fixed(h, null), () => ecto.sync());
       ecto.interp(1); ecto.update(dt, t);

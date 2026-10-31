@@ -16,7 +16,7 @@ export class CameraRig {
     this.forward = V(0, 0, 1);
   }
 
-  input(dx, dy, sens = 0.0021) {
+  input(dx, dy, sens = 0.0021 * (this.sensMul || 1)) {
     if (this.mode === 'cine') return;
     if (this.mode === 'car') { this.orbit = THREE.MathUtils.clamp(this.orbit - dx * sens, -Math.PI, Math.PI); this.pitch = THREE.MathUtils.clamp(this.pitch - dy * sens, -0.6, 0.5); this.orbitIdle = 0; return; }
     this.yaw -= dx * sens;

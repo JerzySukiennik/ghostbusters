@@ -145,6 +145,8 @@ export class Renderer {
   }
 
   addTrauma(t) { this.trauma = Math.min(1, this.trauma + t); }
+  hitStop(t, s = 0.08) { this.hs = Math.max(this.hs || 0, t); this.hsScale = s; }
+  timeScale(dt) { if (this.hs > 0) { this.hs -= dt; return this.hsScale; } return 1; }
   addFlash(f) { this.flash = Math.min(1.5, this.flash + f); }
 
   render(time, dt) {

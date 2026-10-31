@@ -111,7 +111,7 @@ export class Proton {
     if (onGhost) {
       this.endKind = 'ghost';
       this.end.lerp(ghost.pos, 1 - Math.exp(-dt * 12));
-      const dmg = 21 * dt;
+      const dmg = 13.5 * dt;
       ghost.hit(dmg, _a); this.stats.damage += dmg;
       this.onGhostT += dt;
       this.sparkT -= dt;
@@ -231,7 +231,7 @@ export class Proton {
   onSlam(pos) {
     this.fx.impact(pos, V(0, 1, 0), 'slam');
     this.phys.explode(pos, 4, 70);
-    this.renderer.addTrauma(0.75); this.renderer.addFlash(0.08);
+    this.renderer.addTrauma(0.75); this.renderer.addFlash(0.08); this.renderer.hitStop(0.075);
     this.audio?.play('hit_metal', { pos, gain: 1.2 }); this.audio?.play('debris_small', { pos });
     this.ghost.will = Math.max(0, this.ghost.will - 11);
     this.ghost.hurt = 1;
