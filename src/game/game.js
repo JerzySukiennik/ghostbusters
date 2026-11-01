@@ -2,7 +2,7 @@
 import * as THREE from 'three';
 
 const V = (x = 0, y = 0, z = 0) => new THREE.Vector3(x, y, z), Q = () => new THREE.Quaternion();
-const _a = V(), _b = V(), _c = V(), _q = Q(), _q2 = Q(), _s = V(), _t = V();
+const _a = V(), _b = V(), _c = V(), _q = Q(), _q2 = Q(), _s = V(), _t = V(), _u = V();
 const UP = new THREE.Vector3(0, 1, 0);
 
 export class Game {
@@ -40,7 +40,6 @@ export class Game {
     this.scene.add(avatar.object);
     this.rig.yaw = player.yaw + 0.25;
     this.hud.objective('Suit up at the back of the Ecto-1');
-    this.hud.style(this.style);
     this.ghosts.forEach((g, i) => {
       g.onWreck = (p) => { this.hud.damage(p); this.net?.wrecked(p); };
       g.onKnock = (p, imp) => this.net?.knocked(p, imp);
@@ -60,7 +59,6 @@ export class Game {
     this.style = s;
     this.fx.setStyle(s);
     this.gear.setStyle?.(s);
-    this.hud.style(s);
     this.onStyle?.(s);
     try { localStorage.setItem('gb.style', s); } catch {}
   }
@@ -321,6 +319,7 @@ export class Game {
   interactions() {
     const { input, ecto, trap, player, gear, hud } = this;
     let prompt = null;
+    this.useAt = null;
     if (this.busy || player.mode === 'script') { hud.prompt(null); return; }
     if (player.mode === 'car') {
       const canOut = Math.abs(ecto.fwdSpeed) < 3;
@@ -334,19 +333,51 @@ export class Game {
     const nearRear = this.near(rear, 2.1), nearDoor = this.near(door, 1.7);
     ecto.root.worldToLocal(_t.copy(this.player.feet));
     const nearPass = Math.abs(_t.x + 1.45) < 0.9 && Math.abs(_t.z) < 1.6;
-    if (trap.state === 'carried' && nearRear) prompt = ['E', 'Stow the trap', () => this.stowTrap()];
-    else if (trap.state === 'full' && this.near(trap.pos, 1.8)) prompt = ['E', 'Pick up the trap', () => this.pickTrap()];
-    else if (trap.state === 'armed' && this.near(trap.pos, 1.6)) prompt = ['E', 'Pick up the trap', () => { trap.pickUp(); this.audio.play('cloth_rustle', { pos: trap.pos }); }];
-    else if (nearRear && gear.state === 'stowed') prompt = ['E', 'Suit up', () => this.suitUp()];
-    else if (nearRear && gear.state === 'worn' && (trap.state === 'belt' || trap.state === 'stowed') && (this.mission === 'done' || this.mission === 'wait' || trap.state === 'stowed' || !this.ghostsLeft())) prompt = ['E', 'Stow your gear', () => this.unsuit()];
-    else if (nearDoor || (this.net && nearPass)) prompt = gear.state === 'stowed' ? ['F', this.net && this.net.carDriver() ? 'Ride along' : 'Drive', () => this.enterCar()] : ['F', 'Stow your gear first', null];
-    hud.prompt(prompt ? prompt[0] : null, prompt ? prompt[1] : '');
+    const side = nearDoor ? 'door' : 'pass';
+    if (trap.state === 'carried' && nearRear) prompt = ['E', 'Stow the trap', () => this.stowTrap(), 'rear'];
+    else if (trap.state === 'full' && this.near(trap.pos, 1.8)) prompt = ['E', 'Pick up the trap', () => this.pickTrap(), 'trap'];
+    else if (trap.state === 'armed' && this.near(trap.pos, 1.6)) prompt = ['E', 'Pick up the trap', () => { trap.pickUp(); this.audio.play('cloth_rustle', { pos: trap.pos }); }, 'trap'];
+    else if (nearRear && gear.state === 'stowed') prompt = ['E', 'Suit up', () => this.suitUp(), 'rear'];
+    else if (nearRear && gear.state === 'worn' && (trap.state === 'belt' || trap.state === 'stowed') && (this.mission === 'done' || this.mission === 'wait' || trap.state === 'stowed' || !this.ghostsLeft())) prompt = ['E', 'Stow your gear', () => this.unsuit(), 'rear'];
+    else if (nearDoor || (this.net && nearPass)) prompt = gear.state === 'stowed' ? ['F', this.net && this.net.carDriver() ? 'Ride along' : 'Drive', () => this.enterCar(), side] : ['F', 'Stow your gear first', null, side];
+    this.useAt = prompt ? prompt[3] : null;
+    hud.prompt(prompt ? prompt[0] : null, prompt ? prompt[1] : '', prompt ? this.anchor(prompt[3], _u) : null, !!(prompt && prompt[2]));
     if (prompt && prompt[2] && input.pressed('Key' + prompt[0])) prompt[2]();
     if (gear.state === 'worn' && input.pressed('KeyQ')) {
       if (trap.state === 'belt') this.throwTrap();
       else if (trap.state === 'armed') { if (this.near(trap.pedalPos, 9)) { trap.stomp(); if (this.avatar.anim.has('stomp_pedal')) this.avatar.anim.play('stomp_pedal', { upper: false }); } else hud.toast('Too far from the pedal', 1.2); }
     }
     if (gear.state === 'worn' && input.pressed('KeyR') && gear.manualVent()) hud.toast('Venting', 0.9);
+  }
+
+  anchor(at, out) {
+    const m = this.ecto.root.matrixWorld;
+    if (at === 'rear') return out.set(0, 1.0, -3.05).applyMatrix4(m);
+    if (at === 'door') return out.set(1.0, 1.05, 0.45).applyMatrix4(m);
+    if (at === 'pass') return out.set(-1.0, 1.05, 0.0).applyMatrix4(m);
+    return out.copy(this.trap.pos).add(_t.set(0, 0.35, 0));
+  }
+
+  guides() {
+    const { hud, trap, gear, player } = this;
+    if (this.done || player.mode !== 'foot' || this.busy) return;
+    const at = this.useAt, feet = player.feet;
+    if (at !== 'rear') {
+      const label = trap.state === 'carried' ? 'Stow the trap' : gear.state === 'stowed' && this.mission === 'suit' ? 'Suit up' : gear.state === 'worn' && trap.state === 'stowed' ? 'Stow your gear' : '';
+      if (label) { this.anchor('rear', _u); hud.mark('rear', _u, { kind: 'hint', key: 'E', label, dist: feet.distanceTo(_u), edge: true }); }
+    }
+    if (trap.state === 'full' && at !== 'trap') { this.anchor('trap', _u); hud.mark('trap', _u, { kind: 'hint', key: 'E', label: 'Trap', dist: feet.distanceTo(_u), edge: true }); }
+    if (gear.state === 'stowed' && this.mission !== 'suit' && at !== 'door' && at !== 'pass') {
+      this.anchor('door', _u);
+      const d = feet.distanceTo(_u);
+      if (d < 45) hud.mark('door', _u, { kind: 'hint', key: 'F', label: 'Drive', dist: d });
+    }
+    if (!this.engaged && !this.net?.engaged) return;
+    for (const g of this.ghosts) {
+      if (!g.active || !g.alive || g.puppet || g.state === 'wrangled' || g.state === 'sucked') continue;
+      const d = feet.distanceTo(g.pos);
+      hud.mark('g' + g.id, g.pos, { kind: 'ghost', label: g.name || 'Onionhead', dist: d, edge: true, offOnly: d < 22 });
+    }
   }
 
   pickTrap() {
@@ -541,7 +572,8 @@ export class Game {
     hud.cross(armed && player.mode === 'foot', proton.wrangling ? proton.tension : 0, this.ghosts.some((g) => g.alive && g.active && proton.aim.distanceTo(g.pos) < g.radius * 1.4));
     hud.heat(gear.state === 'worn' && player.mode === 'foot', gear.heat, gear.heat > 0.82, gear.over > 0);
     hud.speed(player.mode === 'car' && this.seat === 0, Math.abs(ecto.fwdSpeed) * 2.237);
-    hud.update(dt);
+    this.guides();
+    hud.update(dt, this);
     if (player.landed !== undefined && player.landed < -4) this.audio.play('land', { pos: player.feet });
     player.landed = undefined;
     this.footsteps(dt);

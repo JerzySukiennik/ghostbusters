@@ -19,6 +19,7 @@ import { HUD } from './ui/hud.js';
 import { Room } from './net/room.js';
 import { Net } from './net/sync.js';
 import * as FB from './game/fallbacks.js';
+import * as L from './world/layout.js';
 
 const params = new URLSearchParams(location.search);
 const force = (params.get('fallback') || '').split(',');
@@ -30,8 +31,18 @@ const report = (e) => { console.error(e); errEl.textContent = String(e?.stack ||
 addEventListener('error', (e) => report(e.error || e.message));
 addEventListener('unhandledrejection', (e) => report(e.reason));
 
-const loadBar = document.querySelector('#load i'), loadTxt = document.getElementById('loadtxt'), go = document.getElementById('go');
-const progress = (k, label) => { loadBar.style.width = Math.round(k * 100) + '%'; if (label) loadTxt.textContent = label; };
+const leader = document.getElementById('leader'), lNum = leader.querySelector('.num'), lBar = leader.querySelector('.bar i'), lLab = leader.querySelector('.txt em');
+const loadTxt = document.getElementById('loadtxt'), go = document.getElementById('go');
+const progress = (k, label) => {
+  lBar.style.width = Math.round(k * 100) + '%';
+  const n = String(Math.max(1, 8 - Math.floor(k * 8)));
+  if (lNum.textContent !== n) lNum.textContent = n;
+  if (label) lLab.textContent = label;
+};
+const plateMap = () => {
+  const h = L.PLATE.half;
+  return { bounds: [-h, -h, h, h], roads: [{ pts: [[0, -h], [0, h]], w: L.AVE.x1 - L.AVE.x0 }, { pts: [[-h, 0], [h, 0]], w: L.ST.z1 - L.ST.z0 }], blocks: L.BUILDINGS.map((b) => b.box) };
+};
 
 async function glbOr(assets, url, label, fb, jsonUrl) {
   const g = force.includes(label) ? null : await assets.glb(url, label);
@@ -115,6 +126,7 @@ async function boot() {
   const remoteTraps = [0, 1, 2].map(() => new Trap({ gltf: { scene: tpl.trap.clone(true), json: trapG.json }, scene, phys, audio, fx, renderer: R, hud, remote: true }));
   const game = new Game({ renderer: R, scene, camera, phys, input, audio, hud, fx, plate, ecto, gear, avatar, player, rig, ghosts, trap, proton, style, assets });
   game.setup();
+  hud.setMap(plate.minimap || plateMap());
   const applyPasses = () => R.setExtraPasses(typeof fx.postPasses === 'function' ? fx.postPasses() : []);
   game.onStyle = () => applyPasses();
   game.setStyle(style);
@@ -129,8 +141,7 @@ async function boot() {
   } catch (e) { console.warn('[warm]', e?.message || e); }
   game.info = { ecto: !ectoG.fallback, pack: !packG.fallback, wand: !wandG.fallback, trap: !trapG.fallback, avatar: avatar.real, fx: !(fx instanceof FB.FallbackFX), plate: !plate.fallback, audio: Object.keys(audio.manifest).length };
   loadTxt.textContent = '';
-  go.disabled = false; go.textContent = 'Play solo';
-  for (const id of ['quick', 'host', 'join']) document.getElementById(id).disabled = false;
+  for (const id of ['go', 'quick', 'host', 'join']) document.getElementById(id).disabled = false;
 
   let running = false, t = 0, last = performance.now();
   const title = (tt, pos, look) => {
@@ -148,12 +159,15 @@ async function boot() {
   let char = store.get('gb.char', 'jurek');
   const nick = () => (nickEl.value.trim() || 'Buster').slice(0, 12);
   Avatar.available(assets).then(async (list) => {
-    if (list.length < 2) { charsEl.style.display = 'none'; return; }
+    if (list.length < 2) { charsEl.parentElement.querySelector('.lbl').style.display = charsEl.style.display = 'none'; return; }
     if (!list.includes(char)) char = list[0];
+    const info = (await assets.json('assets/avatar/crew.json'))?.characters || {};
     for (const c of list) {
-      const b = document.createElement('button'); b.dataset.c = c; b.title = c;
-      const img = new Image(); img.alt = c; img.src = `assets/avatar/portrait_${c}.jpg`; img.onerror = () => { img.remove(); b.textContent = c === 'jurek' ? 'Jurek' : c.replace('crew_', 'Crew '); };
-      b.append(img); charsEl.append(b);
+      const name = c === 'jurek' ? 'Jurek' : info[c]?.shortName || c.replace('crew_', 'Crew ');
+      const b = document.createElement('button'); b.dataset.c = c; b.title = info[c]?.displayName || name;
+      const img = new Image(); img.alt = name; img.src = `assets/avatar/portrait_${c}.jpg`; img.onerror = () => img.remove();
+      const tag = document.createElement('span'); tag.textContent = name;
+      b.append(img, tag); charsEl.append(b);
       b.onclick = () => { char = c; store.set('gb.char', c); charsEl.querySelectorAll('button').forEach((x) => x.classList.toggle('on', x.dataset.c === c)); };
     }
     charsEl.querySelectorAll('button').forEach((x) => x.classList.toggle('on', x.dataset.c === char));
@@ -168,9 +182,10 @@ async function boot() {
     player.avatar = nav; game.avatar = nav;
     nav.object.position.copy(player.feet); nav.object.rotation.set(0, player.yaw, 0);
   };
-  let room = null, net = null;
+  let room = null, net = null, connecting = false;
   const online = async (mode) => {
-    if (running) return;
+    if (running || connecting) return;
+    connecting = true;
     const btns = ['go', 'quick', 'host', 'join'].map((id) => document.getElementById(id));
     btns.forEach((b) => (b.disabled = true));
     loadTxt.textContent = 'Connecting';
@@ -190,10 +205,11 @@ async function boot() {
       loadTxt.textContent = String(e?.message || e);
       btns.forEach((b) => (b.disabled = false));
     }
+    connecting = false;
   };
   document.getElementById('quick').onclick = () => online('quick');
   document.getElementById('host').onclick = () => online('host');
-  document.getElementById('join').onclick = () => online('join');
+  document.getElementById('join').onclick = () => { if (!codeEl.value.trim()) { codeEl.focus(); return; } online('join'); };
   codeEl.addEventListener('keydown', (e) => { e.stopPropagation(); if (e.code === 'Enter') online('join'); });
   nickEl.addEventListener('keydown', (e) => e.stopPropagation());
   window.__online = online;
@@ -207,14 +223,16 @@ async function boot() {
     input.lock();
     document.getElementById('start').classList.add('hide');
     document.body.classList.add('playing');
+    pauseSet.append(setEl); setPanel.classList.remove('on');
     rig.endCine('foot'); rig.yaw = player.yaw + 0.2; rig.pitch = -0.12;
+    setTimeout(() => hud.dispatch({ when: '9:42 PM', title: 'Hot dog cart', text: 'Corner of the avenue. Something green is eating everything on the cart. Then the cart.', pay: '$5,000 · Class 5' }, 9), 1400);
   };
   go.onclick = async () => { await swapAvatar(); start(); };
   window.__start = start;
   document.getElementById('again').onclick = () => { const u = new URL(location.href); u.searchParams.delete('room'); location.href = u.toString(); };
   document.getElementById('free').onclick = () => game.freeRoam();
   const segs = [];
-  for (const [ids, cur, set] of [[['qSeg', 'pQ'], quality, (v) => { R.setPreset(v); store.set('gb.q', v); }]]) {
+  for (const [ids, cur, set] of [[['qSeg'], quality, (v) => { R.setPreset(v); store.set('gb.q', v); }]]) {
     const all = ids.map((id) => document.getElementById(id));
     const mark = (v) => all.forEach((seg) => seg.querySelectorAll('button').forEach((b) => b.classList.toggle('on', b.dataset.v === v)));
     mark(cur);
@@ -235,10 +253,24 @@ async function boot() {
     if (!locked && performance.now() - startedAt > 400) { paused = true; pauseEl.classList.add('on'); }
     if (locked) { paused = false; pauseEl.classList.remove('on'); applySettings(); }
   });
-  addEventListener('keydown', (e) => { if (!running && (e.code === 'Enter' || e.code === 'Space') && !go.disabled && document.activeElement?.tagName !== 'INPUT') start(); });
+  const setEl = document.getElementById('settings'), setPanel = document.getElementById('setPanel'), pauseSet = document.getElementById('pauseSet');
+  document.getElementById('setBtn').onclick = () => { if (!setPanel.contains(setEl)) setPanel.append(setEl); setPanel.classList.toggle('on'); };
+  const menuBtns = ['go', 'quick', 'host', 'join', 'setBtn'].map((id) => document.getElementById(id));
+  let sel = 0;
+  const pick = (i) => { sel = i; menuBtns.forEach((b, j) => b.classList.toggle('on', j === i)); };
+  menuBtns.forEach((b, i) => b.addEventListener('pointerenter', () => pick(i)));
+  addEventListener('keydown', (e) => {
+    if (running || document.activeElement?.tagName === 'INPUT') return;
+    if (e.code === 'ArrowDown' || e.code === 'ArrowUp') {
+      let i = sel;
+      do i = (i + (e.code === 'ArrowDown' ? 1 : -1) + menuBtns.length) % menuBtns.length; while (menuBtns[i].disabled && i !== sel);
+      pick(i); e.preventDefault();
+    } else if (e.code === 'Enter' || e.code === 'Space') { if (!menuBtns[sel].disabled) menuBtns[sel].click(); e.preventDefault(); }
+  });
 
   window.__ready = true;
   window.__R = R;
+  setTimeout(() => leader.classList.add('hide'), 350);
   if (params.has('demo')) {
     running = true; startedAt = performance.now();
     document.getElementById('start').classList.add('hide');
