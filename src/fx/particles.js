@@ -221,6 +221,7 @@ void main() {
   float env = smoothstep(0.0, 0.1, vAge) * (1.0 - smoothstep(0.7, 1.0, vAge));
   vec3 c = mix(uTint, vec3(1.0), 0.35 * core);
   c = mix(c, vec3(0.55, 1.0, 0.35), step(0.5, vCol) * step(vCol, 1.5));
+  c = mix(c, vec3(1.0, 0.55, 0.42), step(1.5, vCol));
   float I = uGain * env * tw * vFade;
   gl_FragColor = vec4(c * I * (core * 3.0 + star * 2.0 + exp(-r * r * 3.0) * 0.4), 1.0);
 }

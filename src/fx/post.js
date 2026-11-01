@@ -71,23 +71,21 @@ const SLIME = {
       return texture2D(uLens, q);
     }
     void main() {
+      vec4 L = lens(vUv);
+      float hx = dFdx(L.g) * 2.0, hy = dFdy(L.g) * 2.0;
       vec4 base = texture2D(tDiffuse, vUv);
       if (uAmt < 0.002) { gl_FragColor = base; return; }
-      vec4 L = lens(vUv);
-      float e = 1.0 / 512.0;
-      float hx = lens(vUv + vec2(e, 0.0)).g - lens(vUv - vec2(e, 0.0)).g;
-      float hy = lens(vUv + vec2(0.0, e)).g - lens(vUv - vec2(0.0, e)).g;
       float cov = smoothstep(0.15, 0.6, L.r * clamp(uAmt * 1.4, 0.0, 1.0) - (1.0 - clamp(uAmt, 0.0, 1.0)) * 0.35);
       if (cov < 0.001) { gl_FragColor = base; return; }
-      vec2 refr = vec2(hx, hy) * 2.2 + (L.g - 0.5) * 0.02;
+      vec2 refr = vec2(hx, hy) * 3.0 + (L.g - 0.5) * 0.02;
       vec3 bg = texture2D(tDiffuse, vUv - refr).rgb;
-      vec3 bl = (texture2D(tDiffuse, vUv - refr * 1.6 + vec2(0.004, 0.0)).rgb + texture2D(tDiffuse, vUv - refr * 1.6 - vec2(0.004, 0.003)).rgb) * 0.5;
+      vec3 bl = texture2D(tDiffuse, vUv - refr * 1.6 + vec2(0.003, -0.002)).rgb;
       vec3 tint = mix(vec3(0.42, 0.95, 0.25), vec3(0.6, 1.0, 0.3), uFilm);
-      vec3 goo = mix(bg, bl, 0.6) * tint * (0.75 + 0.25 * L.b);
+      vec3 goo = mix(bg, bl, 0.5) * tint * (0.75 + 0.25 * L.b);
       float th = L.g;
       goo = mix(goo, vec3(0.06, 0.32, 0.03), th * 0.55);
       goo += tint * (0.035 + 0.05 * uFilm) * th;
-      vec3 nrm = normalize(vec3(-hx * 25.0, -hy * 25.0, 1.0));
+      vec3 nrm = normalize(vec3(-hx * 60.0, -hy * 60.0, 1.0));
       float spec = pow(max(dot(nrm, normalize(vec3(-0.35, 0.55, 0.75))), 0.0), 40.0);
       goo += vec3(0.9, 1.0, 0.85) * spec * 1.4;
       float edge = smoothstep(0.0, 0.25, cov) * (1.0 - smoothstep(0.25, 0.7, cov));
@@ -120,16 +118,11 @@ const FILM = {
       vec2 uv = vUv + uWeave;
       vec2 px = 1.0 / uRes;
       vec3 c = texture2D(tDiffuse, uv).rgb;
-      vec3 s1 = texture2D(tDiffuse, uv + vec2(px.x, 0.0)).rgb + texture2D(tDiffuse, uv - vec2(px.x, 0.0)).rgb + texture2D(tDiffuse, uv + vec2(0.0, px.y)).rgb + texture2D(tDiffuse, uv - vec2(0.0, px.y)).rgb;
-      c = mix(c, s1 * 0.25, uSoft);
-      vec3 hsum = vec3(0.0);
-      for (int i = 0; i < 8; i++) {
-        float a = float(i) * 0.785398 + 0.39;
-        vec2 o = vec2(cos(a), sin(a)) * px * 7.0;
-        vec3 t = texture2D(tDiffuse, uv + o).rgb + texture2D(tDiffuse, uv + o * 2.4).rgb * 0.6;
-        hsum += max(t - 2.0, 0.0);
-      }
-      float hl = dot(hsum, vec3(0.3, 0.5, 0.2)) / 12.8;
+      vec3 s1 = texture2D(tDiffuse, uv + px * vec2(0.5, 0.5)).rgb + texture2D(tDiffuse, uv - px * vec2(0.5, 0.5)).rgb;
+      c = mix(c, s1 * 0.5, uSoft);
+      vec3 hsum = max(texture2D(tDiffuse, uv + px * vec2(6.5, 2.5)).rgb - 1.5, 0.0) + max(texture2D(tDiffuse, uv + px * vec2(-2.5, 6.5)).rgb - 1.5, 0.0)
+        + max(texture2D(tDiffuse, uv + px * vec2(-6.5, -2.5)).rgb - 1.5, 0.0) + max(texture2D(tDiffuse, uv + px * vec2(2.5, -6.5)).rgb - 1.5, 0.0);
+      float hl = dot(hsum, vec3(0.3, 0.5, 0.2)) * 0.25;
       c += vec3(1.0, 0.28, 0.12) * hl * uHal;
       float l = dot(c, vec3(0.2126, 0.7152, 0.0722));
       c = mix(vec3(l), c, 1.06);
@@ -207,7 +200,8 @@ export class PostFX {
     if (this.style !== 'film' && fx.quality.haze && cam) {
       const fovK = 1 / (2 * Math.tan(THREE.MathUtils.degToRad(cam.fov || 55) * 0.5));
       cam.getWorldPosition(C);
-      for (const s of streams) {
+      for (let si = 0; si < streams.length; si++) {
+        const s = streams[si];
         if (!s.groups.modern.visible || s.U.uIntensity.value < 0.05) continue;
         let prevOk = false;
         for (let i = 0; i <= 8 && n < 15; i++) {

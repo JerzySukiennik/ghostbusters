@@ -50,25 +50,27 @@ export const BUILDINGS = [
   { id: 'sw_back', face: [], box: [-H, S + 20, W - 18, H], floors: 4, brick: 'dark', cornice: 'none', back: true },
 ];
 
-export const LAMP = { height: 9.2, arm: 2.6, color: [1.0, 0.5, 0.17], intensity: 1500, range: 30, angle: 1.2, penumbra: 0.75 };
-export const PARK_LAMP = { height: 4.1, color: [0.78, 0.95, 0.86], intensity: 260, range: 15, angle: 1.45, penumbra: 0.9 };
+export const LAMP = { height: 9.2, arm: 2.6, color: [1.0, 0.62, 0.34], intensity: 300, range: 21, angle: 1.15, penumbra: 0.8 };
+export const MERC_COLOR = [0.78, 0.92, 1.0];
+export const PARK_LAMP = { height: 4.1, color: [0.78, 0.95, 0.86], intensity: 70, range: 13, angle: 1.5, penumbra: 0.9 };
 
 export const LAMPS = [
-  { pole: [AVE.x0 - 0.55, -36], dir: [1, 0], type: 'cobra' },
+  { pole: [AVE.x0 - 0.55, -36], dir: [1, 0], type: 'cobra', merc: true },
   { pole: [AVE.x0 - 0.55, -12.5], dir: [1, 0], type: 'cobra' },
-  { pole: [AVE.x0 - 0.55, 20], dir: [1, 0], type: 'cobra' },
+  { pole: [AVE.x0 - 0.55, 20], dir: [1, 0], type: 'cobra', merc: true },
   { pole: [AVE.x0 - 0.55, 46], dir: [1, 0], type: 'cobra' },
   { pole: [AVE.x1 + 0.55, -24], dir: [-1, 0], type: 'cobra' },
   { pole: [AVE.x1 + 0.55, 12.4], dir: [-1, 0], type: 'cobra' },
   { pole: [AVE.x1 + 0.55, 29.5], dir: [-1, 0], type: 'cobra' },
-  { pole: [AVE.x1 + 0.55, 50], dir: [-1, 0], type: 'cobra' },
-  { pole: [-32, ST.z0 - 0.55], dir: [0, 1], type: 'cobra' },
-  { pole: [34, ST.z0 - 0.55], dir: [0, 1], type: 'cobra' },
+  { pole: [AVE.x1 + 0.55, 50], dir: [-1, 0], type: 'cobra', merc: true },
+  { pole: [-32, ST.z0 - 0.55], dir: [0, 1], type: 'cobra', merc: true },
+  { pole: [34, ST.z0 - 0.55], dir: [0, 1], type: 'cobra', merc: true },
   { pole: [-44, ST.z1 + 0.55], dir: [0, -1], type: 'cobra' },
   { pole: [29, ST.z1 + 0.55], dir: [0, -1], type: 'cobra' },
   { pole: [27, 27], dir: [0, 0], type: 'park' },
   { pole: [43, 21], dir: [0, 0], type: 'park' },
   { pole: [36, 44], dir: [0, 0], type: 'park' },
+  { pole: [21, 39], dir: [0, 0], type: 'park' },
 ];
 
 export const SIGNALS = [
@@ -140,6 +142,21 @@ export const GHOST_ROUTE = [
   [-4, 4.2, -21], [3, 5.6, -26], [7.5, 3.2, -14], [2, 2.6, -4], [6, 4.0, 4], [14, 5.5, 15], [22, 3.2, 20], [16, 2.3, 18],
 ];
 
+export function faceFrame(b, f) {
+  const [x0, z0, x1, z1] = b.box;
+  switch (f.dir) {
+    case 'e': return { O: [x1, f.b], u: [0, -1], n: [1, 0], W: f.b - f.a };
+    case 'w': return { O: [x0, f.a], u: [0, 1], n: [-1, 0], W: f.b - f.a };
+    case 's': return { O: [f.a, z1], u: [1, 0], n: [0, 1], W: f.b - f.a };
+    default: return { O: [f.b, z0], u: [-1, 0], n: [0, -1], W: f.b - f.a };
+  }
+}
+
+export const SHOP_LIGHT = {
+  bar: [1.0, 0.5, 0.26], liquor: [1.0, 0.32, 0.25], lobby: [1.0, 0.72, 0.42], records: [1.0, 0.45, 0.8], deli: [0.86, 0.95, 1.0],
+  office: [0.82, 0.92, 1.0], pizza: [1.0, 0.72, 0.42], diner: [1.0, 0.86, 0.66], bakery: [1.0, 0.86, 0.62], cleaners: [0.85, 0.93, 1.0],
+};
+
 export function streetSurface(x, z) {
   const half = PLATE.half;
   if (Math.abs(x) > half || Math.abs(z) > half) return 'void';
@@ -153,17 +170,39 @@ export function streetSurface(x, z) {
   return inBlock ? 'building' : 'walk';
 }
 
-export function curbOutline(qx, qz, segs = 10) {
+export function curbOutline(qx, qz, segs = 10, inset = 0, far = PLATE.half) {
   const cx = qx < 0 ? AVE.x0 : AVE.x1, cz = qz < 0 ? ST.z0 : ST.z1;
-  const ox = cx + qx * CURB_R, oz = cz + qz * CURB_R;
-  const far = PLATE.half;
-  const pts = [[cx, qz * far]];
-  pts.push([cx, oz]);
-  for (let i = 1; i < segs; i++) {
+  const ox = cx + qx * CURB_R, oz = cz + qz * CURB_R, r = CURB_R - inset;
+  const pts = [[cx + qx * inset, qz * far]];
+  for (let i = 0; i <= segs; i++) {
     const a = (i / segs) * Math.PI / 2;
-    pts.push([ox - qx * CURB_R * Math.cos(a), oz - qz * CURB_R * Math.sin(a)]);
+    pts.push([ox - qx * r * Math.cos(a), oz - qz * r * Math.sin(a)]);
   }
-  pts.push([ox, cz]);
-  pts.push([qx * far, cz]);
+  pts.push([qx * far, cz + qz * inset]);
   return pts;
+}
+
+export function curbDist(x, z) {
+  let d = 99;
+  for (const qx of [-1, 1]) for (const qz of [-1, 1]) {
+    const cx = qx < 0 ? AVE.x0 : AVE.x1, cz = qz < 0 ? ST.z0 : ST.z1;
+    const ox = cx + qx * CURB_R, oz = cz + qz * CURB_R;
+    const ez = (z - oz) * qz;
+    d = Math.min(d, ez >= 0 ? Math.abs(x - cx) : Math.hypot(x - cx, z - oz));
+    const ex = (x - ox) * qx;
+    d = Math.min(d, ex >= 0 ? Math.abs(z - cz) : Math.hypot(x - ox, z - cz));
+    if ((x - ox) * qx <= 0 && (z - oz) * qz <= 0) d = Math.min(d, Math.abs(Math.hypot(x - ox, z - oz) - CURB_R));
+  }
+  return d;
+}
+
+export function facadeDist(x, z) {
+  let d = 99;
+  for (const qx of [-1, 1]) for (const qz of [-1, 1]) {
+    if (qx > 0 && qz > 0) continue;
+    const fx = qx < 0 ? FACADE.w : FACADE.e, fz = qz < 0 ? FACADE.n : FACADE.s;
+    const ex = Math.max(0, qx * (fx - x)), ez = Math.max(0, qz * (fz - z));
+    d = Math.min(d, Math.hypot(ex, ez));
+  }
+  return d;
 }

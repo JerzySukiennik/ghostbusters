@@ -106,6 +106,7 @@ async function boot() {
   const rig = new CameraRig(camera, phys);
   const ghost = new Ghost({ fx, audio, plate, phys });
   const trap = new Trap({ gltf: trapG, scene, phys, audio, fx, renderer: R, hud });
+  gear.trapRoot = trap.root;
   const proton = new Proton({ fx, gear, phys, ghost, plate, audio, renderer: R, rig, hud });
   const game = new Game({ renderer: R, scene, camera, phys, input, audio, hud, fx, plate, ecto, gear, avatar, player, rig, ghost, trap, proton, style, assets });
   game.setup();

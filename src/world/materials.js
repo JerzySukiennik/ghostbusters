@@ -1,5 +1,5 @@
 // Shared texture loading and shader patching: analytic sodium lamps (same maths as three's SpotLight), world-space varyings.
-export const LAMP_SLOTS = 16;
+export const LAMP_SLOTS = 28;
 
 export function createTextures(THREE, renderer, base) {
   const loader = new THREE.TextureLoader();
@@ -56,26 +56,31 @@ uniform float uPlateTime;
 const LAMP_LOOP = /* glsl */`
 #if defined( RE_Direct ) && defined( PLATE_LAMPS )
 {
+  vec3 wN = inverseTransformDirection( geometryNormal, viewMatrix );
+  vec3 wV = inverseTransformDirection( geometryViewDir, viewMatrix );
+  #ifdef USE_CLEARCOAT
+  vec3 wC = inverseTransformDirection( geometryClearcoatNormal, viewMatrix );
+  #else
+  vec3 wC = wN;
+  #endif
   for ( int li = 0; li < PLATE_LAMPS; li ++ ) {
     vec4 lp = uLampPos[ li ];
-    vec3 lpv = ( viewMatrix * vec4( lp.xyz, 1.0 ) ).xyz;
-    vec3 lvec = lpv - geometryPosition;
+    vec3 lvec = lp.xyz - vPlateWorld;
     float ldist = length( lvec );
     if ( ldist > lp.w ) continue;
     vec3 L = lvec / ldist;
     float latt = getDistanceAttenuation( ldist, lp.w, 2.0 );
     vec4 lf = uLampFill[ li ];
     #if defined( RE_IndirectDiffuse )
-    irradiance += lf.rgb * latt * ( 0.35 + 0.65 * saturate( dot( geometryNormal, L ) * 0.5 + 0.5 ) );
+    irradiance += lf.rgb * latt * ( 0.35 + 0.65 * saturate( dot( wN, L ) * 0.5 + 0.5 ) );
     #endif
     vec4 ld = uLampDir[ li ];
-    vec3 axis = normalize( ( viewMatrix * vec4( ld.xyz, 0.0 ) ).xyz );
-    float sp = getSpotAttenuation( ld.w, uLampCol[ li ].a, dot( L, axis ) );
+    float sp = getSpotAttenuation( ld.w, uLampCol[ li ].a, dot( L, ld.xyz ) );
     if ( sp <= 0.0 ) continue;
     directLight.direction = L;
     directLight.color = uLampCol[ li ].rgb * ( sp * latt );
     directLight.visible = true;
-    RE_Direct( directLight, geometryPosition, geometryNormal, geometryViewDir, geometryClearcoatNormal, material, reflectedLight );
+    RE_Direct( directLight, vPlateWorld, wN, wV, wC, material, reflectedLight );
   }
 }
 #endif
@@ -84,7 +89,8 @@ const LAMP_LOOP = /* glsl */`
 export function patchMaterial(material, opts = {}) {
   const { lamps = null, world = false, uniforms = {}, vertexPars = '', vertexMain = '', fragPars = '', frag = [], vert = [], key = '' } = opts;
   material.defines = material.defines || {};
-  if (lamps) material.defines.PLATE_LAMPS = lamps.count;
+  if (lamps) material.defines.PLATE_LAMPS = Math.max(1, lamps.count);
+  const wantWorld = world || !!lamps;
   material.userData.plateUniforms = uniforms;
   material.onBeforeCompile = (shader) => {
     if (lamps) {
@@ -96,10 +102,10 @@ export function patchMaterial(material, opts = {}) {
     }
     Object.assign(shader.uniforms, uniforms);
     let vs = shader.vertexShader, fs = shader.fragmentShader;
-    const wv = world ? 'varying vec3 vPlateWorld;\n' : '';
+    const wv = wantWorld ? 'varying vec3 vPlateWorld;\n' : '';
     vs = vs.replace('#include <common>', '#include <common>\n' + wv + vertexPars);
-    if (world || vertexMain) {
-      vs = vs.replace('#include <fog_vertex>', '#include <fog_vertex>\n' + (world ? `{ vec4 pw = vec4( transformed, 1.0 );
+    if (wantWorld || vertexMain) {
+      vs = vs.replace('#include <fog_vertex>', '#include <fog_vertex>\n' + (wantWorld ? `{ vec4 pw = vec4( transformed, 1.0 );
         #ifdef USE_INSTANCING
         pw = instanceMatrix * pw;
         #endif
@@ -112,8 +118,15 @@ export function patchMaterial(material, opts = {}) {
     shader.vertexShader = vs;
     shader.fragmentShader = fs;
   };
-  material.customProgramCacheKey = () => 'plate:' + key + ':' + (lamps ? lamps.count : 0) + ':' + (world ? 1 : 0);
+  const sig = hashStr(JSON.stringify([vertexPars, vertexMain, fragPars, frag, vert, wantWorld, lamps ? lamps.count : 0]));
+  material.customProgramCacheKey = () => 'plate:' + sig;
   return material;
+}
+
+function hashStr(str) {
+  let h = 2166136261;
+  for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); }
+  return (h >>> 0).toString(36);
 }
 
 function inject(src, anchor, code, mode = 'after') {

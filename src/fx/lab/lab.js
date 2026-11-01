@@ -41,6 +41,7 @@ class Viewport {
       const mask = Q.get('layers');
       for (const st of this.fx._streams) for (const g of Object.values(st.groups)) g.children.forEach((m, i) => { m.material.uniforms.uGain.value *= mask[i] === '0' ? 0 : 1; });
     }
+    if (Q.get('noghost')) { this.fx._ghosts[0].body.visible = false; this.fx._ghosts[0].shell.visible = false; }
     if (Q.get('nopart')) { for (const p of Object.values(this.fx.pools)) p.mesh.visible = false; this.fx.flares.mesh.visible = false; }
     this.R.resize();
   }
@@ -140,57 +141,71 @@ async function timing() {
   const info = gl.getExtension('WEBGL_debug_renderer_info');
   const gpu = info ? gl.getParameter(info.UNMASKED_RENDERER_WEBGL) : 'unknown';
   const size = r.getDrawingBufferSize(new THREE.Vector2());
-  const measure = async (frames = 40) => {
-    const times = [];
-    for (let i = 0; i < 4; i++) { v.render(ui.t, STEP); gl.finish(); }
-    for (let i = 0; i < frames; i++) {
-      const t0 = performance.now();
-      v.render(ui.t, STEP);
+  const sleep = (ms) => new Promise((res) => setTimeout(res, ms));
+  const rt = new THREE.WebGLRenderTarget(size.x, size.y, { type: THREE.HalfFloatType });
+  const rtB = new THREE.WebGLRenderTarget(size.x, size.y, { type: THREE.HalfFloatType });
+  const query = async (fn, reps, samples = 9) => {
+    const vals = [];
+    for (let s = 0; s < samples; s++) {
+      const q = gl.createQuery();
+      gl.beginQuery(ext.TIME_ELAPSED_EXT, q);
+      for (let i = 0; i < reps; i++) fn();
+      gl.endQuery(ext.TIME_ELAPSED_EXT);
       gl.finish();
-      const px = new Uint8Array(4); gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, px);
-      times.push(performance.now() - t0);
-      if (i % 10 === 9) await new Promise((res) => setTimeout(res, 0));
+      let val = -1;
+      for (let k = 0; k < 400; k++) { await sleep(2); if (gl.getQueryParameter(q, gl.QUERY_RESULT_AVAILABLE)) { val = gl.getQueryParameter(q, gl.QUERY_RESULT) / 1e6 / reps; break; } }
+      gl.deleteQuery(q);
+      if (val > 0) vals.push(val);
     }
-    times.sort((a, b) => a - b);
-    return times[Math.floor(times.length * 0.5)];
+    vals.sort((a, b) => a - b);
+    return vals.length ? vals[Math.floor(vals.length / 2)] : -1;
+  };
+  const objCost = async (obj, reps = 12) => {
+    r.setRenderTarget(rt);
+    r.clear();
+    const ac = r.autoClear;
+    r.autoClear = false;
+    for (let i = 0; i < 3; i++) r.render(obj, v.camera);
+    const t = await query(() => r.render(obj, v.camera), reps);
+    r.autoClear = ac;
+    r.setRenderTarget(null);
+    return t;
+  };
+  const passCost = async (pass, reps = 12) => {
+    const en = pass.enabled;
+    const t = await query(() => pass.render(r, rtB, rt, STEP, false), reps);
+    pass.enabled = en;
+    return t;
   };
   const fx = v.fx;
   const ghostObj = v.director.ghost.object3D;
-  const passes = fx.postPasses().map((p) => p.pass);
-  const res = { gpu, size: [size.x, size.y], style: v.style, preset: PRESET, timerQuery: !!ext };
-  const setup = (scen, t) => { ui.scenario = scen; simulateTo(t); };
-  const hideAll = () => { fx.root.visible = false; ghostObj.visible = false; for (const p of passes) p.enabled = false; };
+  const res = { gpu, size: [size.x, size.y], style: v.style, preset: PRESET, method: ext ? 'EXT_disjoint_timer_query_webgl2, effect objects rendered alone into a HalfFloat target of the frame size, median of 9 samples x 12 reps' : 'no timer query' };
+  if (!ext) { console.log('[fx-timing] ' + JSON.stringify(res)); return res; }
+  const setup = (scen, t) => { ui.scenario = scen; simulateTo(t); v.render(ui.t, STEP); };
+  for (let i = 0; i < 8; i++) v.render(ui.t, STEP);
   setup('blast-wall', 2.5);
-  const keepPass = passes.map((p) => p.enabled);
-  hideAll();
-  res.base = await measure();
-  setup('blast-wall', 2.5);
-  for (const p of passes) p.enabled = false;
-  ghostObj.visible = false;
-  res.stream = await measure() - res.base;
+  res.frameTotal = await query(() => v.render(ui.t, STEP), 4);
+  res.sceneOnly = await objCost(v.scene, 4);
+  res.streamBlast = await objCost(fx.root);
+  setup('heat', 4.0);
+  res.streamOverheat = await objCost(fx.root);
   setup('capture', 3.0);
-  for (const p of passes) p.enabled = false;
-  res.captureStreamAndGhost = await measure() - res.base;
+  res.streamCapture = await objCost(fx.root);
+  res.ghostInCapture = await objCost(ghostObj);
   setup('mood-taunt', 2.0);
-  for (const p of passes) p.enabled = false;
-  res.ghostClose = await measure() - res.base;
+  res.ghostCloseup = await objCost(ghostObj);
   setup('blast-ghost', 2.0);
-  for (const p of passes) p.enabled = false;
-  fx.root.visible = false;
-  res.ghostMid = await measure() - res.base;
-  fx.root.visible = true;
+  res.ghostMid = await objCost(ghostObj);
   setup('trap', 2.6);
-  for (const p of passes) p.enabled = false;
-  ghostObj.visible = false;
   for (const s of fx._streams) { s.groups.modern.visible = false; s.groups.film.visible = false; }
-  res.trap = await measure() - res.base;
-  setup('blast-wall', 2.5);
-  ghostObj.visible = false;
-  const withPost = await measure();
-  for (const p of passes) p.enabled = false;
-  const noPost = await measure();
-  res.post = withPost - noPost;
-  for (const k of Object.keys(res)) if (typeof res[k] === 'number') res[k] = Math.round(res[k] * 100) / 100;
+  res.trapFX = await objCost(fx.root);
+  setup('slime', 2.0);
+  const passes = fx.postPasses();
+  for (const { name, pass } of passes) res['pass_' + name] = await passCost(pass);
+  for (const k of Object.keys(res)) if (typeof res[k] === 'number') res[k] = Math.round(res[k] * 1000) / 1000;
+  res.ghostTris = fx.stats ? fx.stats.ghostTris : 0;
+  res.ghostBuildMs = fx.stats ? fx.stats.ghostBuildMs : 0;
+  rt.dispose(); rtB.dispose();
   console.log('[fx-timing] ' + JSON.stringify(res));
   window.__fxTimingResult = res;
   return res;

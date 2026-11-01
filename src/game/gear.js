@@ -69,7 +69,9 @@ export class Gear {
     const hs = findNode(this.pack, 'HoseSample');
     if (hs) hs.visible = false;
     let hoseMat = null; if (hs) hs.traverse((o) => { if (!hoseMat && o.isMesh) hoseMat = o.material; });
-    this.hoseR = this.packJson.hose_radius || this.packJson.hose?.radius || 0.019;
+    this.hoseR = this.packJson.protonpack?.hose?.outer_radius_ribs || this.packJson.protonpack?.hose?.radius || this.packJson.hose_radius || this.packJson.hose?.radius || 0.019;
+    this.worn = this.packJson.texture_sets?.worn || null;
+    this.trapRoot = null;
     this.makeHose(hoseMat || new THREE.MeshStandardMaterial({ color: 0x151515, roughness: 0.65 }));
     this.cyc = segOf(this.pack, 'CyclotronEmit');
     this.cell = segOf(this.pack, 'PowerCellEmit');
@@ -82,6 +84,28 @@ export class Gear {
     this.heat = 0; this.over = 0; this.vent = 0; this.coolDelay = 0; this.t = 0; this.cycPh = 0; this.cellPh = 0;
     this.firing = false; this.mode = 'blast'; this.style = 'modern';
     this.snd = {};
+  }
+
+  async setStyle(style) {
+    if (!this.worn) return;
+    if (!this.mats) {
+      const find = (root, name) => { let m = null; root?.traverse((o) => { if (!m && o.isMesh) for (const x of [].concat(o.material)) if (x && x.name === name) m = x; }); return m; };
+      const W = this.worn.material || {};
+      this.mats = [['protonpack', find(this.pack, W.protonpack || 'ProtonPackMat')], ['wand', find(this.wand, W.wand || 'WandMat')], ['trap', find(this.trapRoot, W.trap || 'TrapMat')]]
+        .filter(([, m]) => m).map(([k, m]) => ({ k, m, film: { map: m.map, rough: m.roughnessMap, metal: m.metalnessMap, ao: m.aoMap }, worn: null }));
+    }
+    const loader = new THREE.TextureLoader();
+    const load = (f, srgb) => loader.loadAsync('assets/pack/' + f).then((t) => { t.flipY = false; t.colorSpace = srgb ? THREE.SRGBColorSpace : THREE.NoColorSpace; t.anisotropy = 4; return t; }).catch(() => null);
+    for (const e of this.mats) {
+      if (style === 'modern' && !e.worn && this.worn[e.k]) {
+        const [bc, orm] = this.worn[e.k];
+        const [a, b] = await Promise.all([load(bc, true), load(orm, false)]);
+        e.worn = a && b ? { map: a, rough: b, metal: b, ao: b } : false;
+      }
+      const s = style === 'modern' && e.worn ? e.worn : e.film;
+      e.m.map = s.map; e.m.roughnessMap = s.rough; e.m.metalnessMap = s.metal; e.m.aoMap = s.ao;
+      e.m.needsUpdate = true;
+    }
   }
 
   spawnSpares(ecto, count) {

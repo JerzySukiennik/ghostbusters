@@ -8,3 +8,5 @@ node_modules/
 __pycache__/
 *.blend1
 .claude/
+blender/avatar/
+*.blend

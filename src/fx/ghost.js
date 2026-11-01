@@ -2,201 +2,34 @@
 import * as THREE from 'three';
 import { NOISE } from './glsl.js';
 import { clamp, lerp } from './util.js';
+import { EYE_L, EYE_R, EYE_RL, EYE_RR, TEETH_U, TEETH_L, TONGUE, buildOnionheadArrays, decodeOnionhead } from './onionhead.js';
 
-const EYE_L = [0.135, 0.19, 0.305], EYE_R = [-0.125, 0.185, 0.31];
-const EYE_RL = 0.088, EYE_RR = 0.08;
-
-function sdEll(px, py, pz, cx, cy, cz, rx, ry, rz) {
-  const x = (px - cx) / rx, y = (py - cy) / ry, z = (pz - cz) / rz;
-  const k0 = Math.sqrt(x * x + y * y + z * z);
-  const x2 = x / rx, y2 = y / ry, z2 = z / rz;
-  const k1 = Math.sqrt(x2 * x2 + y2 * y2 + z2 * z2);
-  return k1 > 1e-9 ? k0 * (k0 - 1) / k1 : -Math.min(rx, ry, rz);
-}
-
-function sdRoundCone(px, py, pz, ax, ay, az, bx, by, bz, r1, r2) {
-  const bax = bx - ax, bay = by - ay, baz = bz - az;
-  const l2 = bax * bax + bay * bay + baz * baz;
-  const rr = r1 - r2, a2 = l2 - rr * rr, il2 = 1 / l2;
-  const pax = px - ax, pay = py - ay, paz = pz - az;
-  const y = pax * bax + pay * bay + paz * baz;
-  const z = y - l2;
-  const qx = pax * l2 - bax * y, qy = pay * l2 - bay * y, qz = paz * l2 - baz * y;
-  const x2 = qx * qx + qy * qy + qz * qz;
-  const y2 = y * y * l2, z2 = z * z * l2;
-  const k = Math.sign(rr) * rr * rr * x2;
-  if (Math.sign(z) * a2 * z2 > k) return Math.sqrt(x2 + z2) * il2 - r2;
-  if (Math.sign(y) * a2 * y2 < k) return Math.sqrt(x2 + y2) * il2 - r1;
-  return (Math.sqrt(x2 * a2 * il2) + y * rr) * il2 - r1;
-}
-
-function sdRBox(px, py, pz, cx, cy, cz, hx, hy, hz, r, tilt) {
-  let x = px - cx, y = py - cy; const z = pz - cz;
-  const c = Math.cos(tilt), s = Math.sin(tilt);
-  const xr = c * x - s * y, yr = s * x + c * y; x = xr; y = yr;
-  const qx = Math.abs(x) - hx + r, qy = Math.abs(y) - hy + r, qz = Math.abs(z) - hz + r;
-  const mx = Math.max(qx, 0), my = Math.max(qy, 0), mz = Math.max(qz, 0);
-  return Math.sqrt(mx * mx + my * my + mz * mz) + Math.min(Math.max(qx, Math.max(qy, qz)), 0) - r;
-}
-
-function smin(a, b, k) { const h = Math.max(k - Math.abs(a - b), 0) / k; return Math.min(a, b) - h * h * k * 0.25; }
-function smax(a, b, k) { return -smin(-a, -b, k); }
-
-const TAIL = [[0, -0.3, -0.02, 0.24], [0.02, -0.46, -0.11, 0.17], [0.06, -0.58, -0.22, 0.115], [0.12, -0.65, -0.34, 0.075], [0.2, -0.66, -0.45, 0.046], [0.27, -0.62, -0.52, 0.026], [0.31, -0.55, -0.55, 0.013]];
-const TEETH_U = [[-0.135, 0.0, 0.305, 0.034, 0.036, 0.02, 0.08], [-0.05, -0.004, 0.33, 0.04, 0.042, 0.02, -0.04], [0.045, 0.0, 0.33, 0.036, 0.038, 0.02, 0.06], [0.14, 0.004, 0.3, 0.03, 0.03, 0.02, -0.1]];
-const TEETH_L = [[-0.1, -0.088, 0.3, 0.03, 0.03, 0.02, -0.12], [0.005, -0.093, 0.315, 0.026, 0.028, 0.018, 0.05], [0.105, -0.088, 0.3, 0.032, 0.03, 0.02, 0.14]];
-const TONGUE = [[0, -0.075, 0.17, 0.065], [0.0, -0.095, 0.31, 0.06], [0.025, -0.17, 0.38, 0.05], [0.045, -0.27, 0.385, 0.042], [0.055, -0.34, 0.36, 0.03]];
-
-function bodySdf(x, y, z) {
-  let d = sdEll(x, y, z, 0, 0.02, 0, 0.4, 0.4, 0.36);
-  d = smin(d, sdEll(x, y, z, 0, 0.3, -0.03, 0.3, 0.25, 0.27), 0.14);
-  d = smin(d, sdRoundCone(x, y, z, 0, 0.47, -0.05, 0.02, 0.63, -0.1, 0.07, 0.022), 0.09);
-  d = smin(d, sdRoundCone(x, y, z, 0.02, 0.63, -0.1, 0.075, 0.685, -0.07, 0.022, 0.01), 0.03);
-  d = smin(d, sdEll(x, y, z, 0.27, -0.02, 0.14, 0.2, 0.19, 0.19), 0.1);
-  d = smin(d, sdEll(x, y, z, -0.27, -0.02, 0.14, 0.2, 0.19, 0.19), 0.1);
-  d = smin(d, sdEll(x, y, z, 0, -0.2, 0.06, 0.36, 0.28, 0.33), 0.12);
-  d = smin(d, sdEll(x, y, z, 0, -0.135, 0.245, 0.3, 0.115, 0.135), 0.08);
-  d = smin(d, sdEll(x, y, z, 0, 0.055, 0.285, 0.31, 0.07, 0.11), 0.06);
-  for (let i = 0; i < TAIL.length - 1; i++) {
-    const a = TAIL[i], b = TAIL[i + 1];
-    d = smin(d, sdRoundCone(x, y, z, a[0], a[1], a[2], b[0], b[1], b[2], a[3], b[3]), i === 0 ? 0.12 : 0.05);
-  }
-  for (const s of [1, -1]) {
-    d = smin(d, sdRoundCone(x, y, z, 0.33 * s, -0.05, 0.07, 0.46 * s, -0.15, 0.17, 0.085, 0.066), 0.07);
-    d = smin(d, sdRoundCone(x, y, z, 0.46 * s, -0.15, 0.17, 0.5 * s, -0.12, 0.27, 0.066, 0.058), 0.03);
-    d = smin(d, sdEll(x, y, z, 0.51 * s, -0.105, 0.305, 0.07, 0.058, 0.064), 0.04);
-    d = smin(d, sdRoundCone(x, y, z, 0.49 * s, -0.08, 0.34, 0.47 * s, -0.045, 0.405, 0.03, 0.024), 0.025);
-    d = smin(d, sdRoundCone(x, y, z, 0.535 * s, -0.1, 0.345, 0.555 * s, -0.075, 0.41, 0.028, 0.022), 0.025);
-    d = smin(d, sdRoundCone(x, y, z, 0.455 * s, -0.075, 0.31, 0.425 * s, -0.035, 0.345, 0.026, 0.02), 0.02);
-    d = smin(d, sdRoundCone(x, y, z, 0.05 * s, 0.275, 0.31, 0.22 * s, 0.295, 0.27, 0.036, 0.03), 0.05);
-  }
-  return d;
-}
-
-function cavitySdf(x, y, z) { return sdEll(x, y, z, 0, -0.04, 0.3, 0.27, 0.07, 0.2); }
-
-function partsSdf(x, y, z, out) {
-  let best = 1e9, mat = 0;
-  const el = Math.hypot(x - EYE_L[0], y - EYE_L[1], z - EYE_L[2]) - EYE_RL;
-  const er = Math.hypot(x - EYE_R[0], y - EYE_R[1], z - EYE_R[2]) - EYE_RR;
-  const e = Math.min(el, er);
-  if (e < best) { best = e; mat = 4; }
-  let t = 1e9;
-  for (const q of TEETH_U) t = Math.min(t, sdRBox(x, y, z, q[0], q[1], q[2], q[3], q[4], q[5], 0.012, q[6]));
-  for (const q of TEETH_L) t = Math.min(t, sdRBox(x, y, z, q[0], q[1], q[2], q[3], q[4], q[5], 0.012, q[6]));
-  if (t < best) { best = t; mat = 3; }
-  let g = 1e9;
-  for (let i = 0; i < TONGUE.length - 1; i++) {
-    const a = TONGUE[i], b = TONGUE[i + 1];
-    g = smin(g, sdRoundCone(x, y * 1.0, z, a[0], a[1], a[2], b[0], b[1], b[2], a[3], b[3]), 0.03);
-  }
-  const tg = g;
-  if (tg < best) { best = tg; mat = 2; }
-  out[0] = mat;
-  return best;
-}
-
-const _o = [0];
-function sdf(x, y, z) {
-  let d = bodySdf(x, y, z);
-  d = smax(d, -cavitySdf(x, y, z), 0.035);
-  const p = partsSdf(x, y, z, _o);
-  return Math.min(d, p);
-}
-
-function classify(x, y, z) {
-  let d = bodySdf(x, y, z);
-  const cav = cavitySdf(x, y, z);
-  d = smax(d, -cav, 0.035);
-  const p = partsSdf(x, y, z, _o);
-  if (p < d + 0.002) return _o[0];
-  if (cav < 0.012) return 1;
-  return 0;
-}
-
-export function buildOnionhead(res = 72) {
-  const x0 = -0.66, x1 = 0.66, y0 = -0.8, y1 = 0.76, z0 = -0.66, z1 = 0.56;
-  const h = (y1 - y0) / res;
-  const nx = Math.ceil((x1 - x0) / h) + 1, ny = res + 1, nz = Math.ceil((z1 - z0) / h) + 1;
-  const F = new Float32Array(nx * ny * nz);
-  const id = (i, j, k) => i + nx * (j + ny * k);
-  for (let k = 0; k < nz; k++) for (let j = 0; j < ny; j++) for (let i = 0; i < nx; i++) F[id(i, j, k)] = sdf(x0 + i * h, y0 + j * h, z0 + k * h);
-  const vIndex = new Int32Array(nx * ny * nz).fill(-1);
-  const P = [];
-  const cx = [0, 1, 0, 1, 0, 1, 0, 1], cy = [0, 0, 1, 1, 0, 0, 1, 1], cz = [0, 0, 0, 0, 1, 1, 1, 1];
-  const E = [[0, 1], [2, 3], [4, 5], [6, 7], [0, 2], [1, 3], [4, 6], [5, 7], [0, 4], [1, 5], [2, 6], [3, 7]];
-  const val = new Float32Array(8);
-  for (let k = 0; k < nz - 1; k++) for (let j = 0; j < ny - 1; j++) for (let i = 0; i < nx - 1; i++) {
-    let mask = 0;
-    for (let c = 0; c < 8; c++) { val[c] = F[id(i + cx[c], j + cy[c], k + cz[c])]; if (val[c] < 0) mask |= 1 << c; }
-    if (mask === 0 || mask === 255) continue;
-    let sx = 0, sy = 0, sz = 0, n = 0;
-    for (const [a, b] of E) {
-      if ((val[a] < 0) === (val[b] < 0)) continue;
-      const t = val[a] / (val[a] - val[b]);
-      sx += cx[a] + (cx[b] - cx[a]) * t; sy += cy[a] + (cy[b] - cy[a]) * t; sz += cz[a] + (cz[b] - cz[a]) * t; n++;
-    }
-    vIndex[id(i, j, k)] = P.length / 3;
-    P.push(x0 + (i + sx / n) * h, y0 + (j + sy / n) * h, z0 + (k + sz / n) * h);
-  }
-  const idx = [];
-  const quad = (a, b, c, d, flip) => { if (a < 0 || b < 0 || c < 0 || d < 0) return; if (flip) idx.push(a, b, c, a, c, d); else idx.push(a, c, b, a, d, c); };
-  for (let k = 1; k < nz - 1; k++) for (let j = 1; j < ny - 1; j++) for (let i = 1; i < nx - 1; i++) {
-    const v0 = F[id(i, j, k)] < 0;
-    if (v0 !== (F[id(i + 1, j, k)] < 0)) quad(vIndex[id(i, j - 1, k - 1)], vIndex[id(i, j, k - 1)], vIndex[id(i, j, k)], vIndex[id(i, j - 1, k)], v0);
-    if (v0 !== (F[id(i, j + 1, k)] < 0)) quad(vIndex[id(i - 1, j, k - 1)], vIndex[id(i - 1, j, k)], vIndex[id(i, j, k)], vIndex[id(i, j, k - 1)], v0);
-    if (v0 !== (F[id(i, j, k + 1)] < 0)) quad(vIndex[id(i - 1, j - 1, k)], vIndex[id(i, j - 1, k)], vIndex[id(i, j, k)], vIndex[id(i - 1, j, k)], v0);
-  }
-  const nv = P.length / 3;
-  const pos = new Float32Array(P);
-  const nor = new Float32Array(nv * 3);
-  const w1 = new Float32Array(nv * 4), w2 = new Float32Array(nv * 4);
-  const e = 0.0025;
-  for (let v = 0; v < nv; v++) {
-    let x = pos[v * 3], y = pos[v * 3 + 1], z = pos[v * 3 + 2];
-    for (let it = 0; it < 2; it++) {
-      const d = sdf(x, y, z);
-      let gx = sdf(x + e, y, z) - sdf(x - e, y, z), gy = sdf(x, y + e, z) - sdf(x, y - e, z), gz = sdf(x, y, z + e) - sdf(x, y, z - e);
-      const gl = Math.hypot(gx, gy, gz) || 1; gx /= gl; gy /= gl; gz /= gl;
-      x -= gx * d; y -= gy * d; z -= gz * d;
-      if (it === 1) { nor[v * 3] = gx; nor[v * 3 + 1] = gy; nor[v * 3 + 2] = gz; }
-    }
-    pos[v * 3] = x; pos[v * 3 + 1] = y; pos[v * 3 + 2] = z;
-    const mat = classify(x, y, z);
-    const sdx = x >= 0 ? 1 : -1;
-    const jawFront = clamp((z + 0.05) / 0.17, 0, 1);
-    let jaw = clamp((-0.022 - y) / 0.06, 0, 1) * jawFront * clamp((0.36 - Math.abs(x)) / 0.12, 0, 1);
-    if (y < -0.32) jaw *= clamp((y + 0.42) / 0.1, 0, 1);
-    if (mat === 2) jaw = 1;
-    const armD = Math.abs(x) - 0.31;
-    let arm = clamp(armD / 0.08, 0, 1) * clamp((y + 0.3) / 0.12, 0, 1) * clamp((0.12 - y) / 0.1, 0, 1);
-    if (mat === 4) arm = 0;
-    let tail = 0;
-    if (y < -0.3) tail = clamp((-0.3 - y) / 0.36, 0, 1) * clamp((0.12 - z) / 0.25, 0, 1);
-    if (z < -0.3 && y < -0.45) tail = Math.max(tail, clamp((-0.25 - z) / 0.3, 0, 1));
-    tail = clamp(tail, 0, 1);
-    const browD = Math.min(
-      sdRoundCone(x, y, z, 0.05, 0.275, 0.31, 0.22, 0.295, 0.27, 0.036, 0.03),
-      sdRoundCone(x, y, z, -0.05, 0.275, 0.31, -0.22, 0.295, 0.27, 0.036, 0.03));
-    let brow = clamp(1 - browD / 0.045, 0, 1) * (mat === 4 ? 0 : 1);
-    brow *= sdx;
-    let tongue = 0;
-    if (mat === 2) tongue = clamp((z - 0.17) / 0.22 + (-0.1 - y) / 0.28, 0, 1);
-    const crown = clamp((y - 0.47) / 0.2, 0, 1);
-    const cheek = clamp(1 - Math.abs(sdEll(x, y, z, 0.27 * sdx, -0.02, 0.14, 0.2, 0.19, 0.19)) / 0.05, 0, 1) * clamp((z - 0.0) / 0.12, 0, 1) * (mat === 0 ? 1 : 0);
-    w1[v * 4] = jaw; w1[v * 4 + 1] = arm * sdx; w1[v * 4 + 2] = tail; w1[v * 4 + 3] = brow;
-    w2[v * 4] = tongue; w2[v * 4 + 1] = mat; w2[v * 4 + 2] = crown; w2[v * 4 + 3] = cheek;
-  }
+export function onionheadGeometry(a) {
   const g = new THREE.BufferGeometry();
-  g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
-  g.setAttribute('normal', new THREE.BufferAttribute(nor, 3));
-  g.setAttribute('aW1', new THREE.BufferAttribute(w1, 4));
-  g.setAttribute('aW2', new THREE.BufferAttribute(w2, 4));
-  g.setIndex(nv > 65535 ? new THREE.Uint32BufferAttribute(idx, 1) : new THREE.Uint16BufferAttribute(idx, 1));
-  g.computeBoundingSphere();
-  g.boundingSphere.radius += 0.6;
+  setOnionhead(g, a);
   return g;
 }
+
+export function setOnionhead(g, a) {
+  g.setAttribute('position', new THREE.BufferAttribute(a.position, 3));
+  g.setAttribute('normal', new THREE.BufferAttribute(a.normal, 3));
+  g.setAttribute('aW1', new THREE.BufferAttribute(a.w1, 4));
+  g.setAttribute('aW2', new THREE.BufferAttribute(a.w2, 4));
+  g.setAttribute('aNz', new THREE.BufferAttribute(a.noise, 4));
+  g.setAttribute('aBump', new THREE.BufferAttribute(a.bump, 3));
+  g.setIndex(new THREE.BufferAttribute(a.index, 1));
+  g.boundingSphere = new THREE.Sphere(new THREE.Vector3(0, 0, 0), 1.3);
+  return g;
+}
+
+export async function loadOnionhead(res) {
+  try {
+    const r = await fetch(new URL(`../../assets/fx/onionhead_${res}.bin`, import.meta.url));
+    if (r.ok) return decodeOnionhead(await r.arrayBuffer());
+  } catch (e) { }
+  return buildOnionheadArrays(res);
+}
+
 
 const DEFORM = /* glsl */`
 attribute vec4 aW1;
@@ -235,9 +68,11 @@ void deform(inout vec3 p, inout vec3 n) {
   p.y += corner * uSmile * 0.05;
   if (tongue > 0.0 || aW2.y > 1.5 && aW2.y < 2.5) {
     float tw = tongue;
-    p += vec3(0.0, 0.02 + tw * 0.12, -0.12 - tw * 0.08) * (1.0 - uTongue.x) * smoothstep(0.0, 0.25, tw + 0.05);
-    p.x += sin(uTime * 13.0 - tw * 2.5) * uTongue.y * 0.07 * tw;
-    p.y += sin(uTime * 8.0 - tw * 4.0) * uTongue.y * 0.035 * tw;
+    float ret = 1.0 - uTongue.x;
+    p += vec3(0.0, 0.03 + tw * 0.05, -0.08 - tw * 0.2) * ret * smoothstep(0.0, 0.2, tw + 0.05);
+    p.y -= tw * tw * 0.12 * uTongue.x;
+    p.x += sin(uTime * 13.0 - tw * 2.5) * uTongue.y * 0.08 * tw;
+    p.y += sin(uTime * 8.0 - tw * 4.0) * uTongue.y * 0.04 * tw;
     p.z += uTongue.z * tw * 0.05;
   }
   if (jaw > 0.0) {
@@ -300,17 +135,22 @@ void deform(inout vec3 p, inout vec3 n) {
 const BODY_VS = /* glsl */`
 ${NOISE}
 ${DEFORM}
+attribute vec4 aNz;
+attribute vec3 aBump;
+uniform float uBump;
 varying vec3 vRest;
 varying vec3 vN;
 varying vec3 vW;
 varying float vMat;
 varying float vTail;
 varying float vJaw;
+varying vec4 vNz;
 void main() {
   vec3 p = position;
-  vec3 n = normal;
+  vec3 n = normalize(normal + aBump * uBump);
   deform(p, n);
   vRest = position;
+  vNz = aNz;
   vMat = aW2.y;
   vTail = aW1.z;
   vJaw = aW1.x;
@@ -321,8 +161,52 @@ void main() {
 }
 `;
 
+const glv = (a) => `vec3(${a[0].toFixed(4)}, ${a[1].toFixed(4)}, ${a[2].toFixed(4)})`;
+const TEETH_GLSL = [...TEETH_U, ...TEETH_L].map((q) => `d = min(d, sdRBox(p, ${glv(q)}, vec3(${q[3].toFixed(4)}, ${q[4].toFixed(4)}, ${q[5].toFixed(4)}), 0.012, ${q[6].toFixed(4)}));`).join('\n  ');
+const TONGUE_GLSL = TONGUE.map((a) => `d = smin(d, sdEllA(p, ${glv(a)}, vec3(${a[3].toFixed(4)}, ${a[4].toFixed(4)}, ${a[5].toFixed(4)})), 0.06);`).join('\n  ');
+
+const CLASSIFY = /* glsl */`
+float smin(float a, float b, float k) { float h = max(k - abs(a - b), 0.0) / k; return min(a, b) - h * h * k * 0.25; }
+float sdRoundCone(vec3 p, vec3 a, vec3 b, float r1, float r2) {
+  vec3 ba = b - a; float l2 = dot(ba, ba); float rr = r1 - r2; float a2 = l2 - rr * rr; float il2 = 1.0 / l2;
+  vec3 pa = p - a; float y = dot(pa, ba); float z = y - l2;
+  vec3 q = pa * l2 - ba * y; float x2 = dot(q, q);
+  float y2 = y * y * l2; float z2 = z * z * l2;
+  float k = sign(rr) * rr * rr * x2;
+  if (sign(z) * a2 * z2 > k) return sqrt(x2 + z2) * il2 - r2;
+  if (sign(y) * a2 * y2 < k) return sqrt(x2 + y2) * il2 - r1;
+  return (sqrt(x2 * a2 * il2) + y * rr) * il2 - r1;
+}
+float sdRBox(vec3 p, vec3 c, vec3 h, float r, float tilt) {
+  vec3 d = p - c;
+  float cs = cos(tilt), sn = sin(tilt);
+  d.xy = vec2(cs * d.x - sn * d.y, sn * d.x + cs * d.y);
+  vec3 q = abs(d) - h + r;
+  return length(max(q, 0.0)) + min(max(q.x, max(q.y, q.z)), 0.0) - r;
+}
+float sdEllA(vec3 p, vec3 c, vec3 r) { vec3 x = (p - c) / r; float k0 = length(x); float k1 = length(x / r); return k0 * (k0 - 1.0) / max(k1, 1e-6); }
+int classify(vec3 p) {
+  if (p.z < 0.1) return 0;
+  if (p.y > 0.08) {
+    if (abs(p.x) > 0.26 || p.y > 0.3) return 0;
+    float de = min(length(p - ${glv(EYE_L)}) - ${EYE_RL.toFixed(4)}, length(p - ${glv(EYE_R)}) - ${EYE_RR.toFixed(4)});
+    return de < 0.005 ? 4 : 0;
+  }
+  if (abs(p.x) > 0.35 || p.y < -0.36) return 0;
+  float d = 1e9;
+  ${TEETH_GLSL}
+  if (d < 0.004) return 3;
+  d = 1e9;
+  ${TONGUE_GLSL}
+  if (d < 0.005) return 2;
+  if (p.z > 0.05 && abs(p.x) < 0.31 && p.y < 0.06 && p.y > -0.16 && sdEllA(p, vec3(0.0, -0.04, 0.3), vec3(0.27, 0.07, 0.2)) < 0.014) return 1;
+  return 0;
+}
+`;
+
 const BODY_FS = /* glsl */`
 ${NOISE}
+${CLASSIFY}
 uniform float uTime;
 uniform float uTimeQ;
 uniform float uGlow;
@@ -340,33 +224,40 @@ uniform vec3 uLCol[4];
 uniform float uOpacity;
 uniform float uSuck;
 uniform vec3 uTint;
+uniform vec3 uSelf;
 varying vec3 vRest;
 varying vec3 vN;
 varying vec3 vW;
 varying float vMat;
 varying float vTail;
 varying float vJaw;
+varying vec4 vNz;
 vec3 lightAll(vec3 N, vec3 V, vec3 base, float rough, float wrap, out vec3 spec) {
   vec3 diff = uAmb;
   spec = vec3(0.0);
   float a = rough * rough;
+  float a2 = a * a;
+  float b2 = max(a2 * 0.3, 0.001);
   float kd = max((dot(N, uKeyDir) + wrap) / (1.0 + wrap), 0.0);
   diff += uKeyCol * kd;
   vec3 H = normalize(uKeyDir + V);
   float nh = max(dot(N, H), 0.0);
-  float dd = nh * nh * (a * a - 1.0) + 1.0;
-  spec += uKeyCol * (a * a / (3.1416 * dd * dd)) * max(dot(N, uKeyDir), 0.0) * 0.25;
+  float dd = nh * nh * (a2 - 1.0) + 1.0;
+  float de = nh * nh * (b2 - 1.0) + 1.0;
+  spec += uKeyCol * (a2 / (3.1416 * dd * dd) + 0.25 * b2 / (3.1416 * de * de)) * max(dot(N, uKeyDir), 0.0) * 0.25;
   for (int i = 0; i < 4; i++) {
     vec3 L = uLPos[i] - vW;
     float d2 = dot(L, L);
     L *= inversesqrt(d2);
-    float att = 1.0 / (d2 + 0.3);
-    vec3 c = uLCol[i] * att;
+    float att = 1.0 / (d2 + 0.6);
+    vec3 so = uLPos[i] - uSelf;
+    vec3 c = uLCol[i] * att * 0.32 * step(0.5, dot(so, so));
     diff += c * max((dot(N, L) + wrap) / (1.0 + wrap), 0.0);
     vec3 Hl = normalize(L + V);
     float nhl = max(dot(N, Hl), 0.0);
-    float dl = nhl * nhl * (a * a - 1.0) + 1.0;
-    spec += c * (a * a / (3.1416 * dl * dl)) * max(dot(N, L), 0.0) * 0.25;
+    float dl = nhl * nhl * (a2 - 1.0) + 1.0;
+    float el = nhl * nhl * (b2 - 1.0) + 1.0;
+    spec += c * (a2 / (3.1416 * dl * dl) + 0.25 * b2 / (3.1416 * el * el)) * max(dot(N, L), 0.0) * 0.25;
   }
   return base * diff;
 }
@@ -376,7 +267,7 @@ void main() {
   if (!gl_FrontFacing) N = -N;
   float NV = clamp(dot(N, V), 0.0, 1.0);
   float fres = pow(1.0 - NV, 2.5);
-  int mat = int(vMat + 0.5);
+  int mat = classify(vRest);
   vec3 col;
   float alpha = 1.0;
   vec3 spec;
@@ -384,8 +275,9 @@ void main() {
 #ifdef FILM
   tq = uTimeQ;
 #endif
+  float shadeY = smoothstep(-0.55, 0.45, vRest.y);
   if (mat == 4) {
-    vec3 ec = vRest.x > 0.0 ? vec3(${EYE_L.join(', ')}) : vec3(${EYE_R.join(', ')});
+    vec3 ec = vRest.x > 0.0 ? ${glv(EYE_L)} : ${glv(EYE_R)};
     vec3 en = normalize(vRest - ec);
     vec3 gz = vRest.x > 0.0 ? uGazeL : uGazeR;
     float lid = vRest.x > 0.0 ? uEyes.x : uEyes.y;
@@ -394,73 +286,89 @@ void main() {
     float lower = mix(-1.0, -0.55, uEyes.w);
     float pd = dot(en, gz);
     float pupilR = mix(0.1, 0.42, uEyes.z);
-    float iris = smoothstep(cos(pupilR + 0.16), cos(pupilR + 0.12), pd);
+    float iris = smoothstep(cos(pupilR + 0.17), cos(pupilR + 0.13), pd);
     float pupil = smoothstep(cos(pupilR), cos(pupilR - 0.04), pd);
 #ifdef FILM
-    vec3 sclera = vec3(0.98, 0.96, 0.62);
-    vec3 irisC = vec3(0.45, 0.3, 0.05);
+    vec3 sclera = vec3(0.86, 0.84, 0.5);
+    vec3 irisC = vec3(0.42, 0.28, 0.04);
 #else
-    vec3 sclera = vec3(0.93, 0.92, 0.66) * (0.85 + 0.15 * sn3(vRest * 60.0));
-    vec3 irisC = vec3(0.55, 0.42, 0.06);
+    vec3 sclera = vec3(0.72, 0.7, 0.46) * (0.88 + 0.12 * sn3(vRest * 60.0));
+    sclera = mix(sclera, vec3(0.6, 0.25, 0.2), smoothstep(0.55, 0.85, 1.0 - dot(en, normalize(vec3(sign(vRest.x) * 0.2, 0.0, 1.0)))) * 0.35);
+    vec3 irisC = vec3(0.5, 0.36, 0.05);
 #endif
     vec3 eye = mix(sclera, irisC, iris);
-    eye = mix(eye, vec3(0.01), pupil);
-    vec3 b = lightAll(N, V, eye, 0.12, 0.3, spec);
-    col = b + eye * 0.35 * uGlow + spec * 2.5;
+    eye = mix(eye, vec3(0.005), pupil);
+    vec3 b = lightAll(N, V, eye, 0.1, 0.3, spec);
+    col = b + eye * 0.16 * uGlow + spec * 3.0;
     float lidMask = smoothstep(lidLine - 0.04, lidLine + 0.04, en.y) + smoothstep(lower + 0.04, lower - 0.04, en.y);
-    vec3 lidC = vec3(0.2, 0.62, 0.08) * (0.7 + 0.6 * uGlow);
-    col = mix(col, lidC * (0.6 + 0.4 * NV), clamp(lidMask, 0.0, 1.0));
-    col *= 1.0 - 0.6 * smoothstep(0.08, 0.0, abs(en.y - lidLine)) * (1.0 - step(0.98, lid));
+    vec3 lidC = vec3(0.1, 0.36, 0.04) * (0.55 + 0.45 * uGlow);
+    col = mix(col, lidC * (0.5 + 0.5 * NV) + spec * 0.5, clamp(lidMask, 0.0, 1.0));
+    col *= 1.0 - 0.7 * smoothstep(0.09, 0.0, abs(en.y - lidLine)) * (1.0 - step(0.98, lid));
   } else if (mat == 3) {
-    vec3 tooth = vec3(0.86, 0.84, 0.62) * (0.8 + 0.2 * sn3(vRest * 40.0));
+    vec3 tooth = vec3(0.74, 0.7, 0.48) * (0.82 + 0.18 * sn3(vRest * 40.0));
     vec3 b = lightAll(N, V, tooth, 0.25, 0.4, spec);
-    col = b + tooth * 0.18 * uGlow + spec * 1.2;
+    col = b + tooth * 0.1 * uGlow + spec * 1.4;
+    col *= 0.6 + 0.4 * smoothstep(0.24, 0.33, vRest.z);
   } else if (mat == 2) {
 #ifdef FILM
-    vec3 tg = vec3(0.95, 0.38, 0.58);
+    vec3 tg = vec3(0.75, 0.22, 0.38);
 #else
-    vec3 tg = vec3(0.62, 0.18, 0.32) * (0.85 + 0.3 * sn3(vRest * 25.0));
+    vec3 tg = vec3(0.42, 0.1, 0.2) * (0.85 + 0.3 * sn3(vRest * 25.0));
 #endif
-    vec3 b = lightAll(N, V, tg, 0.18, 0.5, spec);
-    col = b + tg * 0.25 * uGlow + spec * 2.0;
+    vec3 b = lightAll(N, V, tg, 0.16, 0.5, spec);
+    col = b + tg * 0.12 * uGlow + spec * 2.2;
   } else if (mat == 1) {
-    float depth = clamp((0.36 - vRest.z) / 0.2, 0.0, 1.0);
-    vec3 m = mix(vec3(0.32, 0.05, 0.08), vec3(0.04, 0.0, 0.01), depth);
-    col = m * (0.5 + 0.5 * uGlow) + lightAll(N, V, m, 0.3, 0.5, spec) * 0.4;
+    float depth = clamp((0.37 - vRest.z) / 0.16, 0.0, 1.0);
+    vec3 m = mix(vec3(0.11, 0.012, 0.028), vec3(0.008, 0.0, 0.004), pow(depth, 0.7));
+    col = m * (0.7 + 0.3 * uGlow) + lightAll(N, V, m, 0.3, 0.5, spec) * 0.3 + spec * 0.4 * (1.0 - depth);
   } else {
 #ifdef FILM
-    float n1 = fbm3(vRest * 3.5);
-    vec3 base = mix(vec3(0.28, 0.82, 0.14), vec3(0.62, 1.0, 0.3), smoothstep(-0.3, 0.5, n1 + N.y * 0.4));
-    vec3 b = lightAll(N, V, base, 0.3, 0.6, spec);
-    vec3 emis = mix(vec3(0.22, 0.85, 0.12), vec3(0.75, 1.0, 0.35), NV * NV) * (0.75 + 0.25 * sn3(vRest * 2.0 + tq * 0.6)) * uGlow * 1.1;
-    vec3 rim = vec3(0.6, 1.0, 0.35) * fres * 1.6 * uGlow;
-    col = b * 0.7 + emis + rim + spec * 1.6;
-    alpha = mix(0.86, 0.45, fres) * mix(1.0, 0.0, smoothstep(0.55, 1.0, vTail));
+    float n1 = vNz.w;
+    vec3 base = mix(vec3(0.1, 0.42, 0.04), vec3(0.42, 0.85, 0.16), smoothstep(-0.35, 0.55, n1 * 0.6 + N.y * 0.45 + shadeY * 0.4));
+    vec3 b = lightAll(N, V, base, 0.28, 0.6, spec);
+    vec3 emis = mix(vec3(0.04, 0.2, 0.02), vec3(0.2, 0.44, 0.07), NV * NV) * (0.8 + 0.2 * sn3(vRest * 2.0 + tq * 0.6)) * uGlow;
+    vec3 rim = vec3(0.22, 0.55, 0.11) * fres * uGlow;
+    col = b * 0.9 + emis + rim + spec * 1.6;
+    alpha = mix(0.84, 0.42, fres) * mix(1.0, 0.0, smoothstep(0.55, 1.0, vTail));
 #else
-    float n1 = fbm3(vRest * 4.0 + vec3(0.0, uTime * 0.05, 0.0));
-    float veins = smoothstep(0.03, 0.0, abs(fbm3(vRest * 9.0 + 3.1))) * 0.6;
-    float blot = sn3(vRest * 14.0) * 0.5 + 0.5;
-    vec3 base = mix(vec3(0.12, 0.42, 0.04), vec3(0.42, 0.78, 0.1), smoothstep(-0.4, 0.5, n1));
-    base = mix(base, vec3(0.6, 0.85, 0.2), blot * 0.18);
-    base *= 1.0 - veins * 0.45;
-    vec3 Np = normalize(N + vec3(sn3(vRest * 30.0), sn3(vRest * 30.0 + 7.0), sn3(vRest * 30.0 + 13.0)) * 0.12);
-    vec3 b = lightAll(Np, V, base, 0.22, 0.75, spec);
+    float n1 = vNz.x;
+    float veins = vNz.y;
+    float blot = vNz.z;
+    vec3 base = mix(vec3(0.06, 0.22, 0.02), vec3(0.24, 0.52, 0.06), smoothstep(-0.5, 0.6, n1 * 0.6 + shadeY * 0.5));
+    base = mix(base, vec3(0.42, 0.62, 0.12), blot * 0.15);
+    base *= 1.0 - veins * 0.5;
+    vec3 Np = N;
+    vec3 b = lightAll(Np, V, base, 0.2, 0.75, spec);
     float inner = sn3(vRest * 3.0 + vec3(uTime * 0.25, -uTime * 0.4, uTime * 0.2)) * 0.5 + 0.5;
     float thick = pow(NV, 1.5);
-    vec3 sss = mix(vec3(0.15, 0.55, 0.05), vec3(0.55, 0.95, 0.2), inner) * (0.25 + 0.55 * thick) * uGlow;
-    vec3 rim = vec3(0.45, 0.95, 0.3) * fres * 0.9 * uGlow;
-    vec3 env = mix(vec3(0.02, 0.025, 0.05), vec3(0.18, 0.11, 0.06), smoothstep(-0.2, 0.3, -reflect(-V, Np).y)) * fres * 1.5;
-    col = b + sss + rim + spec * 2.6 + env;
-    alpha = mix(0.96, 0.62, fres) * mix(1.0, 0.0, smoothstep(0.55, 1.0, vTail));
+    vec3 sss = mix(vec3(0.03, 0.16, 0.01), vec3(0.2, 0.46, 0.06), inner) * (0.25 + 0.75 * thick) * uGlow * (0.6 + 0.4 * shadeY);
+    sss *= 1.0 - veins * 0.6;
+    vec3 rim = vec3(0.22, 0.6, 0.12) * fres * uGlow;
+    vec3 env = mix(vec3(0.01, 0.012, 0.025), vec3(0.12, 0.07, 0.035), smoothstep(-0.2, 0.3, -reflect(-V, Np).y)) * fres * 1.5;
+    col = b + sss + rim + min(spec * 1.7, vec3(6.0)) + env;
+    alpha = mix(0.97, 0.66, fres) * mix(1.0, 0.0, smoothstep(0.55, 1.0, vTail));
 #endif
+    float dl = length(vRest - ${glv(EYE_L)}) - ${EYE_RL.toFixed(4)}, dr = length(vRest - ${glv(EYE_R)}) - ${EYE_RR.toFixed(4)};
+    float ao = 1.0 - 0.55 * smoothstep(0.05, 0.0, min(dl, dr));
+    ao *= 1.0 - 0.5 * smoothstep(0.05, 0.0, abs(vRest.y + 0.035) - 0.06) * smoothstep(0.32, 0.22, abs(vRest.x)) * smoothstep(0.18, 0.3, vRest.z) * smoothstep(0.25, 0.4, length(vRest.xz));
+    ao *= 1.0 - 0.35 * smoothstep(0.1, 0.0, abs(abs(vRest.x) - 0.33) - 0.02) * smoothstep(-0.25, -0.05, vRest.y) * smoothstep(0.05, -0.12, vRest.y);
+    col *= ao;
+    float cavD = sdEllA(vRest, vec3(0.0, -0.04, 0.3), vec3(0.27, 0.07, 0.2));
+    float lip = smoothstep(0.075, 0.025, cavD) * smoothstep(0.17, 0.25, vRest.z) * step(abs(vRest.x), 0.34);
+#ifdef FILM
+    vec3 lipC = vec3(0.62, 0.5, 0.08) * (0.7 + 0.5 * uGlow);
+#else
+    vec3 lipC = vec3(0.42, 0.3, 0.05) * (0.6 + 0.4 * uGlow) + spec * 0.6;
+#endif
+    col = mix(col, lipC * (0.55 + 0.45 * NV) + spec * 0.5, lip * 0.85);
     float hit = exp(-dot(vRest - uHit.xyz, vRest - uHit.xyz) * 30.0) * uHit.w;
-    col += vec3(1.0, 0.75, 0.35) * hit * 3.0;
+    col += vec3(1.0, 0.7, 0.3) * hit * 1.1;
   }
   float fl = 0.6 + 0.4 * sin(tq * 55.0);
-  col += vec3(1.0, 1.0, 0.8) * uHurt * fl * 1.8;
+  col += vec3(0.9, 1.0, 0.7) * uHurt * fl * 0.45;
   col *= uTint;
   float sk = clamp(uSuck * 1.4, 0.0, 1.0);
-  col = mix(col, col * 1.6 + vec3(0.6, 0.8, 1.0) * 0.8, sk * 0.6);
+  col = mix(col, col * 1.25 + vec3(0.25, 0.35, 0.5) * 0.3, sk * 0.5);
   gl_FragColor = vec4(col * alpha * uOpacity, alpha * uOpacity);
 }
 `;
@@ -472,6 +380,7 @@ uniform float uShell;
 varying vec3 vN;
 varying vec3 vW;
 varying float vTail;
+varying vec3 vRest;
 void main() {
   vec3 p = position;
   vec3 n = normal;
@@ -481,6 +390,7 @@ void main() {
   vW = w.xyz;
   vN = normalize(mat3(modelMatrix) * n);
   vTail = aW1.z;
+  vRest = position;
   gl_Position = projectionMatrix * viewMatrix * w;
 }
 `;
@@ -494,7 +404,10 @@ uniform float uShellPow;
 varying vec3 vN;
 varying vec3 vW;
 varying float vTail;
+varying vec3 vRest;
 void main() {
+  if (vRest.z > 0.12 && abs(vRest.x) < 0.34 && vRest.y < 0.1 && vRest.y > -0.2) discard;
+  if (vRest.z > 0.22 && vRest.y > 0.08 && vRest.y < 0.3 && abs(vRest.x) < 0.25) discard;
   vec3 N = normalize(vN);
   vec3 V = normalize(cameraPosition - vW);
   float d = clamp(-dot(N, V), 0.0, 1.0);
@@ -523,7 +436,7 @@ function bodyUniforms(fx, shared) {
     uGlow: { value: 1 }, uHurt: { value: 0 }, uHit: { value: new THREE.Vector4(0, 0, 0, 0) },
     uEyes: { value: new THREE.Vector4(0.8, 0.8, 0.5, 0) }, uGazeL: { value: new THREE.Vector3(0, 0, 1) }, uGazeR: { value: new THREE.Vector3(0, 0, 1) },
     uBrowSlant: { value: 0 }, uKeyDir: fx.U.uKeyDir, uKeyCol: fx.U.uKeyCol, uAmb: fx.U.uAmb,
-    uLPos: fx.U.uLPos, uLCol: fx.U.uLCol, uOpacity: { value: 1 }, uTint: { value: new THREE.Vector3(1, 1, 1) },
+    uLPos: fx.U.uLPos, uLCol: fx.U.uLCol, uOpacity: { value: 1 }, uTint: { value: new THREE.Vector3(1, 1, 1) }, uSelf: { value: new THREE.Vector3() },
   };
 }
 
@@ -537,7 +450,7 @@ export class Ghost {
       uTime: fx.U.uTime, uJaw: { value: 0.2 }, uSmile: { value: 0.3 }, uBrow: { value: new THREE.Vector4() }, uTongue: { value: new THREE.Vector4() },
       uArmL: { value: new THREE.Vector4() }, uArmR: { value: new THREE.Vector4() }, uTail: { value: new THREE.Vector4(0.05, 0.03, 0, 0) },
       uPuff: { value: 0 }, uStretch: { value: new THREE.Vector4(0, 1, 0, 1) }, uJiggle: { value: new THREE.Vector3() }, uWobble: { value: 1 },
-      uStruggle: { value: 0 }, uSuck: { value: 0 }, uTrap: { value: new THREE.Vector3(0, -1, 0) }, uSquash: { value: 0 },
+      uStruggle: { value: 0 }, uSuck: { value: 0 }, uTrap: { value: new THREE.Vector3(0, -1, 0) }, uSquash: { value: 0 }, uBump: { value: 1 },
     };
     const bu = bodyUniforms(fx, this.S);
     this.BU = bu;
@@ -577,6 +490,7 @@ export class Ghost {
     this.hitAmt = 0;
     this.flinch = 0;
     this.prevHurt = 0;
+    this.suckHid = false;
     this.drip = 0;
     this.wisp = 0;
     this.tmp = [new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3(), new THREE.Quaternion(), new THREE.Matrix4()];
@@ -588,8 +502,9 @@ export class Ghost {
     this.body.material = this.mats[style] || this.mats.modern;
     const film = style === 'film';
     this.SU.uShell.value = film ? 0.11 : 0.045;
-    this.SU.uShellCol.value.setRGB(film ? 0.45 : 0.2, film ? 1.6 : 0.8, film ? 0.3 : 0.14);
+    this.SU.uShellCol.value.setRGB(film ? 0.12 : 0.05, film ? 0.48 : 0.24, film ? 0.08 : 0.04);
     this.SU.uShellPow.value = film ? 1.1 : 1.8;
+    this.S.uBump.value = film ? 0.3 : 1.0;
   }
 
   hit(localPoint, amount = 1) {
@@ -605,7 +520,7 @@ export class Ghost {
     this.mood = moodName;
     const M = MOODS[moodName];
     const k = 1 - Math.exp(-dt * (moodName === 'hurt' ? 18 : 7));
-    for (const key of KEYS) e[key] += (M[key] - e[key]) * k;
+    for (let i = 0; i < KEYS.length; i++) { const key = KEYS[i]; e[key] += (M[key] - e[key]) * k; }
 
     const hurt = clamp(p.hurt || 0, 0, 1);
     if (hurt > this.prevHurt + 0.15) this.flinch = 1;
@@ -667,7 +582,8 @@ export class Ghost {
       this.body.worldToLocal(tl);
       S.uTrap.value.copy(tl);
     }
-    this.object3D.visible = suck < 0.995;
+    if (suck >= 0.995) { if (this.object3D.visible) { this.object3D.visible = false; this.suckHid = true; } }
+    else if (this.suckHid) { this.object3D.visible = true; this.suckHid = false; }
 
     this.nextBlink -= dt;
     if (this.nextBlink <= 0) { this.blink = 1; this.nextBlink = fx.rng.range(1.8, 4.5); }
@@ -712,8 +628,9 @@ export class Ghost {
     this.effects(dt, sp, struggle, suck);
     const G = this.tmp[0];
     this.object3D.getWorldPosition(G);
+    BU.uSelf.value.copy(G);
     const film = this.style === 'film';
-    fx.lightPool.request(G, 0.35, 1.0, 0.25, (film ? 2.6 : 2.0) * e.glow * (1 + hurt * 2) * (1 - suck * 0.5), 2, 6);
+    fx.lightPool.request(G, 0.35, 1.0, 0.25, (film ? 2.4 : 1.9) * e.glow * (1 + hurt * 0.6) * (1 - suck * 0.5), 2, 6);
   }
 
   effects(dt, sp, struggle, suck) {

@@ -7,12 +7,13 @@ import { createPools } from './particles.js';
 import { DecalPool } from './decals.js';
 import { FlarePool, BoltPool } from './sprites.js';
 import { Stream } from './stream.js';
-import { Ghost, buildOnionhead } from './ghost.js';
+import { Ghost, loadOnionhead, setOnionhead } from './ghost.js';
 import { TrapFX } from './trap.js';
 import { PostFX } from './post.js';
 
 const PREBUILT_STREAMS = 4;
 const TRANSIENTS = 8;
+const IMPACT_KINDS = ['spark', 'scorch', 'slime', 'ghostHit', 'slam', 'debris'];
 
 export class FX {
   constructor({ renderer, scene, camera, quality = 'medium', style = 'modern' } = {}) {
@@ -41,6 +42,7 @@ export class FX {
     };
     this.lightPool = new LightPool(this.root, 4);
     this.pools = createPools(this, this.quality);
+    this._poolList = Object.values(this.pools);
     this.decals = new DecalPool(this, this.quality.decals);
     this.flares = new FlarePool(this, 64);
     this.bolts = new BoltPool(this, 48);
@@ -48,7 +50,10 @@ export class FX {
     this.tr = new Float32Array(TRANSIENTS * 12);
     this.trHead = 0;
     this._trLight = new Float32Array(TRANSIENTS * 3);
-    this.ghostGeometry = buildOnionhead(this.quality.ghostRes);
+    this._lastImpact = new Float32Array(IMPACT_KINDS.length * 4).fill(-1e4);
+    this._impactAcc = new Float32Array(IMPACT_KINDS.length);
+    this.ghostGeometry = new THREE.BufferGeometry();
+    this.stats = { ghostLoadMs: 0, ghostTris: 0, ghostVerts: 0 };
     this._streams = [];
     for (let i = 0; i < PREBUILT_STREAMS; i++) this._streams.push(new Stream(this, i));
     this._streamsUsed = 0;
@@ -64,6 +69,10 @@ export class FX {
 
   async _compile() {
     const r = this.renderer;
+    const tg0 = performance.now();
+    const mesh = await loadOnionhead(this.quality.ghostRes);
+    setOnionhead(this.ghostGeometry, mesh);
+    this.stats = { ghostLoadMs: Math.round(performance.now() - tg0), ghostTris: mesh.index.length / 3, ghostVerts: mesh.position.length / 3 };
     const proxies = new THREE.Group();
     const proxy = (geo, mat) => { const m = new THREE.Mesh(geo, mat); m.frustumCulled = false; proxies.add(m); };
     for (const p of Object.values(this.pools)) proxy(p.mesh.geometry, p.mesh.material === p.mats.film ? p.mats.modern : p.mats.film);
@@ -151,21 +160,36 @@ export class FX {
     this.trHead = (this.trHead + 1) % TRANSIENTS;
   }
 
+  _throttle(kind, p, minGap, radius) {
+    const k = IMPACT_KINDS.indexOf(kind);
+    if (k < 0) return 1;
+    const L = this._lastImpact, o = k * 4;
+    const dt = this.time - L[o + 3];
+    const dx = p.x - L[o], dy = p.y - L[o + 1], dz = p.z - L[o + 2];
+    const near = dx * dx + dy * dy + dz * dz < radius * radius;
+    if (near && dt >= 0 && dt < minGap) { this._impactAcc[k] += dt / minGap; L[o + 3] = this.time; if (this._impactAcc[k] < 1) return 0; this._impactAcc[k] -= 1; return 0.35; }
+    L[o] = p.x; L[o + 1] = p.y; L[o + 2] = p.z; L[o + 3] = this.time;
+    this._impactAcc[k] = 0;
+    return near && dt >= 0 && dt < minGap * 3 ? 0.5 : 1;
+  }
+
   impact(position, normal, kind = 'spark') {
     if (!position) return;
     const r = this.rng, P = this.pools, n = this._v[0];
     if (normal) n.copy(normal).normalize(); else n.set(0, 1, 0);
+    const amt = this._throttle(kind, position, kind === 'slam' ? 0.25 : 0.3, kind === 'slam' ? 0.5 : 0.8);
+    if (amt <= 0) return;
     const x = position.x, y = position.y, z = position.z, gy = this.groundY;
     const film = this.style === 'film';
     switch (kind) {
       case 'spark':
-        this._spray(position, n, 46, 2, 10, 0.3, 1.0, film ? 0.3 : r.next());
-        this.transient(position, film ? 0.8 : 0.6, 1.0, 0.75, 0.45, 2.2, film ? 3 : 5, 0.18, 30, 1.0, 0.6, 0.3);
+        this._spray(position, n, Math.round(46 * amt), 2, 10, 0.3, 1.0, film ? 0.3 : r.next());
+        if (amt > 0.9) this.transient(position, film ? 0.8 : 0.6, 1.0, 0.75, 0.45, 2.2, film ? 3 : 5, 0.18, 30, 1.0, 0.6, 0.3);
         break;
       case 'scorch':
         this.decals.add(position, n, r.range(0.35, 0.55), 0, 50, r.next());
-        this._spray(position, n, 14, 1.5, 6, 0.2, 0.7, 0.5);
-        for (let i = 0; i < 3; i++) P.smoke.emit(x + n.x * 0.1, y + n.y * 0.1, z + n.z * 0.1, n.x * 0.4 + r.signed() * 0.1, 0.5, n.z * 0.4 + r.signed() * 0.1, r.range(2, 3.5), r.range(0.15, 0.25), r.next(), 1, -0.1, -1e3, 2, 0, r.signed() * 0.5);
+        this._spray(position, n, Math.round(14 * amt), 1.5, 6, 0.2, 0.7, 0.5);
+        for (let i = 0; i < (amt > 0.9 ? 3 : 1); i++) P.smoke.emit(x + n.x * 0.1, y + n.y * 0.1, z + n.z * 0.1, n.x * 0.4 + r.signed() * 0.1, 0.5, n.z * 0.4 + r.signed() * 0.1, r.range(2, 3.5), r.range(0.15, 0.25), r.next(), 1, -0.1, -1e3, 2, 0, r.signed() * 0.5);
         break;
       case 'slime':
         this.decals.add(position, n, r.range(0.45, 0.85), 1, 40, r.next());
@@ -176,12 +200,12 @@ export class FX {
         this.transient(position, 0.5, 0.55, 1.0, 0.4, 0.8, 6, 0.2, 6, 0.4, 1.0, 0.3);
         break;
       case 'ghostHit':
-        for (let i = 0; i < 22; i++) {
+        for (let i = 0; i < Math.round(22 * amt); i++) {
           const sp = r.range(1.5, 5);
           P.slime.emit(x, y, z, (n.x + r.signed() * 0.8) * sp, (n.y + r.signed() * 0.8 + 0.3) * sp, (n.z + r.signed() * 0.8) * sp, r.range(0.4, 1.0), r.range(0.012, 0.03), r.next(), 0.6, 1, gy, 0, 0, 0);
         }
-        this._spray(position, n, 30, 2, 8, 0.2, 0.6, 2);
-        this.transient(position, 0.75, 0.6, 1.0, 0.45, 2.0, 6, 0.22, 25, 0.5, 1.0, 0.4);
+        this._spray(position, n, Math.round(30 * amt), 2, 8, 0.2, 0.6, 2);
+        if (amt > 0.9) this.transient(position, 0.42, 0.6, 1.0, 0.45, 0.9, 6, 0.2, 8, 0.5, 1.0, 0.4);
         break;
       case 'slam': {
         this.decals.add(position, n, r.range(1.1, 1.5), 2, 60, r.next());
@@ -199,8 +223,8 @@ export class FX {
           const sp = r.range(2, 6);
           P.slime.emit(x, y + 0.1, z, r.signed() * sp, r.range(0.6, 1.2) * sp, r.signed() * sp, r.range(0.6, 1.3), r.range(0.02, 0.045), r.next(), 0.4, 1, gy, 0, 0, 0);
         }
-        this.transient(position, 2.6, 0.7, 1.0, 0.55, 2.6, 4, 0.45, 0, 0, 0, 0);
-        this.transient(position, 1.4, 0.85, 1.0, 0.7, 3.2, 0, 0.3, 90, 0.6, 1.0, 0.5);
+        this.decals.add(position, n, 2.6, 3, 0.7, r.next());
+        this.transient(position, 0.9, 0.85, 1.0, 0.7, 1.3, 0, 0.16, 38, 0.6, 1.0, 0.5);
         break;
       }
       case 'debris':
@@ -251,7 +275,8 @@ export class FX {
     const g0 = this._ghostsUsed > 0 ? this._ghosts[0] : null;
     if (g0) {
       this._ghostRadius = g0.radius;
-      for (const s of this._streams) {
+      for (let i = 0; i < this._streams.length; i++) {
+        const s = this._streams[i];
         if (s.kind === 2 && s.capture < 0.5 && s.head >= 1 && s.lit > 0.5) {
           const lp = this._v[1].copy(s.end);
           g0.body.worldToLocal(lp);
@@ -269,7 +294,7 @@ export class FX {
       if (age < 0 || age > life) { F.off(this.trSlot + i); T[o + 10] = 0; continue; }
       const k = 1 - age / life;
       const grow = T[o + 8] === 4 ? 0.35 + 0.65 * Math.sqrt(age / life) : 1 + 0.3 * (1 - k);
-      F.set(this.trSlot + i, T[o], T[o + 1], T[o + 2], T[o + 3] * grow, T[o + 4], T[o + 5], T[o + 6], T[o + 7] * k * k, T[o + 8], i * 1.7, i * 0.37 + T[o + 9] % 1, 0.4, 1);
+      F.set(this.trSlot + i, T[o], T[o + 1], T[o + 2], T[o + 3] * grow, T[o + 4], T[o + 5], T[o + 6], T[o + 7] * k * k, T[o + 8], i * 1.7, i * 0.37 + T[o + 9] % 1, 0.9, 1);
       if (T[o + 11] > 0) {
         const L = this._trLight;
         this._v[2].set(T[o], T[o + 1] + 0.3, T[o + 2]);
@@ -293,7 +318,7 @@ export class FX {
       if (l.intensity > 0) { const w = Math.min(1, l.intensity / 40) * 0.6; sl.r += l.color.r * w; sl.g += l.color.g * w; sl.b += l.color.b * w; }
     }
     this.post.update(dt, this._streams);
-    for (const p of Object.values(this.pools)) p.flush();
+    for (let i = 0; i < this._poolList.length; i++) this._poolList[i].flush();
     this.decals.flush();
     this.flares.flush();
     this.bolts.flush();

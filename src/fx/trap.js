@@ -138,8 +138,8 @@ function vortexGeometry(seg = 120, strands = 3) {
 }
 
 const LOOK = {
-  modern: { base: [0.2, 0.06], top: [1.25, 0.95], H: 2.7, colA: [1.0, 0.94, 0.82], colB: [0.75, 0.82, 1.0], gain: 1.6, edge: 0.35, rayK: 0.55, vortex: [1.0, 0.88, 0.6], vI: 4, arc: [0.7, 0.8, 1.0], light: [1.0, 0.9, 0.75] },
-  film: { base: [0.22, 0.05], top: [1.6, 0.5], H: 2.9, colA: [1.0, 0.92, 1.0], colB: [0.78, 0.5, 1.0], gain: 2.1, edge: 0.9, rayK: 0.9, vortex: [1.0, 0.55, 0.9], vI: 3.5, arc: [0.3, 0.38, 1.0], light: [0.95, 0.8, 1.0] },
+  modern: { base: [0.2, 0.06], top: [1.25, 0.95], H: 2.7, colA: [1.0, 0.9, 0.72], colB: [0.7, 0.62, 0.9], gain: 0.42, edge: 0.45, rayK: 0.7, vortex: [1.0, 0.35, 0.7], vI: 1.4, arc: [0.7, 0.8, 1.0], light: [1.0, 0.88, 0.7] },
+  film: { base: [0.22, 0.05], top: [1.6, 0.5], H: 2.9, colA: [1.0, 0.9, 1.0], colB: [0.7, 0.42, 1.0], gain: 0.6, edge: 0.9, rayK: 0.9, vortex: [1.0, 0.45, 0.85], vI: 1.3, arc: [0.25, 0.35, 1.0], light: [0.95, 0.8, 1.0] },
 };
 
 export class TrapFX {
@@ -190,11 +190,17 @@ export class TrapFX {
 
   attach(trap) {
     this.trap = trap;
+    if (this.holder.parent) this.holder.parent.remove(this.holder);
+    this.measure(trap);
     const bo = trap.getObjectByName('BeamOrigin');
     if (bo) { bo.add(this.holder); this.holder.position.set(0, 0, 0); this.holder.quaternion.identity(); }
-    else { trap.add(this.holder); this.holder.position.set(0, 0.12, 0); this.holder.quaternion.identity(); }
+    else { trap.add(this.holder); this.holder.position.set(0, this.box.max.y + 0.005, 0); this.holder.quaternion.identity(); }
+    this.holder.rotation.y = this.longZ ? Math.PI / 2 : 0;
     this.smokePts.length = 0;
     trap.traverse((o) => { if (/^Smoke_/i.test(o.name)) this.smokePts.push(o); });
+  }
+
+  measure(trap) {
     trap.updateMatrixWorld(true);
     const inv = new THREE.Matrix4().copy(trap.matrixWorld).invert();
     const box = new THREE.Box3();
@@ -206,6 +212,8 @@ export class TrapFX {
       box.union(b);
     });
     if (!box.isEmpty() && box.getSize(new THREE.Vector3()).length() < 2) this.box.copy(box);
+    const sz = this.box.getSize(new THREE.Vector3());
+    this.longZ = sz.z > sz.x;
   }
 
   setStyle(style) {
@@ -274,11 +282,11 @@ export class TrapFX {
     const F = fx.flares, s = this.flare;
     const lc = L.light;
     if (beam > 0.01 || this.flash > 0.01 || open > 0.05) {
-      const I = beam * 1.6 + this.flash * 3.0 + open * 0.4;
+      const I = beam * 0.55 + this.flash * 1.6 + open * 0.2;
       F.set(s, O.x, O.y + 0.03, O.z, film ? 0.55 : 0.45, lc[0], lc[1], lc[2], I, film ? 1 : 0, tq * 0.5, Math.floor(tq * 12) * 0.13, 0.25, 1);
       F.set(s + 1, O.x, O.y + 0.03, O.z, 0.22, 1, 1, 1, I * 1.4, 0, 0, 0, 0.25, 1);
       if (film) F.set(s + 2, O.x, O.y + 0.05, O.z, 0.2, 0.35, 0.5, 1.0, I * 1.2, 2, 0, 0, 0.3, 9); else F.off(s + 2);
-      fx.lightPool.request(this.v[1].copy(O).setY(O.y + 0.35), lc[0], lc[1], lc[2], (film ? 32 : 26) * beam + 70 * this.flash + 6 * open, 5, 12);
+      fx.lightPool.request(this.v[1].copy(O).setY(O.y + 0.35), lc[0], lc[1], lc[2], (film ? 12 : 10) * beam + 40 * this.flash + 3 * open, 5, 12);
     } else { F.off(s); F.off(s + 1); F.off(s + 2); }
     F.off(s + 3);
 

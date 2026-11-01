@@ -98,7 +98,7 @@ export function makeScorchTexture(seed = 23, size = 256) {
     const ray = rays[ai] * (1 - af) + rays[(ai + 1) % 64] * af;
     const edge = r + (n[i] - 0.5) * 0.45 - ray * 0.18;
     const soot = smooth(0.95, 0.25, edge) * (0.65 + 0.35 * n[i]);
-    const hot = smooth(0.42, 0.0, r + (n[i] - 0.5) * 0.25);
+    const hot = smooth(0.62, 0.0, r + (n[i] - 0.5) * 0.25);
     const crack = smooth(0.62, 0.8, c[i]) * smooth(0.7, 0.2, r);
     data[i * 4] = clamp(soot, 0, 1) * 255; data[i * 4 + 1] = clamp(hot, 0, 1) * 255; data[i * 4 + 2] = clamp(crack, 0, 1) * 255; data[i * 4 + 3] = n[i] * 255;
   }

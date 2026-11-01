@@ -1,0 +1,268 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Plate lab</title>
+<style>
+html,body{margin:0;height:100%;background:#000;overflow:hidden;font:12px/1.4 -apple-system,system-ui,sans-serif;color:#cfd3d6}
+#view{position:fixed;inset:0}
+#view canvas{width:100%;height:100%;display:block}
+#hud{position:fixed;left:10px;top:8px;white-space:pre;pointer-events:none;text-shadow:0 1px 2px #000;opacity:.85}
+#help{position:fixed;left:10px;bottom:8px;pointer-events:none;opacity:.6}
+.hide{display:none}
+</style>
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/",
+  "rapier": "https://cdn.jsdelivr.net/npm/@dimforge/rapier3d-compat@0.19.3/rapier.mjs" } }
+</script>
+</head>
+<body>
+<div id="view"></div>
+<div id="hud"></div>
+<div id="help">drag orbit · right-drag pan · wheel zoom · WASD/QE fly · click throw ball · L light sweep · B break nearest · 1-9 camera presets</div>
+<script type="module">
+import * as THREE from 'three';
+import RAPIER from 'rapier';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { Renderer } from './src/engine/renderer.js';
+import { createPlate } from './src/world/plate.js';
+
+const P = new URLSearchParams(location.search);
+const quality = P.get('q') || 'medium';
+const hudOn = P.get('hud') !== '0';
+if (!hudOn) { document.getElementById('hud').classList.add('hide'); document.getElementById('help').classList.add('hide'); }
+
+await RAPIER.init();
+const world = new RAPIER.World({ x: 0, y: -9.81, z: 0 });
+world.timestep = 1 / 60;
+
+const view = document.getElementById('view');
+const R = new Renderer(view);
+R.setPreset(quality);
+const renderer = R.renderer;
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(62, innerWidth / innerHeight, 0.05, 900);
+R.build(scene, camera);
+
+const CAMS = {
+  wide: [[44, 30, 52], [-4, 2, -6]],
+  wide2: [[-50, 36, 50], [6, 1, -6]],
+  top: [[0, 165, 0.1], [0, 0, 0]],
+  street: [[11.6, 1.75, 31], [2, 2.2, -20]],
+  ecto: [[14.2, 1.75, 34.5], [8.75, 0.8, 24.5]],
+  corner: [[12.5, 1.7, 13.5], [-14, 4.5, -10]],
+  film: [[-3.5, 1.35, 44], [-1.5, 3.2, -30]],
+  tvg: [[1.5, 2.3, 16], [-3, 2.4, -8]],
+  wet: [[2.5, 0.55, 15], [-4, 1.2, -14]],
+  props: [[1.5, 2.6, -6.5], [-4.2, 0.4, -19.5]],
+  cart: [[12.8, 1.75, 18.6], [17.6, 1.0, 12.7]],
+  park: [[34, 2.2, 44], [18, 2.0, 14]],
+  north: [[-1, 1.7, -46], [0, 3, 10]],
+  edge: [[84, 18, 80], [30, -1, 28]],
+  hydrant: [[14.5, 1.6, 21.5], [10.4, 0.6, 16.2]],
+  signpost: [[6.5, 1.8, 16.5], [10.7, 4.2, 6.85]],
+  west: [[-46, 1.7, 2], [10, 3, 0]],
+};
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+controls.dampingFactor = 0.12;
+controls.maxDistance = 400;
+const setCam = (name) => {
+  const c = CAMS[name] || CAMS.street;
+  camera.position.set(...c[0]);
+  controls.target.set(...c[1]);
+  controls.update();
+};
+setCam(P.get('cam') || 'street');
+if (P.get('pos')) { const v = P.get('pos').split(',').map(Number); camera.position.set(v[0], v[1], v[2]); }
+if (P.get('look')) { const v = P.get('look').split(',').map(Number); controls.target.set(v[0], v[1], v[2]); controls.update(); }
+if (P.get('fov')) { camera.fov = +P.get('fov'); camera.updateProjectionMatrix(); }
+
+const fake = new THREE.PointLight(new THREE.Color(1.0, 0.62, 0.42), 0, 22, 1.6);
+const fakeOrb = new THREE.Mesh(new THREE.SphereGeometry(0.09, 12, 8), new THREE.MeshBasicMaterial({ color: new THREE.Color(1.0, 0.7, 0.5).multiplyScalar(40) }));
+fakeOrb.visible = false;
+scene.add(fake, fakeOrb);
+const t0 = performance.now();
+const plate = await createPlate({ THREE, RAPIER, world, scene, renderer, camera, quality });
+const loadMs = performance.now() - t0;
+
+let sweep = P.get('light') === '1';
+let sweepT = +(P.get('lt') || 0);
+let fixedLight = P.get('lightpos') ? P.get('lightpos').split(',').map(Number) : null;
+
+const balls = [];
+const ballGeo = new THREE.SphereGeometry(0.17, 18, 12);
+const ballMat = new THREE.MeshStandardMaterial({ color: 0x8a8f96, metalness: 0.8, roughness: 0.25 });
+function throwBall(origin, dir, speed = 26) {
+  const b = world.createRigidBody(RAPIER.RigidBodyDesc.dynamic().setTranslation(origin.x, origin.y, origin.z).setCcdEnabled(true).setLinvel(dir.x * speed, dir.y * speed, dir.z * speed));
+  world.createCollider(RAPIER.ColliderDesc.ball(0.17).setMass(7).setRestitution(0.3).setCollisionGroups(((0x0002 << 16) | 0xffff) >>> 0), b);
+  const m = new THREE.Mesh(ballGeo, ballMat);
+  m.castShadow = true;
+  scene.add(m);
+  balls.push({ b, m });
+  if (balls.length > 40) { const o = balls.shift(); world.removeRigidBody(o.b); scene.remove(o.m); }
+}
+const ray = new THREE.Raycaster();
+let downAt = null;
+renderer.domElement.addEventListener('pointerdown', (e) => { downAt = [e.clientX, e.clientY]; });
+renderer.domElement.addEventListener('pointerup', (e) => {
+  if (!downAt || Math.hypot(e.clientX - downAt[0], e.clientY - downAt[1]) > 4 || e.button !== 0) return;
+  ray.setFromCamera(new THREE.Vector2((e.clientX / innerWidth) * 2 - 1, -(e.clientY / innerHeight) * 2 + 1), camera);
+  const o = camera.position.clone().addScaledVector(ray.ray.direction, 0.6);
+  throwBall(o, ray.ray.direction);
+});
+const keys = new Set();
+addEventListener('keydown', (e) => {
+  keys.add(e.code);
+  if (e.code === 'KeyL') sweep = !sweep;
+  if (e.code === 'KeyB') breakNearest();
+  const n = parseInt(e.key, 10);
+  if (n >= 1 && n <= 9) setCam(Object.keys(CAMS)[n - 1]);
+});
+addEventListener('keyup', (e) => keys.delete(e.code));
+function breakNearest() {
+  let best = null, bd = 1e9;
+  for (const p of plate.props) { if (!p.breakable || p.dead) continue; const d = p.object3D.position.distanceTo(controls.target); if (d < bd) { bd = d; best = p; } }
+  best?.onBreak(new THREE.Vector3().subVectors(best.object3D.position, camera.position).setY(0).normalize());
+}
+
+window.__plate = plate;
+window.__lab = { THREE, scene, camera, renderer, R, world, plate, throwBall, setCam, controls, breakNearest, info: () => info(), lightAt: (x, y, z) => { fixedLight = [x, y, z]; } };
+
+const brk = P.get('break');
+const throwN = +(P.get('throw') || 0);
+function autoActions() {
+  if (brk) {
+    const kinds = brk.split(',');
+    for (const p of plate.props) if (p.breakable && (kinds.includes('all') || kinds.includes(p.kind))) p.onBreak(new THREE.Vector3(Math.random() - 0.5, 0.3, Math.random() - 0.5).normalize());
+  }
+  if (throwN) {
+    const targets = plate.props.filter((p) => ['crate', 'sawhorse', 'cone', 'trashcan', 'cardboard', 'trashbag'].includes(p.kind)).slice(0, throwN);
+    for (const p of targets) {
+      const tp = p.object3D.position.clone().add(new THREE.Vector3(0, 0.5, 0));
+      const o = tp.clone().add(new THREE.Vector3(3, 2.2, 4));
+      throwBall(o, tp.clone().sub(o).normalize(), 30);
+    }
+  }
+}
+
+function info() {
+  renderer.info.reset();
+  renderer.render(scene, camera);
+  const r = renderer.info.render;
+  let tris = 0;
+  scene.traverse((o) => { if (o.isMesh && o.visible && o.geometry) { const g = o.geometry; const n = g.index ? g.index.count / 3 : g.attributes.position.count / 3; tris += n * (o.isInstancedMesh ? o.count : (g.isInstancedBufferGeometry ? g.instanceCount : 1)); } });
+  return { calls: r.calls, renderedTris: r.triangles, sceneTris: Math.round(tris), textures: renderer.info.memory.textures, geometries: renderer.info.memory.geometries, programs: renderer.info.programs.length, props: plate.props.length, debris: plate.debris.length, loadMs: Math.round(loadMs), windows: plate.stats };
+}
+
+const hud = document.getElementById('hud');
+let last = performance.now(), frames = 0, acc = 0, fps = 0, simT = 0;
+const fwd = new THREE.Vector3(), right = new THREE.Vector3();
+function frame(now) {
+  const dt = Math.min(0.05, (now - last) / 1000);
+  last = now;
+  simT += dt;
+  if (keys.size) {
+    camera.getWorldDirection(fwd); right.crossVectors(fwd, camera.up).normalize();
+    const sp = (keys.has('ShiftLeft') ? 24 : 8) * dt, mv = new THREE.Vector3();
+    if (keys.has('KeyW')) mv.add(fwd); if (keys.has('KeyS')) mv.sub(fwd);
+    if (keys.has('KeyD')) mv.add(right); if (keys.has('KeyA')) mv.sub(right);
+    if (keys.has('KeyE')) mv.y += 1; if (keys.has('KeyQ')) mv.y -= 1;
+    mv.multiplyScalar(sp); camera.position.add(mv); controls.target.add(mv);
+  }
+  controls.update();
+  world.step();
+  for (const o of balls) { const t = o.b.translation(), r = o.b.rotation(); o.m.position.set(t.x, t.y, t.z); o.m.quaternion.set(r.x, r.y, r.z, r.w); }
+  if (sweep || fixedLight) {
+    sweepT += dt;
+    if (fixedLight) fake.position.set(...fixedLight);
+    else fake.position.set(Math.sin(sweepT * 0.55) * 7.5, 1.0 + Math.sin(sweepT * 1.7) * 0.25, 4 + Math.sin(sweepT * 0.31) * 10);
+    fake.intensity = 34 + Math.sin(sweepT * 37) * 6;
+    fakeOrb.position.copy(fake.position); fakeOrb.visible = true;
+  } else { fake.intensity = 0; fakeOrb.visible = false; }
+  plate.update(dt);
+  R.render(simT, dt);
+  if (!window.__plateReady && ++readyFrames >= 4) window.__plateReady = true;
+  frames++; acc += dt;
+  if (acc > 0.5) { fps = frames / acc; frames = 0; acc = 0; if (hudOn) hud.textContent = `plate lab  ${quality}  ${fps.toFixed(0)} fps  calls ${renderer.info.render.calls}  tris ${(renderer.info.render.triangles / 1000).toFixed(0)}k  props ${plate.props.length}\ncam ${camera.position.toArray().map((v) => v.toFixed(1)).join(',')}  look ${controls.target.toArray().map((v) => v.toFixed(1)).join(',')}`; }
+  requestAnimationFrame(frame);
+}
+let readyFrames = 0;
+requestAnimationFrame((n) => { last = n; autoActions(); requestAnimationFrame(frame); });
+
+window.__sceneMs = async (n = 40) => {
+  const gl = renderer.getContext();
+  const ext = gl.getExtension('EXT_disjoint_timer_query_webgl2');
+  if (!ext) return -1;
+  const sz = renderer.getDrawingBufferSize(new THREE.Vector2());
+  const rt = window.__benchRT || (window.__benchRT = new THREE.WebGLRenderTarget(sz.x, sz.y, { type: THREE.HalfFloatType, samples: R.preset.msaa }));
+  const qs = [];
+  for (let i = 0; i < n; i++) { plate.update(1 / 60); const q = gl.createQuery(); gl.beginQuery(ext.TIME_ELAPSED_EXT, q); renderer.setRenderTarget(rt); renderer.render(scene, camera); renderer.setRenderTarget(null); gl.endQuery(ext.TIME_ELAPSED_EXT); qs.push(q); }
+  gl.finish();
+  const ms = [];
+  for (let k = 0; k < 20 && !gl.getQueryParameter(qs[qs.length - 1], gl.QUERY_RESULT_AVAILABLE); k++) await new Promise((r) => setTimeout(r, 60));
+  for (const q of qs) if (gl.getQueryParameter(q, gl.QUERY_RESULT_AVAILABLE)) ms.push(gl.getQueryParameter(q, gl.QUERY_RESULT) / 1e6);
+  if (gl.getParameter(ext.GPU_DISJOINT_EXT)) return -2;
+  ms.sort((a, b) => a - b);
+  return ms.length ? +ms[ms.length >> 1].toFixed(2) : -1;
+};
+window.__benchParts = async () => {
+  const out = {};
+  const byName = (re) => { const l = []; plate.root.traverse((o) => { if (re.test(o.name) && o.visible) l.push(o); }); return l; };
+  const toggle = async (label, list) => { list.forEach((o) => (o.visible = false)); out[label] = await window.__sceneMs(); list.forEach((o) => (o.visible = true)); };
+  out.base = await window.__sceneMs();
+  await toggle('-sky', byName(/^Sky$/));
+  await toggle('-steam', byName(/^Steam$/));
+  await toggle('-halo+haze', byName(/LampHalos|LampHaze|FarLights/));
+  await toggle('-skyline', byName(/Skyline/));
+  await toggle('-windows', byName(/^Windows$/));
+  await toggle('-walls', byName(/^Walls_/));
+  await toggle('-props', byName(/^Prop_/));
+  await toggle('-road+walk', byName(/^Road$|^Sidewalks$/));
+  const sp = plate.lights.lampSpots[0]; const cs = sp.castShadow; sp.castShadow = false; out['-shadow'] = await window.__sceneMs(); sp.castShadow = cs;
+  const U = plate.lights.uniforms; const saved = U.uLampPos.value.map((v) => v.w); U.uLampPos.value.forEach((v) => (v.w = 0.0001));
+  const upd = plate.update; plate.update = () => {}; out['-lampLighting'] = await window.__sceneMs(); plate.update = upd; U.uLampPos.value.forEach((v, i) => (v.w = saved[i]));
+  return out;
+};
+window.__bench = async (n = 120) => {
+  const gl = renderer.getContext();
+  const ext = gl.getExtension('EXT_disjoint_timer_query_webgl2');
+  const out = { ext: !!ext, size: [renderer.domElement.width, renderer.domElement.height] };
+  const run = () => { plate.update(1 / 60); R.render(simT, 1 / 60); };
+  for (let i = 0; i < 10; i++) run();
+  gl.finish();
+  if (ext) {
+    const qs = [];
+    for (let i = 0; i < n; i++) { const q = gl.createQuery(); gl.beginQuery(ext.TIME_ELAPSED_EXT, q); run(); gl.endQuery(ext.TIME_ELAPSED_EXT); qs.push(q); }
+    gl.finish();
+    await new Promise((r) => setTimeout(r, 200));
+    const ms = [];
+    for (const q of qs) { if (gl.getQueryParameter(q, gl.QUERY_RESULT_AVAILABLE)) ms.push(gl.getQueryParameter(q, gl.QUERY_RESULT) / 1e6); }
+    ms.sort((a, b) => a - b);
+    out.gpuMedian = ms[ms.length >> 1]; out.gpuP90 = ms[Math.floor(ms.length * 0.9)]; out.samples = ms.length;
+  }
+  if (ext) {
+    const sz = renderer.getDrawingBufferSize(new THREE.Vector2());
+    const rt = new THREE.WebGLRenderTarget(sz.x, sz.y, { type: THREE.HalfFloatType, samples: R.preset.msaa });
+    const qs = [];
+    for (let i = 0; i < n; i++) { plate.update(1 / 60); const q = gl.createQuery(); gl.beginQuery(ext.TIME_ELAPSED_EXT, q); renderer.setRenderTarget(rt); renderer.render(scene, camera); renderer.setRenderTarget(null); gl.endQuery(ext.TIME_ELAPSED_EXT); qs.push(q); }
+    gl.finish();
+    await new Promise((r) => setTimeout(r, 200));
+    const ms = [];
+    for (const q of qs) { if (gl.getQueryParameter(q, gl.QUERY_RESULT_AVAILABLE)) ms.push(gl.getQueryParameter(q, gl.QUERY_RESULT) / 1e6); }
+    ms.sort((a, b) => a - b);
+    out.sceneGpuMedian = ms[ms.length >> 1]; out.sceneGpuP90 = ms[Math.floor(ms.length * 0.9)];
+    rt.dispose();
+  }
+  const t = performance.now();
+  for (let i = 0; i < n; i++) run();
+  const px = new Uint8Array(4); gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, px);
+  out.wallMsPerFrame = (performance.now() - t) / n;
+  return out;
+};
+</script>
+</body>
+</html>

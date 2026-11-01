@@ -107,18 +107,19 @@ function standinTrap() {
   const metal = new THREE.MeshStandardMaterial({ color: 0x3a3a3c, roughness: 0.5, metalness: 0.7 });
   const black = new THREE.MeshStandardMaterial({ color: 0x111112, roughness: 0.6, metalness: 0.3 });
   const stripe = canvasTex(128, 32, (c, w, h) => { c.fillStyle = '#1a1a1a'; c.fillRect(0, 0, w, h); c.fillStyle = '#d8b21a'; for (let x = -h; x < w; x += 22) { c.beginPath(); c.moveTo(x, h); c.lineTo(x + 11, h); c.lineTo(x + 11 + h, 0); c.lineTo(x + h, 0); c.fill(); } });
-  const body = new THREE.Mesh(new THREE.BoxGeometry(0.44, 0.12, 0.26), metal); body.position.y = 0.06; body.name = 'TrapBody'; g.add(body);
-  const top = new THREE.Mesh(new THREE.BoxGeometry(0.46, 0.02, 0.28), black); top.position.y = 0.13; g.add(top);
-  const slot = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.005, 0.07), new THREE.MeshStandardMaterial({ color: 0x050505, emissive: new THREE.Color(0, 0, 0) })); slot.position.y = 0.142; slot.name = 'TrapEmitSlot'; g.add(slot);
+  stripe.rotation = Math.PI / 2; stripe.center.set(0.5, 0.5);
+  const body = new THREE.Mesh(new THREE.BoxGeometry(0.13, 0.1, 0.33), metal); body.position.y = 0.05; body.name = 'TrapBody'; g.add(body);
+  const top = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.016, 0.34), black); top.position.y = 0.108; g.add(top);
+  const slot = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.004, 0.29), new THREE.MeshStandardMaterial({ color: 0x050505 })); slot.position.y = 0.117; slot.name = 'TrapEmitSlot'; g.add(slot);
   for (const s of [1, -1]) {
-    const hinge = new THREE.Group(); hinge.name = s > 0 ? 'DoorL' : 'DoorR'; hinge.position.set(0, 0.142, s * 0.045); g.add(hinge);
-    const door = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.012, 0.09), new THREE.MeshStandardMaterial({ map: stripe, roughness: 0.6, metalness: 0.3 })); door.position.set(0, 0.006, -s * 0.045); hinge.add(door);
+    const hinge = new THREE.Group(); hinge.name = s > 0 ? 'DoorL' : 'DoorR'; hinge.position.set(s * 0.032, 0.117, 0); g.add(hinge);
+    const door = new THREE.Mesh(new THREE.BoxGeometry(0.032, 0.01, 0.31), new THREE.MeshStandardMaterial({ map: stripe, roughness: 0.6, metalness: 0.3 })); door.position.set(-s * 0.016, 0.005, 0); hinge.add(door);
   }
-  const handle = new THREE.Mesh(new THREE.CylinderGeometry(0.01, 0.01, 0.12, 8), metal); handle.rotation.z = Math.PI / 2; handle.position.set(-0.18, 0.2, 0.0); g.add(handle);
-  const beam = new THREE.Object3D(); beam.name = 'BeamOrigin'; beam.position.set(0, 0.15, 0); g.add(beam);
-  for (let i = 0; i < 3; i++) { const sm = new THREE.Object3D(); sm.name = 'Smoke_' + (i + 1); sm.position.set(-0.15 + i * 0.15, 0.15, (i % 2 ? 0.05 : -0.05)); g.add(sm); }
-  const pedal = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.04, 0.16), black); pedal.name = 'Pedal'; pedal.position.set(0.9, 0.02, 0.5); g.add(pedal);
-  const pts = []; for (let i = 0; i <= 20; i++) { const t = i / 20; pts.push(new THREE.Vector3(0.22 + t * 0.68, 0.012 + Math.sin(t * 3.1) * 0.01, t * 0.5 + Math.sin(t * 6) * 0.05)); }
+  const handle = new THREE.Mesh(new THREE.CylinderGeometry(0.009, 0.009, 0.1, 8), metal); handle.position.set(0, 0.17, -0.12); g.add(handle);
+  const beam = new THREE.Object3D(); beam.name = 'BeamOrigin'; beam.position.set(0, 0.12, 0); g.add(beam);
+  for (let i = 0; i < 3; i++) { const sm = new THREE.Object3D(); sm.name = 'Smoke_' + (i + 1); sm.position.set((i % 2 ? 0.04 : -0.04), 0.12, -0.12 + i * 0.12); g.add(sm); }
+  const pedal = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.04, 0.16), black); pedal.name = 'Pedal'; pedal.position.set(0.6, 0.02, 0.8); g.add(pedal);
+  const pts = []; for (let i = 0; i <= 20; i++) { const t = i / 20; pts.push(new THREE.Vector3(t * 0.6 + Math.sin(t * 6) * 0.05, 0.012 + Math.sin(t * 3.1) * 0.01, 0.165 + t * 0.62)); }
   const cable = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 40, 0.006, 6), black); cable.name = 'Cable'; g.add(cable);
   return g;
 }

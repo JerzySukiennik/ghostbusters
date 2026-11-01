@@ -43,6 +43,7 @@ export class Game {
   setStyle(s) {
     this.style = s;
     this.fx.setStyle(s);
+    this.gear.setStyle?.(s);
     this.hud.style(s);
     this.onStyle?.(s);
     try { localStorage.setItem('gb.style', s); } catch {}

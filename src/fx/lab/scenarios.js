@@ -11,6 +11,7 @@ export const CAMS = {
   face: { pos: [0.05, 1.62, 2.95], look: [0.0, 1.58, 0.6], fov: 42 },
   side: { pos: [5.2, 1.7, -0.4], look: [-0.6, 1.6, -3.4], fov: 50 },
   close: { pos: [2.1, 1.55, 0.2], look: [-0.4, 1.55, -3.2], fov: 40 },
+  player: { pos: [0.95, 1.8, 4.4], look: [0.0, 1.55, -9], fov: 55 },
 };
 
 export const MOOD_LIST = ['idle', 'eat', 'taunt', 'angry', 'flee', 'hurt', 'wrangled', 'sucked'];
@@ -268,11 +269,12 @@ export class Director {
   finish(t, dt, ghostVisible, trapOn) {
     const fx = this.fx;
     if (this.doors[0] && this.doors[1]) {
-      const a = this.tp.open * 1.35;
-      this.doors[0].rotation.x = -a;
-      this.doors[1].rotation.x = a;
+      const a = this.tp.open * 1.3;
+      if (this.trapFX.longZ) { this.doors[0].rotation.z = -a; this.doors[1].rotation.z = a; }
+      else { this.doors[0].rotation.x = -a; this.doors[1].rotation.x = a; }
     }
     this.stream.update(dt, this.sp);
+    this.ghost.object3D.visible = ghostVisible;
     this.ghost.update(dt, this.gp);
     if (!ghostVisible) this.ghost.object3D.visible = false;
     this.trapFX.update(dt, this.tp);

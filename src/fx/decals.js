@@ -51,26 +51,36 @@ varying vec3 vW;
 void main() {
   vec2 uv = vUv * 0.5 + 0.5;
   float fade = 1.0 - smoothstep(vLife * 0.75, vLife, vAge);
+  if (vType > 2.5) {
+    float a = clamp(vAge / vLife, 0.0, 1.0);
+    float r = length(vUv);
+    float R = 0.12 + 0.86 * (1.0 - pow(1.0 - a, 3.0));
+    float w = 0.05 + 0.12 * a;
+    float ring = exp(-pow((r - R) / w, 2.0)) * step(r, 1.0);
+    vec3 c = mix(vec3(0.9, 1.0, 0.75), vec3(0.4, 1.0, 0.3), a) * (1.0 + uFilm * 0.4);
+    gl_FragColor = vec4(c * ring * pow(1.0 - a, 2.0) * 2.4, 0.0);
+    return;
+  }
   if (vType < 0.5 || vType > 1.5) {
     vec4 t = texture2D(uScorch, uv);
     float crater = step(1.5, vType);
     float soot = t.r * (0.88 + crater * 0.1);
-    float heat = exp(-vAge * (crater > 0.5 ? 0.9 : 0.55));
+    float heat = exp(-vAge * (crater > 0.5 ? 0.9 : 0.85));
     float hotMask = t.g * (0.6 + 0.4 * t.a) + t.b * crater * 0.6;
-    vec3 glow = mix(vec3(1.0, 0.16, 0.02), vec3(1.0, 0.55, 0.15), heat) * hotMask * heat * heat * (4.0 + 6.0 * heat);
+    vec3 glow = mix(vec3(1.0, 0.16, 0.02), vec3(1.0, 0.55, 0.15), heat) * hotMask * heat * heat * (1.6 + 3.0 * heat);
     glow *= 1.0 - uFilm * 0.3;
     float a = clamp(soot * fade, 0.0, 1.0);
     gl_FragColor = vec4(glow * fade, a);
   } else {
     vec4 t = texture2D(uSlime, uv);
     float cov = t.r;
-    if (cov < 0.01) discard;
     float h = t.g;
     vec3 sx = dFdx(vW), sy = dFdy(vW);
     vec3 R1 = cross(sy, vN), R2 = cross(vN, sx);
     float det = dot(sx, R1);
     vec2 dh = vec2(dFdx(h), dFdy(h)) * 0.035;
-    vec3 nrm = normalize(abs(det) * vN - sign(det) * (dh.x * R1 + dh.y * R2));
+    vec3 nrm = normalize(abs(det) * vN - sign(det) * (dh.x * R1 + dh.y * R2) + vN * 1e-6);
+    if (cov < 0.01) discard;
     vec3 V = normalize(cameraPosition - vW);
     vec3 L = normalize(vec3(-0.3, 1.0, 0.4));
     vec3 H = normalize(L + V);

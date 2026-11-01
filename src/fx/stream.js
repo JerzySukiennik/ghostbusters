@@ -3,13 +3,13 @@ import * as THREE from 'three';
 import { NOISE } from './glsl.js';
 import { clamp, lerp, smooth } from './util.js';
 
-const NP = 24;
+const NP = 32;
 const NT = 15;
 
 const RIBBON_VS = /* glsl */`
 ${NOISE}
-uniform vec3 uPath[24];
-uniform float uArc[24];
+uniform vec3 uPath[32];
+uniform float uArc[32];
 uniform float uLen;
 uniform float uHead;
 uniform float uTail;
@@ -35,6 +35,8 @@ uniform float uJagFreq;
 uniform float uCrawl;
 uniform float uWob;
 uniform float uSeg;
+uniform float uTaper;
+uniform float uCoilT;
 varying vec2 vUv;
 varying float vA;
 varying float vK;
@@ -43,14 +45,14 @@ varying float vFront;
 varying float vEnd;
 
 vec3 beamAt(float t, out float s) {
-  float f = clamp(t, 0.0, 1.0) * 23.0;
-  float fi = min(floor(f), 22.0);
+  float f = clamp(t, 0.0, 1.0) * 31.0;
+  float fi = min(floor(f), 30.0);
   int i = int(fi);
   float u = f - fi;
   vec3 p0 = uPath[max(i - 1, 0)];
   vec3 p1 = uPath[i];
   vec3 p2 = uPath[i + 1];
-  vec3 p3 = uPath[min(i + 2, 23)];
+  vec3 p3 = uPath[min(i + 2, 31)];
   vec3 c1 = 0.5 * (p2 - p0);
   vec3 c2 = p0 - 2.5 * p1 + 2.0 * p2 - 0.5 * p3;
   vec3 c3 = -0.5 * p0 + 1.5 * p1 - 1.5 * p2 + 0.5 * p3;
@@ -67,6 +69,7 @@ vec2 offsetAt(float s, float k, out float r) {
   r = uRadius * env * gAA * (0.7 + 0.6 * (0.5 + 0.5 * sn1(s * 1.7 + k * 5.0 + uBoil * 0.37))) * (1.0 + uHeat * 0.7) * (1.0 + endFlare * 3.0);
   vec2 o = vec2(cos(th), sin(th)) * r;
   o += vec2(sn1(s * 3.1 + uBoil * 1.7 + k), sn1(s * 2.7 + uBoil * 1.3 + k + 9.0)) * uWob * env * (1.0 + uHeat * 1.5);
+  o += vec2(sn1(s * 9.0 + uTime * 41.0 + k), sn1(s * 8.3 + uTime * 37.0 + k + 5.0)) * 0.012 * uTension * uCapture * env;
 #ifdef FIL
   float x = s * uJagFreq - uTime * uCrawl;
   float sd = k * 7.31 + uFilSeed;
@@ -111,14 +114,21 @@ void main() {
   vec3 sd = cross(Ts, V);
   float sl = length(sd);
   sd = sl > 1e-5 ? sd / sl : N;
-  float muzzle = 0.35 + 0.65 * smoothstep(0.0, 0.25, s);
+  float muzzle = 0.3 + 0.7 * smoothstep(0.0, uTaper, s);
   float endK = uEndKind < 0.5 ? smoothstep(uLen, uLen * 0.82, s) : 1.0;
   float headFade = uHead < 0.999 ? smoothstep(1.0, 0.9, position.x) : 1.0;
   float tailFade = uTail > 0.001 ? smoothstep(0.0, 0.25, position.x) : 1.0;
-  float w = uWidth * muzzle * mix(1.0, endK, 0.7) * (1.0 + uHeat * 0.25);
+  float coil = uCapture * smoothstep(uCoilT - 0.01, uCoilT + 0.04, t);
+#ifdef GLOW
+  float coilW = 1.0 - 0.55 * coil;
+#else
+  float coilW = 1.0 + 0.9 * coil;
+#endif
+  float w = uWidth * muzzle * mix(1.0, endK, 0.7) * (1.0 + uHeat * 0.25) * coilW;
   float minW = uMinPx * uPx * dist;
   float we = max(w, minW);
-  vA = (w / we) * uIntensity * headFade * tailFade * endK;
+  float endOn = mix(1.0, smoothstep(0.995, 0.93, abs(dot(Ts, V))), coil);
+  vA = (w / we) * uIntensity * headFade * tailFade * endK * smoothstep(0.0, 0.12 * uTaper + 0.02, s) * endOn * (1.0 - 0.15 * coil);
   vFront = r > 1e-5 ? dot(N * o.x + B * o.y, V) / r : 0.0;
   vUv = vec2(s, side);
   vK = k;
@@ -154,54 +164,53 @@ void main() {
   float s = vUv.x;
   float y = abs(vUv.y);
   vec3 col;
+  float nearM = smoothstep(1.6, 0.15, s);
 #if defined(GLOW)
-  float prof = exp(-y * y * 3.2);
+  float prof = exp(-y * y * 3.6);
   float n = texture2D(uNoiseTex, vec2(s * 0.22 - uTime * uFlow * 0.04, vUv.y * 0.07 + vK * 0.31)).r;
   float n2 = texture2D(uNoiseTex, vec2(s * 0.6 - uTime * uFlow * 0.11, 0.5 + vUv.y * 0.11)).g;
-  col = mix(uColA, uColB, smoothstep(0.25, 0.85, n)) * (0.7 + 0.6 * n2);
-  col = mix(col, uColC, smoothstep(1.2, 0.0, s) * 0.7);
+  col = mix(uColA, uColB, smoothstep(0.25, 0.85, n)) * (0.75 + 0.5 * n2);
+  col = mix(col, uColC, nearM * 0.25);
   col *= prof;
 #elif defined(STRAND)
 #ifdef FILM
-  float prof = smoothstep(1.0, 0.45, y);
+  float prof = smoothstep(1.0, 0.4, y);
   float spot = step(0.55, h11(floor(s * 2.3 + vK * 13.0) + uBoil * 7.13));
-  col = mix(uColB, uColA, smoothstep(0.9, 0.0, y)) * prof * (0.65 + 0.55 * spot);
-  col *= 0.75 + 0.25 * step(0.0, vFront);
+  col = mix(uColB, uColA, smoothstep(0.9, 0.0, y)) * prof * (0.6 + 0.5 * spot);
+  col *= 0.7 + 0.3 * step(0.0, vFront);
 #else
-  float prof = exp(-y * y * 3.0);
+  float prof = exp(-y * y * 2.6);
   float n1 = texture2D(uNoiseTex, vec2(s * 0.55 - uTime * uFlow, vK * 0.29 + vUv.y * 0.09)).r;
   float n2 = texture2D(uNoiseTex, vec2(s * 1.9 - uTime * uFlow * 1.7, vK * 0.53 + vUv.y * 0.21 + 0.5)).b;
-  float T = prof * (0.25 + 1.25 * n1 * (0.55 + 0.9 * n2));
-  T *= 0.8 + 0.35 * clamp(vFront, -1.0, 1.0);
-  col = mix(uColB * 0.6, uColB, smoothstep(0.1, 0.45, T));
-  col = mix(col, uColA, smoothstep(0.45, 0.85, T));
-  col = mix(col, vec3(1.0, 0.97, 0.92), smoothstep(0.85, 1.25, T));
-  col *= T * T * 1.6;
+  float T = prof * (0.35 + 1.1 * n1 * (0.6 + 0.8 * n2));
+  T *= 0.82 + 0.3 * clamp(vFront, -1.0, 1.0);
+  col = mix(uColB, uColA, smoothstep(0.25, 0.85, T)) * T;
+  col += uColC * smoothstep(0.95, 1.35, T) * 1.5;
 #endif
 #elif defined(CORE)
 #ifdef FILM
-  float prof = smoothstep(1.0, 0.0, y);
-  float hot = smoothstep(0.5, 0.0, y);
-  col = mix(uColB, uColA, hot) * pow(prof, 1.1) * (0.55 + 0.45 * hot);
+  float prof = smoothstep(1.0, 0.05, y);
+  float hot = smoothstep(0.55, 0.0, y);
+  col = mix(uColB, uColA, hot) * pow(prof, 0.9);
   float spot = smoothstep(0.82, 0.97, h11(floor(s * 1.1 + 3.0) + uBoil * 5.31)) * smoothstep(0.3, 1.0, s);
-  col = mix(col, uColC * 1.4, spot * hot);
-  col = mix(col, vec3(0.92, 0.82, 1.0) * prof, smoothstep(1.4, 0.2, s) * 0.8);
-  col *= 0.85 + 0.3 * h11(floor(s * 4.0) + uBoil * 3.7);
+  col = mix(col, uColC * 1.2, spot * hot * 0.8);
+  col = mix(col, vec3(1.5, 1.35, 1.7) * prof, nearM * smoothstep(0.7, 0.0, y));
+  col *= 0.88 + 0.24 * h11(floor(s * 4.0) + uBoil * 3.7);
 #else
-  float prof = exp(-y * y * 4.0);
+  float prof = exp(-y * y * 3.5);
   float n = texture2D(uNoiseTex, vec2(s * 1.3 - uTime * uFlow * 1.3, 0.25 + vUv.y * 0.05)).a;
-  col = mix(uColB, uColA, smoothstep(0.35, 0.0, y)) * prof * (0.75 + 0.5 * n);
+  col = mix(uColB, uColA, smoothstep(0.45, 0.0, y)) * prof * (0.8 + 0.4 * n);
 #endif
 #elif defined(FIL)
   float on = step(0.0, sn1(s * 0.55 + vK * 5.3 + uFilSeed * 0.73) + 0.15 + uTension * 0.3);
-  float core = smoothstep(1.0, 0.15, y);
-  float glow = exp(-y * y * 2.0) * 0.3;
+  float core = smoothstep(1.0, 0.1, y);
+  float glow = exp(-y * y * 2.0) * 0.25;
   vec3 c = mix(uColA, uColB, step(0.5, fract(vK * 0.5 + uFilSeed * 0.13)));
-  col = mix(c, vec3(1.0), core * 0.45) * (core + glow) * on;
+  col = c * (core + glow) * on;
   col *= 0.6 + 0.4 * h11(floor(s * 3.0) + uFilSeed);
 #endif
-  col = mix(col, col * vec3(1.25, 0.72, 1.15), uHeat * 0.45);
-  float I = uGain * vA * (1.0 + vEnd * 0.6);
+  col = mix(col, col * vec3(1.2, 0.75, 1.2), uHeat * 0.5);
+  float I = uGain * vA * (1.0 + vEnd * 0.5);
   gl_FragColor = vec4(col * I, 1.0);
 }
 `;
@@ -236,23 +245,23 @@ export const STREAM_LOOKS = {
   modern: {
     meander: 0.11, meanderK: 0.55, meanderSpeed: 1.6, boilRate: 0,
     flicker: 0.12, light: [1.0, 0.5, 0.28], lightEnd: [1.0, 0.55, 0.3], muzzleLight: 7, endLight: 34,
-    sparkRate: 340, emberRate: 12, smokeRate: 7, arcColor: [0.62, 0.74, 1.0], arcRate: 22, filRate: 24,
+    sparkRate: 340, emberRate: 5, smokeRate: 7, arcColor: [0.62, 0.74, 1.0], arcRate: 22, filRate: 24,
     layers: [
-      { def: 'GLOW', strands: 1, width: 0.15, minPx: 3.0, radius: 0, twist: 0, spin: 0, wob: 0.012, gain: 0.36, flow: 9, colA: C3(1.0, 0.07, 0.2), colB: C3(1.0, 0.26, 0.07), colC: C3(1.0, 0.7, 0.55), ro: 41 },
-      { def: 'STRAND', strands: 3, width: 0.024, minPx: 1.5, radius: 0.034, twist: 9.5, spin: 14, wob: 0.006, gain: 1.5, flow: 3.2, colA: C3(1.0, 0.46, 0.2), colB: C3(1.0, 0.09, 0.1), colC: C3(1, 1, 1), ro: 50 },
-      { def: 'CORE', strands: 1, width: 0.0095, minPx: 1.1, radius: 0.004, twist: 20, spin: 30, wob: 0.003, gain: 4.2, flow: 4, colA: C3(1.0, 0.95, 0.88), colB: C3(1.0, 0.5, 0.3), colC: C3(1, 1, 1), ro: 52 },
-      { def: 'FIL', strands: 2, width: 0.0032, minPx: 1.0, radius: 0.05, twist: 3.5, spin: 6, wob: 0.0, gain: 1.7, flow: 0, jag: 0.07, jagFreq: 5.5, crawl: 9, colA: C3(0.62, 0.7, 1.0), colB: C3(0.85, 0.55, 1.0), colC: C3(1, 1, 1), ro: 53 },
+      { def: 'GLOW', strands: 1, width: 0.28, minPx: 3.0, radius: 0, twist: 0, spin: 0, wob: 0.015, gain: 0.8, flow: 9, colA: C3(0.52, 0.11, 0.07), colB: C3(0.62, 0.21, 0.04), colC: C3(1.0, 0.55, 0.35), ro: 41 },
+      { def: 'STRAND', strands: 3, width: 0.032, minPx: 1.5, radius: 0.046, twist: 8.5, spin: 14, wob: 0.008, gain: 1.0, flow: 3.2, colA: C3(1.75, 0.66, 0.2), colB: C3(1.0, 0.18, 0.06), colC: C3(2.2, 1.9, 1.5), ro: 50 },
+      { def: 'CORE', strands: 1, width: 0.012, minPx: 1.2, radius: 0.005, twist: 16, spin: 30, wob: 0.004, gain: 1.0, flow: 4, colA: C3(6.6, 6.1, 5.3), colB: C3(2.4, 0.95, 0.45), colC: C3(1, 1, 1), ro: 52 },
+      { def: 'FIL', strands: 2, width: 0.0034, minPx: 1.0, radius: 0.07, twist: 3.0, spin: 6, wob: 0.0, gain: 1.0, flow: 0, jag: 0.075, jagFreq: 5.0, crawl: 9, colA: C3(0.75, 0.95, 2.7), colB: C3(1.3, 0.72, 2.6), colC: C3(1, 1, 1), ro: 53 },
     ],
   },
   film: {
     meander: 0.2, meanderK: 0.42, meanderSpeed: 0.9, boilRate: 12,
     flicker: 0.18, light: [1.0, 0.42, 0.3], lightEnd: [1.0, 0.6, 0.45], muzzleLight: 8, endLight: 30,
-    sparkRate: 230, emberRate: 6, smokeRate: 4, arcColor: [0.42, 0.34, 1.0], arcRate: 12, filRate: 12,
+    sparkRate: 230, emberRate: 2, smokeRate: 4, arcColor: [0.42, 0.34, 1.0], arcRate: 12, filRate: 12,
     layers: [
-      { def: 'GLOW FILM', strands: 1, width: 0.14, minPx: 4.0, radius: 0.0, twist: 0, spin: 0, wob: 0.012, gain: 0.6, flow: 2, colA: C3(1.0, 0.03, 0.1), colB: C3(1.0, 0.15, 0.02), colC: C3(0.75, 0.35, 1.0), ro: 41 },
-      { def: 'STRAND FILM', strands: 1, width: 0.014, minPx: 1.3, radius: 0.022, twist: 15, spin: 0, wob: 0.01, gain: 1.6, flow: 0, colA: C3(1.0, 0.42, 0.05), colB: C3(0.95, 0.07, 0.03), colC: C3(1, 1, 1), ro: 50 },
-      { def: 'CORE FILM', strands: 1, width: 0.03, minPx: 2.0, radius: 0.009, twist: 13, spin: 0, wob: 0.008, gain: 2.9, flow: 0, colA: C3(1.0, 0.88, 0.5), colB: C3(1.0, 0.26, 0.03), colC: C3(0.8, 0.5, 1.0), ro: 52 },
-      { def: 'FIL FILM', strands: 2, width: 0.005, minPx: 1.25, radius: 0.075, twist: 1.6, spin: 0, wob: 0.03, gain: 2.0, flow: 0, jag: 0.085, jagFreq: 2.6, crawl: 0, colA: C3(0.28, 0.24, 1.0), colB: C3(0.55, 0.22, 1.0), colC: C3(1, 1, 1), ro: 53 },
+      { def: 'GLOW FILM', strands: 1, width: 0.38, minPx: 4.0, radius: 0.0, twist: 0, spin: 0, wob: 0.015, gain: 1.15, flow: 2, colA: C3(0.5, 0.035, 0.09), colB: C3(0.52, 0.11, 0.025), colC: C3(0.45, 0.25, 0.75), ro: 41 },
+      { def: 'STRAND FILM', strands: 1, width: 0.026, minPx: 1.3, radius: 0.04, twist: 11, spin: 0, wob: 0.012, gain: 1.0, flow: 0, colA: C3(0.95, 0.32, 0.03), colB: C3(0.65, 0.05, 0.02), colC: C3(1, 1, 1), ro: 50 },
+      { def: 'CORE FILM', strands: 1, width: 0.066, minPx: 2.4, radius: 0.012, twist: 10, spin: 0, wob: 0.01, gain: 1.0, flow: 0, colA: C3(1.3, 0.88, 0.02), colB: C3(0.72, 0.14, 0.03), colC: C3(0.75, 0.4, 1.3), ro: 52 },
+      { def: 'FIL FILM', strands: 2, width: 0.006, minPx: 1.3, radius: 0.12, twist: 1.4, spin: 0, wob: 0.04, gain: 1.0, flow: 0, jag: 0.11, jagFreq: 2.4, crawl: 0, colA: C3(0.22, 0.24, 1.4), colB: C3(0.55, 0.18, 1.4), colC: C3(1, 1, 1), ro: 53 },
     ],
   },
 };
@@ -275,7 +284,7 @@ export class Stream {
     this.U = {
       uPath: { value: this.out }, uArc: { value: this.arc }, uLen: { value: 1 }, uHead: { value: 0 }, uTail: { value: 0 },
       uBoil: { value: 0 }, uIntensity: { value: 0 }, uHeat: { value: 0 }, uTension: { value: 0 }, uCapture: { value: 0 },
-      uSeed: { value: this.seed }, uFilSeed: { value: 0 }, uEndKind: { value: 1 },
+      uSeed: { value: this.seed }, uFilSeed: { value: 0 }, uEndKind: { value: 1 }, uCoilT: { value: (NT - 1) / (NP - 1) },
     };
     this.Uf = { uBoil: { value: 0 }, uFilSeed: { value: 0 } };
     this.groups = { modern: new THREE.Group(), film: new THREE.Group() };
@@ -299,7 +308,7 @@ export class Stream {
           uSpin: { value: L.spin }, uStrands: { value: L.strands }, uLayerSeed: { value: index * 1.7 + L.strands * 0.37 },
           uJag: { value: L.jag || 0 }, uJagFreq: { value: L.jagFreq || 1 }, uCrawl: { value: L.crawl || 0 }, uWob: { value: L.wob },
           uColA: { value: L.colA }, uColB: { value: L.colB }, uColC: { value: L.colC }, uGain: { value: L.gain }, uFlow: { value: L.flow },
-          uSeg: { value: 1 },
+          uSeg: { value: 1 }, uTaper: { value: L.def.startsWith('GLOW') ? 1.3 : 0.25 },
         };
         const m = new THREE.ShaderMaterial({
           vertexShader: RIBBON_VS, fragmentShader: RIBBON_FS, uniforms: u, defines,
@@ -315,7 +324,7 @@ export class Stream {
       }
       fx.root.add(g);
     }
-    this.flare = fx.flares.alloc(6);
+    this.flare = fx.flares.alloc(8);
     this.bolt = fx.bolts.alloc(5);
     this.on = false;
     this.lit = 0;
@@ -369,7 +378,7 @@ export class Stream {
   }
 
   targets(dt) {
-    const [P1, P2, E, G, A, U1, U2, tmp] = this.v;
+    const V = this.v, P1 = V[0], P2 = V[1], E = V[2], G = V[3], A = V[4], U1 = V[5], U2 = V[6], tmp = V[7];
     const o = this.origin, d = this.dir, T = this.tgt;
     const cap = this.capture;
     const L = Math.max(0.3, o.distanceTo(this.end));
@@ -392,12 +401,12 @@ export class Stream {
       if (U1.lengthSq() < 1e-6) U1.set(1, 0, 0);
       U1.normalize();
       U2.crossVectors(A, U1);
-      const turns = 1.55 + 0.35 * this.tension;
+      const turns = 2.1 + 0.5 * this.tension;
       for (let j = 0; j < NP - NT; j++) {
         const f = (j + 1) / (NP - NT);
         const th = f * turns * Math.PI * 2;
         const rr = R * (1 + 0.1 * sn(tt * 3.1 + j * 1.7 + this.seed)) * (0.92 + 0.08 * Math.cos(th * 2.0));
-        const hh = (f - 0.45) * R * 1.1;
+        const hh = (f - 0.45) * R * 1.25;
         const i = NT + j;
         T[i * 3] = lerp(E.x, G.x + (U1.x * Math.cos(th) + U2.x * Math.sin(th)) * rr + A.x * hh, Math.min(1, cap * 1.2));
         T[i * 3 + 1] = lerp(E.y, G.y + (U1.y * Math.cos(th) + U2.y * Math.sin(th)) * rr + A.y * hh, Math.min(1, cap * 1.2));
@@ -432,15 +441,15 @@ export class Stream {
         const kaB = lerp(1400, 260, Math.pow(u, 0.8));
         const kaC = (40 + 260 * ten) * (i >= nT ? 3.5 : 1);
         const ka = lerp(kaB, kaC, cap);
-        const c = 2 * Math.sqrt(ka) * lerp(0.9, 0.32, cap);
+        const c = 2 * Math.sqrt(ka) * lerp(0.9, 0.22, cap);
         const ks = cap * 650;
         for (let k = 0; k < 3; k++) {
           const j = i * 3 + k;
           let f = ka * (T[j] - P[j]) - c * V[j];
-          if (ks > 0 && i < NP - 1) f += ks * (P[j - 3] + P[j + 3] - 2 * P[j]);
+          if (ks > 0 && i < NP - 1) f += ks * ((P[j - 3] - T[j - 3]) + (P[j + 3] - T[j + 3]) - 2 * (P[j] - T[j]));
           if (cap > 0.001 && i > 2 && i < nT) {
             const env = Math.sin(Math.PI * i / nT);
-            f += sn(tt * (4.5 + k) + i * 0.45 + k * 11 + this.seed) * (25 + 120 * struggle) * env * (1 - 0.55 * ten);
+            f += sn(tt * (3.2 + k * 0.7) + i * 0.35 + k * 11 + this.seed) * (70 + 260 * struggle) * env * (1 - 0.5 * ten);
           }
           V[j] += f * h;
         }
@@ -459,7 +468,7 @@ export class Stream {
   meander(nT) {
     const P = this.pos, O = this.out, look = this.look;
     O.set(P);
-    const [Tg, N, B] = this.v;
+    const Tg = this.v[0], N = this.v[1], B = this.v[2];
     const tq = this.style === 'film' ? Math.floor(this.fx.time * 12) / 12 : this.fx.time;
     let L = 0;
     for (let i = 1; i < nT; i++) L += Math.hypot(P[i * 3] - P[i * 3 - 3], P[i * 3 + 1] - P[i * 3 - 2], P[i * 3 + 2] - P[i * 3 - 1]);
@@ -509,7 +518,8 @@ export class Stream {
     this.capture = capMode ? Math.min(1, this.capture + dt * 6) : Math.max(0, this.capture - dt * 8);
     if (capMode) this.kind = 2;
 
-    if (on && !this.prevOn) { this.head = 0; this.tail = 0; this.fireBurst(); }
+    if (on && !this.prevOn) { this.head = 0; this.tail = 0; this.onTime = 0; this.fireBurst(); }
+    this.onTime = (this.onTime || 0) + dt;
     if (!on && this.prevOn) { this.offTime = 0; this.releasePuff(); }
     this.prevOn = on;
     if (on) { this.head = Math.min(1, this.head + dt / 0.075); this.tail = 0; this.lit = Math.min(1, this.lit + dt * 30); }
@@ -540,7 +550,8 @@ export class Stream {
       const sp = sn(tq * 9 + this.seed * 3);
       if (sp > 0.55 - (this.heat - 0.7) * 1.2) sputter = 0.35 + 0.3 * h(Math.floor(tq * 30));
     }
-    const intensity = this.lit * flick * sputter * (1 + this.capture * 0.15 + this.tension * 0.25 * this.capture);
+    const punch = 1 + 0.7 * Math.max(0, 1 - this.onTime / 0.18);
+    const intensity = this.lit * flick * sputter * punch * (1 + this.capture * 0.15 + this.tension * 0.25 * this.capture);
     this.U.uIntensity.value = intensity;
     this.U.uHead.value = this.head;
     this.U.uTail.value = this.tail;
@@ -580,7 +591,7 @@ export class Stream {
 
   sprites(show, I = 0, dt = 0) {
     const F = this.fx.flares, s = this.flare;
-    if (!show) { for (let i = 0; i < 6; i++) F.off(s + i); return; }
+    if (!show) { for (let i = 0; i < 8; i++) F.off(s + i); return; }
     const film = this.style === 'film';
     const o = this.origin, d = this.dir, tq = this.fx.time;
     const mx = o.x + d.x * 0.03, my = o.y + d.y * 0.03, mz = o.z + d.z * 0.03;
@@ -610,8 +621,8 @@ export class Stream {
           F.set(s + 4, ex, ey, ez, 0.16, 1.0, 0.92, 0.85, 1.6 * I, 0, 0, 0, 0.5, 1);
         }
       } else if (this.kind === 2) {
-        F.set(s + 3, ex, ey, ez, (film ? 0.6 : 0.5) * jit, 0.6, 1.0, 0.45, 1.6 * I, 6, tq * 1.5, h(Math.floor(fk)), 0.7, 1);
-        F.set(s + 4, ex, ey, ez, 0.2, 0.9, 1.0, 0.85, 2.5 * I, 0, 0, 0, 0.6, 1);
+        F.set(s + 3, ex, ey, ez, (film ? 0.4 : 0.34) * jit, 0.6, 1.0, 0.45, 0.45 * I, 6, tq * 1.5, h(Math.floor(fk)), 0.7, 1);
+        F.set(s + 4, ex, ey, ez, 0.12, 1.0, 1.0, 0.85, 0.9 * I, 0, 0, 0, 0.6, 1);
       } else {
         F.set(s + 3, ex, ey, ez, 0.22, 1.0, 0.6, 0.35, 0.8 * I, 0, 0, 0, 0.1, 1);
         F.off(s + 4);
@@ -619,8 +630,25 @@ export class Stream {
     } else { F.off(s + 3); F.off(s + 4); }
     if (this.capture > 0.3) {
       const G = this.ghost;
-      F.set(s + 5, G.x, G.y, G.z, (film ? 1.3 : 1.1) * (0.9 + 0.2 * h(Math.floor(fk))), film ? 1.0 : 1.0, film ? 0.45 : 0.6, film ? 0.55 : 0.35, 0.55 * I * this.capture, 0, 0, 0, 0.9, 1);
+      F.set(s + 5, G.x, G.y, G.z, (film ? 1.05 : 0.9) * (0.9 + 0.2 * h(Math.floor(fk))), 1.0, film ? 0.3 : 0.42, film ? 0.4 : 0.18, 0.06 * I * this.capture, 0, 0, 0, 0.9, 1);
     } else F.off(s + 5);
+    const cam = this.fx.camera;
+    if (film && cam) {
+      const Q = this.v[6], C = this.v[5];
+      Q.set(mx, my, mz).project(cam);
+      if (Q.z > -1 && Q.z < 1 && Math.abs(Q.x) < 1.2 && Math.abs(Q.y) < 1.2) {
+        cam.getWorldPosition(C);
+        const fov = cam.fov ? cam.fov * Math.PI / 180 : 0.9;
+        const D = 0.6, Hh = 2 * D * Math.tan(fov * 0.5);
+        const nx = Q.x, ny = Q.y;
+        for (let g = 0; g < 2; g++) {
+          const k = g === 0 ? -0.35 : -0.95;
+          Q.set(nx * k, ny * k, 0.5).unproject(cam).sub(C).normalize().multiplyScalar(D).add(C);
+          const sz = (g === 0 ? 0.022 : 0.045) * Hh;
+          F.set(s + 6 + g, Q.x, Q.y, Q.z, sz, g === 0 ? 0.25 : 0.2, g === 0 ? 0.95 : 0.8, g === 0 ? 0.55 : 0.75, (g === 0 ? 0.16 : 0.09) * I, 4, 0, 0, 0, 1);
+        }
+      } else { F.off(s + 6); F.off(s + 7); }
+    } else { F.off(s + 6); F.off(s + 7); }
   }
 
   impactFx(dt, I) {
@@ -646,8 +674,8 @@ export class Stream {
       this.acc.ember += dt * look.emberRate;
       while (this.acc.ember >= 1) {
         this.acc.ember -= 1;
-        P.embers.emit(e.x + n.x * 0.05, e.y + n.y * 0.05, e.z + n.z * 0.05, n.x * r.range(0.6, 2.0) + r.signed() * 0.9, r.range(0.2, 1.6), n.z * r.range(0.6, 2.0) + r.signed() * 0.9,
-          r.range(0.7, 1.8), r.range(0.006, 0.012), r.next(), 1.6, 0.35, fx.groundY, 2, 0, 0.4);
+        P.embers.emit(e.x + n.x * 0.05, e.y + n.y * 0.05, e.z + n.z * 0.05, n.x * r.range(1.0, 3.0) + r.signed() * 2.2, r.range(0.5, 2.5), n.z * r.range(1.0, 3.0) + r.signed() * 2.2,
+          r.range(0.4, 1.1), r.range(0.006, 0.012), r.next(), 1.2, 0.6, fx.groundY, 2, 0, 0.4);
       }
       this.acc.smoke += dt * look.smokeRate;
       while (this.acc.smoke >= 1) {
@@ -657,7 +685,7 @@ export class Stream {
       }
       this.decalAge += dt;
       const moved = this.lastDecal.distanceToSquared(e);
-      if ((moved > 0.03 && this.decalAge > 0.12) || this.decalAge > 1.4) {
+      if ((moved > 0.012 && this.decalAge > 0.05) || this.decalAge > 1.4) {
         this.decalAge = 0;
         this.lastDecal.copy(e);
         fx.decals.add(e, n, r.range(0.28, 0.46), 0, 50, r.next());
@@ -775,20 +803,21 @@ export class Stream {
     V.copy(o).addScaledVector(d, 0.2);
     L.request(V, lc[0], lc[1], lc[2], look.muzzleLight * I, 3, 10);
     if (this.head >= 1) {
+      const tT = (NT - 1) / (NP - 1);
       if (this.capture > 0.5) {
-        V.copy(this.ghost);
-        L.request(V, 1.0, 0.62, 0.35, look.endLight * 0.8 * I, 4, 14);
+        this.pathPoint(tT * 0.72, V);
+        L.request(V, 1.0, 0.62, 0.35, look.endLight * 0.3 * I, 4, 14);
       } else if (this.kind === 1) {
         V.copy(this.end).addScaledVector(this.endN, 0.35);
         L.request(V, le[0], le[1], le[2], look.endLight * I, 4, 14);
       } else if (this.kind === 2) {
         V.copy(this.end).addScaledVector(this.dir, -0.4);
-        L.request(V, 0.75, 1.0, 0.55, look.endLight * 0.7 * I, 4, 12);
+        L.request(V, 0.85, 0.8, 0.55, look.endLight * 0.3 * I, 4, 12);
       } else {
         this.pathPoint(0.85, V);
         L.request(V, le[0], le[1], le[2], look.endLight * 0.25 * I, 2, 10);
       }
-      this.pathPoint(0.5, V);
+      this.pathPoint(this.capture > 0.5 ? tT * 0.35 : 0.5, V);
       L.request(V, lc[0], lc[1], lc[2], look.muzzleLight * 0.8 * I, 1, 10);
     }
   }
