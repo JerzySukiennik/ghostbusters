@@ -177,8 +177,26 @@ async function boot() {
 
   window.__ready = true;
   window.__R = R;
+  window.__bench = (n = 90) => {
+    const gl = R.renderer.getContext(), out = [];
+    window.__hold = true;
+    for (let i = 0; i < n; i++) {
+      const t0 = performance.now();
+      phys.update(1 / 60, (h) => game.fixed(h), () => ecto.sync());
+      game.update(1 / 60, 1);
+      audio.update(camera);
+      R.render(t + i / 60, 1 / 60);
+      gl.finish();
+      out.push(performance.now() - t0);
+    }
+    window.__hold = false;
+    out.sort((a, b) => a - b);
+    const avg = out.reduce((a, b) => a + b, 0) / n;
+    return { avg: +avg.toFixed(2), p50: +out[n >> 1].toFixed(2), p95: +out[Math.floor(n * 0.95)].toFixed(2), calls: R.renderer.info.render.calls, tris: R.renderer.info.render.triangles };
+  };
   const frame = (now) => {
     requestAnimationFrame(frame);
+    if (window.__hold) return;
     const dt = Math.min(0.05, Math.max(0, (now - last) / 1000)); last = now; t += dt;
     if (running && paused) {
       input.dx = input.dy = 0;

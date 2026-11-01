@@ -131,6 +131,19 @@ try {
       await wait(250);
     }
     console.log('first capturable at', first);
+  } else if (scen === 'perf') {
+    await wait(1500);
+    console.log('perf title', JSON.stringify(await E(() => window.__bench(60))));
+    await suit(); await suited(); await wait(400);
+    console.log('perf street', JSON.stringify(await E(() => window.__bench(90))));
+    await E(() => { const g = window.__gb, V = g.player.feet.constructor; g.player.teleport(new V(4, 0, 6), 0); g.ghost.set('roam'); g.ghost.pos.set(5, 2.4, 13); g.ghost.prankT = g.ghost.tauntT = g.ghost.swoopCd = 99; g.engaged = true; g.mission = 'bust'; });
+    await wait(300);
+    const gp = await E(() => window.__gb.ghost.pos.toArray()); await aimAt(gp[0], gp[1], gp[2]);
+    await E(() => { window.__gb.input.btn[0] = true; });
+    await wait(500);
+    console.log('perf firing', JSON.stringify(await E(() => window.__bench(90))));
+    await shot('firing');
+    await E(() => { window.__gb.input.btn[0] = false; });
   } else if (scen === 'drive') {
     await E(() => { const g = window.__gb, p = g.ecto.doorPoint(new g.player.feet.constructor()); g.player.teleport(p, 0); });
     await wait(300); await page.keyboard.press('KeyF'); await wait(1600); await shot('seated');
