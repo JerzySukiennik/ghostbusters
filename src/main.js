@@ -178,6 +178,12 @@ async function boot() {
 
   window.__ready = true;
   window.__R = R;
+  if (params.has('demo')) {
+    running = true; startedAt = performance.now();
+    document.getElementById('start').classList.add('hide');
+    rig.endCine('foot');
+    game.demo();
+  }
   window.__bench = (n = 90) => {
     const gl = R.renderer.getContext(), out = [];
     window.__hold = true;

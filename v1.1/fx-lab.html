@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Proton Lab</title>
+<style>
+:root{--bg:#07080a;--panel:#0e1013;--line:#1d2026;--ink:#e9e6df;--mute:#7d7a74;--modern:#ff8a3d;--film:#ff4a6e;--violet:#9d7bff}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);font:13px/1.35 -apple-system,BlinkMacSystemFont,"SF Pro Text",system-ui,sans-serif;overflow:hidden}
+#app{display:grid;grid-template-rows:auto 1fr auto;height:100%}
+header{grid-row:1;display:flex;align-items:baseline;gap:14px;padding:12px 18px 10px;border-bottom:1px solid var(--line)}
+h1{margin:0;font:700 15px/1 -apple-system,"SF Pro Display",system-ui;letter-spacing:.18em}
+h1 i{font-style:normal;background:linear-gradient(90deg,var(--modern),var(--film) 55%,var(--violet));-webkit-background-clip:text;background-clip:text;color:transparent}
+.sub{color:var(--mute)}
+#now{margin-left:auto;color:var(--ink);font-variant-numeric:tabular-nums;max-width:55vw;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#assets{color:var(--mute);font-size:12px}
+#stage{grid-row:2;position:relative;display:flex;gap:2px;background:#000;min-height:0}
+.pane{position:relative;flex:1;min-width:0;overflow:hidden;cursor:crosshair}
+.pane canvas{display:block;width:100%!important;height:100%!important}
+.tag{position:absolute;left:14px;top:12px;display:flex;flex-direction:column;gap:2px;pointer-events:none;text-shadow:0 1px 8px #000}
+.tag b{font:800 12px/1 -apple-system,system-ui;letter-spacing:.22em}
+.tag span{font-size:11px;color:#c9c4bb;opacity:.8}
+.tag[data-style=modern] b{color:var(--modern)}
+.tag[data-style=film] b{color:var(--film)}
+footer{grid-row:3;display:flex;flex-direction:column;gap:8px;padding:10px 14px 12px;border-top:1px solid var(--line);background:var(--panel)}
+.row{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.btn,.chip{appearance:none;border:1px solid var(--line);background:#14171b;color:var(--ink);border-radius:9px;padding:7px 11px;font:inherit;cursor:pointer;transition:background .15s,border-color .15s,transform .1s}
+.btn:hover,.chip:hover{background:#1b1f25;border-color:#2b3038}
+.btn:active,.chip:active{transform:translateY(1px)}
+.btn.on,.chip.on{border-color:var(--modern);background:linear-gradient(180deg,#2a1a10,#1a120c)}
+.chip{padding:5px 10px;border-radius:99px;font-size:12px;text-transform:capitalize}
+kbd{display:inline-block;min-width:18px;margin-right:7px;padding:1px 5px;border-radius:5px;background:#23272e;color:#bdb8ae;font:600 11px/1.3 ui-monospace,Menlo,monospace;text-align:center}
+.hint{color:var(--mute);font-size:12px;margin-left:auto}
+.label{color:var(--mute);font-size:12px;margin-right:4px}
+body.shot header,body.shot footer{display:none}
+body.shot .tag{display:none}
+body.shot.labels .tag{display:flex}
+.stripcanvas{position:fixed;inset:0;width:100vw;height:auto;z-index:10;background:#000}
+@media (max-width:760px){#stage{flex-direction:column}.hint{display:none}}
+</style>
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/"
+} }
+</script>
+</head>
+<body>
+<div id="app">
+  <header>
+    <h1><i>PROTON LAB</i></h1>
+    <span class="sub">Onionhead, streams and trap: modern vs 1984, same scene, same seed</span>
+    <span id="assets"></span>
+    <span id="now">loading</span>
+  </header>
+  <div id="stage"></div>
+  <footer>
+    <div class="row" id="scenes"></div>
+    <div class="row" id="moods"><span class="label">Moods</span></div>
+    <div class="row"><span class="hint">Mouse: aim · LMB fire · RMB or Shift capture · H heat · Space pause · M next mood · V swap look (solo view: ?view=film)</span></div>
+  </footer>
+</div>
+<script>if (new URLSearchParams(location.search).get('labels')) document.body.classList.add('labels');</script>
+<script type="module" src="src/fx/lab/lab.js"></script>
+</body>
+</html>

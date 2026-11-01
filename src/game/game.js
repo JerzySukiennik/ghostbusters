@@ -353,6 +353,33 @@ export class Game {
     this.input.enabled = false;
   }
 
+  demo() {
+    const { gear, player, ghost, rig, input } = this;
+    this.packToBack(); gear.holdWand(); this.wandMode = 'hold'; this.wandBlend = 1;
+    gear.power = true; gear.powered = 1; player.packed = true;
+    this.mission = 'bust'; this.engaged = true;
+    player.teleport(V(6.2, 0, 9.5), 0.15);
+    ghost.set('roam'); ghost.pos.set(7.6, 2.9, 16.5); ghost.vel.set(0, 0, 0); ghost.will = 30;
+    ghost.prankT = ghost.tauntT = ghost.swoopCd = 1e9;
+    rig.yaw = 0.12; rig.pitch = 0.06;
+    input.enabled = true; input.locked = true;
+    this.demoOn = true;
+  }
+
+  demoTick() {
+    const { gear, ghost, rig, input, camera, proton } = this;
+    if (!ghost.alive) return;
+    const home = _a.set(7.6 + Math.sin(this.time * 0.9) * 1.2, 2.9 + Math.sin(this.time * 1.3) * 0.5, 16.5);
+    if (ghost.state !== 'wrangled') ghost.pos.lerp(home, 0.05);
+    camera.getWorldPosition(_b);
+    const d = _c.copy(proton.wrangling ? home : ghost.pos).sub(_b);
+    rig.yaw += (Math.atan2(d.x, d.z) - rig.yaw) * 0.08;
+    rig.pitch += (Math.atan2(d.y, Math.hypot(d.x, d.z)) - rig.pitch) * 0.08;
+    input.btn[0] = true; input.locked = true;
+    gear.heat = Math.min(gear.heat, 0.35); gear.over = 0;
+    proton.tension = 0; ghost.will = Math.max(ghost.will, 18);
+  }
+
   freeRoam() { this.hud.hideReport(); this.input.enabled = true; this.input.lock(); this.hud.objective('Free roam. Take the Ecto-1 for a spin.'); }
 
   slime() {
@@ -367,6 +394,7 @@ export class Game {
     this.time += dt;
     for (let i = this.timers.length - 1; i >= 0; i--) if (this.timers[i].t <= this.time) { const r = this.timers[i].r; this.timers.splice(i, 1); r(); }
     const { input, rig, player, avatar, ecto, gear, ghost, trap, proton, hud, fx, renderer } = this;
+    if (this.demoOn) this.demoTick();
     if (input.enabled && input.pressed('KeyV')) this.setStyle(this.style === 'film' ? 'modern' : 'film');
     this.jumpQ = input.pressed('Space') ? 0.15 : Math.max(0, (this.jumpQ || 0) - dt);
     rig.input(input.dx, input.dy);

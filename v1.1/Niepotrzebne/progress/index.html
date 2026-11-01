@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ghostbusters progress</title>
+<style>
+:root{--bg:#f4f4f2;--card:#fff;--ink:#141414;--mute:#7a7a76;--line:#e4e4e0;--accent:#2f8f5b;--warn:#b07a12;--err:#c0392b}
+@media (prefers-color-scheme:dark){:root{--bg:#111;--card:#1b1b1b;--ink:#eee;--mute:#8d8d88;--line:#2a2a2a}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.45 -apple-system,BlinkMacSystemFont,"SF Pro Text",system-ui,sans-serif}
+header{padding:28px 24px 8px;max-width:1400px;margin:0 auto;display:flex;align-items:baseline;gap:16px;flex-wrap:wrap}
+h1{font:600 26px/1.1 -apple-system,"SF Pro Display",system-ui;margin:0;letter-spacing:-.02em}
+#meta{color:var(--mute);font-size:13px}
+#phase{color:var(--mute);font-size:14px;max-width:1400px;margin:0 auto;padding:0 24px 16px}
+main{max-width:1400px;margin:0 auto;padding:0 24px 40px;display:grid;grid-template-columns:repeat(auto-fill,minmax(380px,1fr));gap:16px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px 16px 14px;display:flex;flex-direction:column;gap:10px;min-width:0}
+.top{display:flex;align-items:center;gap:10px}
+.title{font-weight:600;font-size:17px;flex:1}
+.chip{font-size:12px;padding:3px 9px;border-radius:99px;background:var(--line);color:var(--ink)}
+.chip.building,.chip.testing,.chip.research{background:color-mix(in srgb,var(--accent) 16%,transparent);color:var(--accent)}
+.chip.done{background:var(--accent);color:#fff}
+.chip.blocked{background:color-mix(in srgb,var(--err) 15%,transparent);color:var(--err)}
+.bar{height:4px;background:var(--line);border-radius:4px;overflow:hidden}
+.bar i{display:block;height:100%;background:var(--accent);transition:width .6s}
+.now{font-size:14px}
+.when{font-size:12px;color:var(--mute)}
+.imgs{display:grid;grid-template-columns:repeat(2,1fr);gap:6px}
+.imgs img{width:100%;aspect-ratio:16/9;object-fit:cover;border-radius:8px;background:var(--line);cursor:zoom-in}
+.imgs img:only-child{grid-column:1/-1}
+ul{margin:0;padding-left:18px;color:var(--mute);font-size:13px;max-height:120px;overflow:auto}
+.empty{color:var(--mute);font-size:14px}
+#zoom{position:fixed;inset:0;background:rgba(0,0,0,.85);display:none;align-items:center;justify-content:center;z-index:9}
+#zoom img{max-width:94vw;max-height:94vh;border-radius:10px}
+@media (max-width:440px){main{grid-template-columns:1fr;padding:0 16px 32px}header,#phase{padding-left:16px;padding-right:16px}}
+</style>
+</head>
+<body>
+<header><h1>Ghostbusters, faza 1</h1><span id="meta"></span></header>
+<div id="phase">Gauntlet loop, runda 1: budowniczowie. Krytycy ruszą dopiero po Twoim teście.</div>
+<main id="grid"></main>
+<div id="zoom"><img alt=""></div>
+<script>
+const LANES = [
+  ['lead', 'Gra: silnik, łapanie, misja'],
+  ['ecto1', 'Ecto-1'],
+  ['pack', 'Plecak, miotacz, pułapka'],
+  ['avatar', 'Awatar w kombinezonie'],
+  ['fx', 'Strumienie i duch (2 warianty)'],
+  ['plate', 'Płyta i rekwizyty'],
+  ['audio', 'Dźwięki'],
+];
+const STATE = { research: 'research', building: 'buduje', testing: 'testuje', done: 'gotowe', blocked: 'zablokowane', idle: 'czeka' };
+const grid = document.getElementById('grid');
+const zoom = document.getElementById('zoom');
+zoom.onclick = () => (zoom.style.display = 'none');
+function ago(t) {
+  if (!t) return '';
+  const s = Math.max(0, (Date.now() - new Date(t)) / 1000);
+  return s < 60 ? 'przed chwilą' : s < 3600 ? Math.round(s / 60) + ' min temu' : Math.round(s / 3600) + ' h temu';
+}
+function esc(s) { return String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
+async function load() {
+  const cards = await Promise.all(LANES.map(async ([id, title]) => {
+    try {
+      const r = await fetch(`status/${id}.json?t=${Date.now()}`, { cache: 'no-store' });
+      if (!r.ok) throw 0;
+      return { id, title, ...(await r.json()) };
+    } catch { return { id, title, state: 'idle', now: 'jeszcze nie ruszył' }; }
+  }));
+  grid.innerHTML = cards.map((c) => `
+    <section class="card">
+      <div class="top"><span class="title">${esc(c.title)}</span><span class="chip ${esc(c.state)}">${STATE[c.state] || esc(c.state)}</span></div>
+      <div class="bar"><i style="width:${Math.max(0, Math.min(100, c.pct || 0))}%"></i></div>
+      <div class="now">${esc(c.now || '')}</div>
+      <div class="when">${ago(c.updated)}</div>
+      ${(c.images || []).length ? `<div class="imgs">${c.images.slice(0, 4).map((p) => `<img loading="lazy" src="../../${esc(p)}?t=${encodeURIComponent(c.updated || '')}" alt="">`).join('')}</div>` : ''}
+      ${(c.log || []).length ? `<ul>${c.log.slice(0, 8).map((l) => `<li>${esc(l)}</li>`).join('')}</ul>` : ''}
+    </section>`).join('');
+  grid.querySelectorAll('.imgs img').forEach((im) => (im.onclick = () => { zoom.querySelector('img').src = im.src; zoom.style.display = 'flex'; }));
+  document.getElementById('meta').textContent = 'odświeżane co 8 s · ' + new Date().toLocaleTimeString('pl-PL');
+}
+load();
+setInterval(load, 8000);
+</script>
+</body>
+</html>
