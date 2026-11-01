@@ -8,10 +8,9 @@ Licences: CC0 1.0 (no attribution required, credited anyway) and CC BY 4.0 / CC 
 
 | Sound | Source (freesound ID) | Author | Licence | Processing |
 |---|---|---|---|---|
-| `pack_powerup` | [Sci-Fi Engine.wav](https://freesound.org/people/lewis100011/sounds/241262/) (241262) | lewis100011 | CC BY 3.0 | reversed; silence trimmed; cut to 3 s; 50 ms fade-out; mono; -16 LUFS, peak -1.5 dBFS |
+| `pack_powerup` | [Sci-Fi Engine.wav](https://freesound.org/people/lewis100011/sounds/241262/) (241262) | lewis100011 | CC BY 3.0 | silence trimmed; cut to 3 s; 50 ms fade-out; mono; -16 LUFS, peak -1.5 dBFS |
 | `pack_hum` | [Foley_Mechanism_Light_Buzz_Short_Loop_Mono_DR05.wav](https://freesound.org/people/Nox_Sound/sounds/553075/) (553075) | Nox_Sound | CC0 1.0 | seamless loop, 0.6 s crossfade; mono; -18 LUFS, peak -1.5 dBFS |
 | `pack_powerdown` | [PropellerSpin_Slow](https://freesound.org/people/Wavewire/sounds/853012/) (853012) | Wavewire | CC BY 4.0 | silence trimmed; cut to 3 s; 250 ms fade-out; mono; -16 LUFS, peak -1.5 dBFS |
-| `pack_overheat` | [beeploop-02.flac](https://freesound.org/people/833-45/sounds/9376/) (9376) | 833-45 | CC BY 3.0 | seamless loop, 0.2 s crossfade; mono; -18 LUFS, peak -1.5 dBFS |
 | `pack_vent` | [steam.aif](https://freesound.org/people/tim.kahn/sounds/65176/) (65176) | tim.kahn | CC BY 4.0 | silence trimmed; cut to 2.5 s; 300 ms fade-out; mono; -16 LUFS, peak -1.5 dBFS |
 | `wand_draw` | [OfficeHolePuncher.wav](https://freesound.org/people/Tycoh/sounds/460352/) (460352) | Tycoh | CC0 1.0 | silence trimmed; mono; -16 LUFS, peak -1.5 dBFS |
 | `strap_buckle` | [Belt Buckle](https://freesound.org/people/IndigoRay/sounds/331719/) (331719) | IndigoRay | CC0 1.0 | silence trimmed; mono; -18 LUFS, peak -1.5 dBFS |
@@ -28,19 +27,6 @@ Licences: CC0 1.0 (no attribution required, credited anyway) and CC BY 4.0 / CC 
 | `zap` | [ELECTRIC_ZAP_001.wav](https://freesound.org/people/JoelAudio/sounds/136542/) (136542) | JoelAudio | CC0 1.0 | silence trimmed; mono; -16 LUFS, peak -1.5 dBFS |
 | `zap_2` | [electric zap.aiff](https://freesound.org/people/bevibeldesign/sounds/315918/) (315918) | bevibeldesign | CC BY 4.0 | silence trimmed; mono; -16 LUFS, peak -1.5 dBFS |
 | `zap_3` | [Zap.ogg](https://freesound.org/people/egomassive/sounds/536741/) (536741) | egomassive | CC0 1.0 | silence trimmed; mono; -16 LUFS, peak -1.5 dBFS |
-| `ghost_laugh` | [Evil Laugh_1.wav](https://freesound.org/people/NinjaSharkStudios/sounds/646307/) (646307) | NinjaSharkStudios | CC0 1.0 | silence trimmed; mono; -16 LUFS, peak -1.5 dBFS |
-| `ghost_laugh_2` | [Gremlin Laughing - Evil Creature](https://freesound.org/people/el_boss/sounds/650615/) (650615) | el_boss | CC0 1.0 | silence trimmed; mono; -16 LUFS, peak -1.5 dBFS |
-| `ghost_laugh_3` | [EVIL LAUGH.wav](https://freesound.org/people/xtrgamr/sounds/252785/) (252785) | xtrgamr | CC BY 4.0 | silence trimmed; mono; -16 LUFS, peak -1.5 dBFS |
-| `ghost_wail` | [Dark Ghost Warrior Voice 04 - Spectral Warlock Vocal Defeat](https://freesound.org/people/TommasoMotteran/sounds/861568/) (861568) | TommasoMotteran | CC BY 4.0 | silence trimmed; mono; -16 LUFS, peak -1.5 dBFS |
-| `ghost_wail_2` | [zombie moan 01](https://freesound.org/people/TRNGLE/sounds/390614/) (390614) | TRNGLE | CC BY 3.0 | silence trimmed; mono; -16 LUFS, peak -1.5 dBFS |
-| `ghost_wail_3` | [Moan_Extended 01.wav](https://freesound.org/people/n_audioman/sounds/325402/) (325402) | n_audioman | CC BY 4.0 | silence trimmed; mono; -16 LUFS, peak -1.5 dBFS |
-| `ghost_roar` | [Scary Monster Roar #2](https://freesound.org/people/NicknameLarry/sounds/489901/) (489901) | NicknameLarry | CC0 1.0 | silence trimmed; mono; -16 LUFS, peak -1.5 dBFS |
-| `ghost_hurt` | [Dragon Hurt](https://freesound.org/people/qubodup/sounds/442966/) (442966) | qubodup | CC0 1.0 | silence trimmed; mono; -16 LUFS, peak -1.5 dBFS |
-| `ghost_hurt_2` | [Mummy Zombie Hurt 3](https://freesound.org/people/Frostnox/sounds/796670/) (796670) | Frostnox | CC BY 4.0 | silence trimmed; mono; -16 LUFS, peak -1.5 dBFS |
-| `ghost_hurt_3` | [Orc Grunt 3](https://freesound.org/people/qubodup/sounds/738439/) (738439) | qubodup | CC BY 4.0 | silence trimmed; mono; -16 LUFS, peak -1.5 dBFS |
-| `ghost_eat` | [Slurping, Sipping and Gulp 2](https://freesound.org/people/redafs/sounds/348647/) (348647) | redafs | CC BY 4.0 | silence trimmed; mono; -16 LUFS, peak -1.5 dBFS |
-| `ghost_eat_2` | [slurp.mp3](https://freesound.org/people/qalba4j/sounds/401932/) (401932) | qalba4j | CC0 1.0 | silence trimmed; mono; -16 LUFS, peak -1.5 dBFS |
-| `ghost_eat_3` | [coffee slurp 5](https://freesound.org/people/benkenart/sounds/568043/) (568043) | benkenart | CC0 1.0 | silence trimmed; mono; -16 LUFS, peak -1.5 dBFS |
 | `ghost_whoosh` | [Double Whoosh](https://freesound.org/people/qubodup/sounds/60028/) (60028) | qubodup | CC0 1.0 | silence trimmed; mono; -16 LUFS, peak -1.5 dBFS |
 | `ghost_whoosh_2` | [Rubber Crunch  whoosh no punch.wav](https://freesound.org/people/alexkandrell/sounds/170518/) (170518) | alexkandrell | CC BY 3.0 | silence trimmed; mono; -16 LUFS, peak -1.5 dBFS |
 | `ghost_captured` | [Monster suction](https://freesound.org/people/FK_Prod/sounds/188960/) (188960) | FK_Prod | CC0 1.0 | silence trimmed; mono; -16 LUFS, peak -1.5 dBFS |
@@ -57,12 +43,9 @@ Licences: CC0 1.0 (no attribution required, credited anyway) and CC BY 4.0 / CC 
 | `trap_beep` | [beeping loop.flac](https://freesound.org/people/tim.kahn/sounds/22617/) (22617) | tim.kahn | CC BY 4.0 | seamless loop, 0.15 s crossfade; mono; -18 LUFS, peak -1.5 dBFS |
 | `trap_smoke` | [metal_hissing.wav](https://freesound.org/people/vibe_crc/sounds/50620/) (50620) | vibe_crc | CC0 1.0 | silence trimmed; cut to 3 s; 400 ms fade-out; mono; -18 LUFS, peak -1.5 dBFS |
 | `ecto_start` | [Old Truck Ignition.wav](https://freesound.org/people/THO2160416/sounds/512456/) (512456) | THO2160416 | CC BY 3.0 | silence trimmed; mono; -16 LUFS, peak -1.5 dBFS |
-| `ecto_idle` | [auto22idle.wav](https://freesound.org/people/hikkanen/sounds/659094/) (659094) | hikkanen | CC0 1.0 | seamless loop, 0.5 s crossfade; mono; -18 LUFS, peak -1.5 dBFS |
-| `ecto_drive` | [Big Block V8 Rev.mp3](https://freesound.org/people/Henaway/sounds/127980/) (127980) | Henaway | CC0 1.0 | seamless loop, 0.25 s crossfade; mono; -18 LUFS, peak -1.5 dBFS |
 | `ecto_off` | [VEHEngi-HYUNDAI KONA_Engine Start Stop Exterior 02_KVV AUDIO_FREE](https://freesound.org/people/KVV_Audio/sounds/845604/) (845604) | KVV_Audio | CC BY 4.0 | cut 5 to 6.4 s; silence trimmed; mono; -16 LUFS, peak -1.5 dBFS |
-| `ecto_siren` | [SS2000_wail_seamless](https://freesound.org/people/ThePeasantJoe/sounds/800708/) (800708) | ThePeasantJoe | CC0 1.0 | seamless loop, 0.2 s crossfade; mono; -16 LUFS, peak -1.5 dBFS |
 | `ecto_horn` | [1964 Chrysler Horn Honk (Short)](https://freesound.org/people/lonemonk/sounds/217138/) (217138) | lonemonk | CC BY 4.0 | silence trimmed; mono; -16 LUFS, peak -1.5 dBFS |
-| `door_open` | [Car Door open and close.wav](https://freesound.org/people/NachtmahrTV/sounds/556689/) (556689) | NachtmahrTV | CC0 1.0 | event 1 of the source; silence trimmed; mono; -16 LUFS, peak -1.5 dBFS |
+| `door_open` | [Car Door open and close.wav](https://freesound.org/people/NachtmahrTV/sounds/556689/) (556689) | NachtmahrTV | CC0 1.0 | silence trimmed; mono; -16 LUFS, peak -1.5 dBFS |
 | `door_close` | [Car_Door_Closing_Dull_04](https://freesound.org/people/BlondPanda/sounds/778421/) (778421) | BlondPanda | CC0 1.0 | silence trimmed; mono; -16 LUFS, peak -1.5 dBFS |
 | `reardoor_open` | [doorCreaking9.wav](https://freesound.org/people/Zabuhailo/sounds/148114/) (148114) | Zabuhailo | CC BY 4.0 | silence trimmed; mono; -16 LUFS, peak -1.5 dBFS |
 | `reardoor_close` | [Wood Door Close with Metal Latch 02](https://freesound.org/people/MadMaxSFX/sounds/352329/) (352329) | MadMaxSFX | CC0 1.0 | silence trimmed; mono; -16 LUFS, peak -1.5 dBFS |
@@ -93,12 +76,81 @@ Licences: CC0 1.0 (no attribution required, credited anyway) and CC BY 4.0 / CC 
 | `amb_wind` | [wind draft loop 1](https://freesound.org/people/nsstudios/sounds/651541/) (651541) | nsstudios | CC BY 4.0 | seamless loop, 2 s crossfade; stereo; -24 LUFS, peak -1.5 dBFS |
 | `ui_click` | [UI Button Click](https://freesound.org/people/benzix2/sounds/467951/) (467951) | benzix2 | CC0 1.0 | silence trimmed; mono; -20 LUFS, peak -1.5 dBFS |
 | `ui_confirm` | [Click](https://freesound.org/people/complex_waveform/sounds/213148/) (213148) | complex_waveform | CC BY 4.0 | silence trimmed; mono; -20 LUFS, peak -1.5 dBFS |
-| `step_asphalt` | [Footsteps boots run on asphalt](https://freesound.org/people/YannSauvin/sounds/777606/) (777606) | YannSauvin | CC0 1.0 | event 2 of the source; silence trimmed; 20 ms fade-out; mono; -20 LUFS, peak -1.5 dBFS |
-| `step_asphalt_2` | [Footsteps boots run on asphalt](https://freesound.org/people/YannSauvin/sounds/777606/) (777606) | YannSauvin | CC0 1.0 | event 3 of the source; silence trimmed; 20 ms fade-out; mono; -20 LUFS, peak -1.5 dBFS |
-| `step_asphalt_3` | [Footsteps boots run on asphalt](https://freesound.org/people/YannSauvin/sounds/777606/) (777606) | YannSauvin | CC0 1.0 | event 6 of the source; silence trimmed; 20 ms fade-out; mono; -20 LUFS, peak -1.5 dBFS |
-| `step_asphalt_4` | [Footsteps boots run on asphalt](https://freesound.org/people/YannSauvin/sounds/777606/) (777606) | YannSauvin | CC0 1.0 | event 7 of the source; silence trimmed; 20 ms fade-out; mono; -20 LUFS, peak -1.5 dBFS |
-| `step_asphalt_5` | [Footsteps boots run on asphalt](https://freesound.org/people/YannSauvin/sounds/777606/) (777606) | YannSauvin | CC0 1.0 | event 10 of the source; silence trimmed; 20 ms fade-out; mono; -20 LUFS, peak -1.5 dBFS |
-| `step_asphalt_6` | [Footsteps boots run on asphalt](https://freesound.org/people/YannSauvin/sounds/777606/) (777606) | YannSauvin | CC0 1.0 | event 11 of the source; silence trimmed; 20 ms fade-out; mono; -20 LUFS, peak -1.5 dBFS |
+| `ghost_laugh` | [giggle3.wav](https://freesound.org/people/Reitanna/sounds/235166/) (235166) + [Stomach Gurgle 5.wav](https://freesound.org/people/sribubba/sounds/202949/) (202949) | Reitanna, sribubba | CC0 1.0 | layered; pitched -4 st; pitched -5 st; +0.25 s; mixed at -6 dB; silence trimmed; cut to 2.6 s; 50 ms fade-out; mono; -16 LUFS, peak -2 dBFS |
+| `ghost_laugh_2` | [Stupid person giggle.mp3](https://freesound.org/people/David_Jacob/sounds/434790/) (434790) + [BlowingRaspberry.mp3](https://freesound.org/people/flowerdove2168/sounds/466900/) (466900) | David_Jacob, flowerdove2168 | CC0 1.0 | layered; pitched -3 st; pitched -2 st; +0.5 s; mixed at -4 dB; silence trimmed; cut to 2.6 s; 50 ms fade-out; mono; -16 LUFS, peak -2 dBFS |
+| `ghost_laugh_3` | [Ethan - Giggle 2.ogg](https://freesound.org/people/FourthWoods/sounds/439091/) (439091) + [Stomach Gurgle 9](https://freesound.org/people/R1nkata/sounds/720820/) (720820) | FourthWoods, R1nkata | CC-BY, CC0 1.0 | layered; pitched -6 st; pitched -4 st; +0.1 s; mixed at -6 dB; silence trimmed; cut to 2.6 s; 50 ms fade-out; mono; -16 LUFS, peak -2 dBFS |
+| `ghost_roar` | [belch.wav](https://freesound.org/people/kulppari/sounds/345273/) (345273) + [The Loudest Belch.mp3](https://freesound.org/people/SonicBlu/sounds/346022/) (346022) + [Stomach Gurgle 9](https://freesound.org/people/R1nkata/sounds/720820/) (720820) | R1nkata, SonicBlu, kulppari | CC0 1.0 | layered; pitched -7 st; pitched -5 st; +0.1 s; mixed at -2 dB; pitched -8 st; mixed at -8 dB; silence trimmed; cut to 2.4 s; 50 ms fade-out; mono; -15 LUFS, peak -2 dBFS |
+| `ghost_roar_2` | [Burp 5](https://freesound.org/people/tehteho/sounds/399767/) (399767) + [Whine.wav](https://freesound.org/people/nataliabm09/sounds/532969/) (532969) | nataliabm09, tehteho | CC0 1.0 | layered; pitched -6 st; pitched -9 st; +0.2 s; mixed at -4 dB; silence trimmed; cut to 2.4 s; 50 ms fade-out; mono; -15 LUFS, peak -2 dBFS |
+| `ghost_wail` | [Whine.wav](https://freesound.org/people/nataliabm09/sounds/532969/) (532969) + [Stomach Gurgle 5.wav](https://freesound.org/people/sribubba/sounds/202949/) (202949) | nataliabm09, sribubba | CC0 1.0 | layered; pitched -5 st; pitched -7 st; +0.3 s; mixed at -8 dB; silence trimmed; cut to 4 s; 300 ms fade-out; mono; -16 LUFS, peak -2 dBFS |
+| `ghost_wail_2` | [baby_whine.aif](https://freesound.org/people/tim.kahn/sounds/18276/) (18276) + [Stomach Gurgle 9](https://freesound.org/people/R1nkata/sounds/720820/) (720820) | R1nkata, tim.kahn | CC BY 4.0, CC0 1.0 | layered; pitched -9 st; pitched -9 st; +0.3 s; mixed at -8 dB; silence trimmed; cut to 4 s; 300 ms fade-out; mono; -16 LUFS, peak -2 dBFS |
+| `ghost_wail_3` | [Dethan whining](https://freesound.org/people/sirdethan/sounds/718999/) (718999) + [Stomach Gurgle 5.wav](https://freesound.org/people/sribubba/sounds/202949/) (202949) | sirdethan, sribubba | CC BY 4.0, CC0 1.0 | layered; pitched -4 st; pitched -8 st; +0.3 s; mixed at -8 dB; silence trimmed; cut to 3.5 s; 300 ms fade-out; mono; -16 LUFS, peak -2 dBFS |
+| `ghost_hurt` | [BlowingRaspberry.mp3](https://freesound.org/people/flowerdove2168/sounds/466900/) (466900) + [TOONAnml-Blue Snowball Microphone, CU_Pig Squeal, Human Imitation, Cartoon_Nicholas Judy_TDC](https://freesound.org/people/designerschoice/sounds/805051/) (805051) | designerschoice, flowerdove2168 | CC BY 4.0, CC0 1.0 | layered; pitched -3 st; pitched -4 st; +0.05 s; mixed at -6 dB; silence trimmed; cut to 1.5 s; 50 ms fade-out; mono; -16 LUFS, peak -2 dBFS |
+| `ghost_hurt_2` | [raspberry.wav](https://freesound.org/people/Reitanna/sounds/323710/) (323710) + [Tongue out ( raspberry)](https://freesound.org/people/majd_abdulqadir/sounds/345382/) (345382) | Reitanna, majd_abdulqadir | CC BY 4.0, CC0 1.0 | layered; pitched -5 st; pitched -2 st; +0.3 s; mixed at -3 dB; silence trimmed; cut to 1.6 s; 50 ms fade-out; mono; -16 LUFS, peak -2 dBFS |
+| `ghost_hurt_3` | [Raspberry](https://freesound.org/people/9voltfan/sounds/736457/) (736457) + [Stupid person giggle.mp3](https://freesound.org/people/David_Jacob/sounds/434790/) (434790) | 9voltfan, David_Jacob | CC0 1.0 | layered; pitched -6 st; pitched -5 st; +0.1 s; mixed at -8 dB; silence trimmed; cut to 1.6 s; 50 ms fade-out; mono; -16 LUFS, peak -2 dBFS |
+| `ghost_eat` | [slurp1.wav](https://freesound.org/people/herraportti/sounds/436665/) (436665) + [Gulp.boaay](https://freesound.org/people/BOAAY/sounds/552676/) (552676) + [Chewing.mp3](https://freesound.org/people/douglas6969/sounds/508393/) (508393) | BOAAY, douglas6969, herraportti | CC0, CC0 1.0 | layered; pitched -3 st; pitched -4 st; +0.3 s; mixed at -3 dB; pitched -3 st; +0.6 s; mixed at -4 dB; silence trimmed; cut to 3 s; 80 ms fade-out; mono; -16 LUFS, peak -2 dBFS |
+| `ghost_eat_2` | [Slurping.mp3](https://freesound.org/people/MilliiStewart15/sounds/566573/) (566573) + [comical bite and chew](https://freesound.org/people/watsnick/sounds/423479/) (423479) | MilliiStewart15, watsnick | CC BY 4.0 | layered; pitched -6 st; pitched -4 st; +0.25 s; mixed at -4 dB; silence trimmed; cut to 2.5 s; 80 ms fade-out; mono; -16 LUFS, peak -2 dBFS |
+| `ghost_eat_3` | [Slurping Noodles](https://freesound.org/people/sirTmoney/sounds/488578/) (488578) + [gulp, gulping sound](https://freesound.org/people/SoundThief1960/sounds/761619/) (761619) + [Gulping, Swallowing 2](https://freesound.org/people/AtoMediaDesign/sounds/648973/) (648973) | AtoMediaDesign, SoundThief1960, sirTmoney | CC BY 4.0, CC0 1.0 | layered; pitched -2 st; pitched -5 st; +0.15 s; mixed at -3 dB; pitched -3 st; +0.5 s; mixed at -6 dB; silence trimmed; cut to 3 s; 80 ms fade-out; mono; -16 LUFS, peak -2 dBFS |
+| `ecto_idle` | [v8 engine rev.wav](https://freesound.org/people/overmedium/sounds/651534/) (651534) + [hyundai-i20-car-idle-9](https://freesound.org/people/compsgn120JP/sounds/776234/) (776234) | compsgn120JP, overmedium | CC0 1.0 | layered; pitched -7 st; stable 4 s window; pitched -5 st; stable 3.5 s window; mixed at -6 dB; seamless loop, 0.4 s crossfade; mono; -18 LUFS, peak -2 dBFS |
+| `ecto_drive` | [Big Block V8 Rev.mp3](https://freesound.org/people/Henaway/sounds/127980/) (127980) + [Audi V8 Acceleration Sound](https://freesound.org/people/FFKoenigsegg20012017/sounds/339703/) (339703) | FFKoenigsegg20012017, Henaway | CC0 1.0 | layered; stable 3.5 s window; pitched -4 st; stable 3.5 s window; mixed at -7 dB; seamless loop, 0.25 s crossfade; mono; -18 LUFS, peak -2 dBFS |
+| `ecto_siren` | [Siren](https://freesound.org/people/maycuddlepie/sounds/330299/) (330299) | maycuddlepie | CC0 1.0 | stable 6 s window; seamless loop, 0.2 s crossfade; mono; -16 LUFS, peak -2 dBFS |
+| `ecto_siren_2` | [VEHSirn_Police Car Siren.Go Under SFX_EM.wav](https://freesound.org/people/newlocknew/sounds/692523/) (692523) | newlocknew | CC BY 4.0 | stable 6 s window; seamless loop, 0.2 s crossfade; mono; -16 LUFS, peak -2 dBFS |
+| `pack_overheat` | [Fire Alarm Panel Repeated Beeps](https://freesound.org/people/loganzsound/sounds/874698/) (874698) | loganzsound | CC0 1.0 | seamless loop, 0.15 s crossfade; mono; -18 LUFS, peak -2 dBFS |
+| `fire_bell` | [Wheelock MT-115-WH Code 3 Sound File](https://freesound.org/people/Ricardoraymond17/sounds/733332/) (733332) | Ricardoraymond17 | CC0 1.0 | stable 4 s window; seamless loop, 0.1 s crossfade; mono; -16 LUFS, peak -2 dBFS |
+| `fire_bell_2` | [System Sensor Advance Code 3 Sound File](https://freesound.org/people/Ricardoraymond17/sounds/733331/) (733331) | Ricardoraymond17 | CC0 1.0 | stable 4 s window; seamless loop, 0.1 s crossfade; mono; -16 LUFS, peak -2 dBFS |
+| `fire_pole_slide` | [Pole Role](https://freesound.org/people/cdonahueucsd/sounds/620965/) (620965) | cdonahueucsd | CC-BY | silence trimmed; cut to 2.5 s; 100 ms fade-out; mono; -16 LUFS, peak -2 dBFS |
+| `fire_pole_slide_2` | [Aluminium Pole 2](https://freesound.org/people/spoonbender/sounds/352775/) (352775) | spoonbender | CC BY 4.0 | silence trimmed; cut to 1.5 s; 50 ms fade-out; mono; -16 LUFS, peak -2 dBFS |
+| `fire_garage_open` | [Opening Garage.mp3](https://freesound.org/people/bokal/sounds/414820/) (414820) | bokal | CC0 1.0 | silence trimmed; cut to 7 s; 200 ms fade-out; mono; -16 LUFS, peak -2 dBFS |
+| `fire_garage_open_2` | [080316 garage door opening.wav](https://freesound.org/people/BoilingSand/sounds/49997/) (49997) | BoilingSand | CC BY 3.0 | silence trimmed; cut to 8 s; 200 ms fade-out; mono; -16 LUFS, peak -2 dBFS |
+| `fire_garage_close` | [Close Heavy Door.ogg](https://freesound.org/people/Hefler/sounds/420971/) (420971) | Hefler | CC BY 3.0 | silence trimmed; cut to 6 s; 200 ms fade-out; mono; -16 LUFS, peak -2 dBFS |
+| `fire_garage_close_2` | [open close door 10m 150903_0759 ST.wav](https://freesound.org/people/klankbeeld/sounds/565187/) (565187) | klankbeeld | CC BY 4.0 | silence trimmed; cut to 5 s; 200 ms fade-out; mono; -16 LUFS, peak -2 dBFS |
+| `contain_insert` | [Lock_click_in_steel_door](https://freesound.org/people/Zabuhailo/sounds/812252/) (812252) | Zabuhailo | CC BY 4.0 | silence trimmed; cut to 1.6 s; 50 ms fade-out; mono; -16 LUFS, peak -2 dBFS |
+| `contain_insert_2` | [Generic Metallic Click 2](https://freesound.org/people/Cpfcfan10/sounds/789922/) (789922) | Cpfcfan10 | CC BY 4.0 | silence trimmed; cut to 1 s; 50 ms fade-out; mono; -16 LUFS, peak -2 dBFS |
+| `contain_lever` | [Old Lever Pull](https://freesound.org/people/DrMinky/sounds/167048/) (167048) | DrMinky | CC BY 4.0 | silence trimmed; cut to 2 s; 50 ms fade-out; mono; -16 LUFS, peak -2 dBFS |
+| `contain_hum` | [[Elektrosluch] 50Hz Transformer.WAV](https://freesound.org/people/gear_clinkz/sounds/394526/) (394526) | gear_clinkz | CC BY 4.0 | stable 5 s window; seamless loop, 0.3 s crossfade; mono; -20 LUFS, peak -2 dBFS |
+| `contain_seal` | [R19-40-Steam Hiss.wav](https://freesound.org/people/craigsmith/sounds/479297/) (479297) | craigsmith | CC0 1.0 | silence trimmed; cut to 3 s; 300 ms fade-out; mono; -16 LUFS, peak -2 dBFS |
+| `bus_air_brake` | [WaHi Airbrakes blast.mp3](https://freesound.org/people/chripei/sounds/393663/) (393663) | chripei | CC0 1.0 | silence trimmed; cut to 2.5 s; 100 ms fade-out; mono; -16 LUFS, peak -2 dBFS |
+| `amb_subway_rumble` | [NYC subway subtle rumble](https://freesound.org/people/Vortichez/sounds/432723/) (432723) | Vortichez | CC BY 4.0 | stable 10 s window; seamless loop, 1 s crossfade; stereo; -24 LUFS, peak -2 dBFS |
+| `amb_steam_hiss` | [Steam 4](https://freesound.org/people/nicStage/sounds/197331/) (197331) | nicStage | CC BY 4.0 | stable 5 s window; seamless loop, 0.3 s crossfade; stereo; -24 LUFS, peak -2 dBFS |
+| `amb_distant_siren` | [ambulance passing.aif](https://freesound.org/people/plamdi1/sounds/95054/) (95054) | plamdi1 | CC0 1.0 | filtered; silence trimmed; cut to 8 s; 600 ms fade-out; stereo; -22 LUFS, peak -2 dBFS |
+| `amb_horn_far` | [auto horn honk real nice clean slight street echo India.flac](https://freesound.org/people/kyles/sounds/451321/) (451321) | kyles | CC0 1.0 | filtered; silence trimmed; cut to 2.5 s; mono; -20 LUFS, peak -2 dBFS |
+| `traffic_horn` | [JM_TRANSPORT_EXT_Horn 01a - Car_Short_Mini Countryman.wav](https://freesound.org/people/Julien_Matthey/sounds/436589/) (436589) | Julien_Matthey | CC0 1.0 | silence trimmed; cut to 1.6 s; mono; -16 LUFS, peak -2 dBFS |
+| `traffic_horn_2` | [Horn Honk.wav](https://freesound.org/people/mkoenig/sounds/81173/) (81173) | mkoenig | CC BY 3.0 | silence trimmed; cut to 2.4 s; mono; -16 LUFS, peak -2 dBFS |
+| `traffic_idle_car` | [hyundai-i20-car-idle-9](https://freesound.org/people/compsgn120JP/sounds/776234/) (776234) | compsgn120JP | CC0 1.0 | seamless loop, 0.3 s crossfade; mono; -18 LUFS, peak -2 dBFS |
+| `traffic_idle_truck` | [school bus truck int idle front foot area perspective.flac](https://freesound.org/people/kyles/sounds/451699/) (451699) | kyles | CC0 | stable 6 s window; seamless loop, 0.4 s crossfade; mono; -18 LUFS, peak -2 dBFS |
+| `traffic_idle_bus` | [bus5 idle](https://freesound.org/people/prabashm/sounds/711410/) (711410) | prabashm | CC0 1.0 | seamless loop, 0.3 s crossfade; mono; -18 LUFS, peak -2 dBFS |
+| `traffic_pass_car` | [Car pass (fast)](https://freesound.org/people/its-slava/sounds/816361/) (816361) | its-slava | CC BY 4.0 | silence trimmed; cut to 3 s; 100 ms fade-out; mono; -18 LUFS, peak -2 dBFS |
+| `traffic_pass_truck` | [Vehicle_Mail Truck Pass.mp3](https://freesound.org/people/CGEffex/sounds/89568/) (89568) | CGEffex | CC BY 4.0 | silence trimmed; cut to 5 s; 200 ms fade-out; mono; -18 LUFS, peak -2 dBFS |
+| `traffic_pass_truck_2` | [Utility vehicle_passby 1A](https://freesound.org/people/snapssound/sounds/751202/) (751202) | snapssound | CC BY 4.0 | silence trimmed; cut to 6 s; 200 ms fade-out; mono; -18 LUFS, peak -2 dBFS |
+| `traffic_pass_bus` | [bus_pass5.wav](https://freesound.org/people/bus_samples_/sounds/657493/) (657493) | bus_samples_ | CC0 1.0 | silence trimmed; cut to 4.5 s; 200 ms fade-out; mono; -18 LUFS, peak -2 dBFS |
+| `traffic_pass_bus_2` | [A bus passes by](https://freesound.org/people/VasiliiFeshchenko/sounds/839574/) (839574) | VasiliiFeshchenko | CC0 1.0 | silence trimmed; cut to 5 s; 200 ms fade-out; mono; -18 LUFS, peak -2 dBFS |
+| `crowd_murmur` | [Another Crowd](https://freesound.org/people/unfa/sounds/211146/) (211146) | unfa | CC0 1.0 | stable 14 s window; seamless loop, 1.5 s crossfade; stereo; -24 LUFS, peak -2 dBFS |
+| `crowd_scream` | [Scream NO - Female.wav](https://freesound.org/people/guamorims/sounds/391358/) (391358) | guamorims | CC0 1.0 | silence trimmed; cut to 2.4 s; 50 ms fade-out; mono; -16 LUFS, peak -2 dBFS |
+| `crowd_scream_2` | [Screaming2.wav](https://freesound.org/people/owly-bee/sounds/415353/) (415353) | owly-bee | CC BY 4.0 | silence trimmed; cut to 2 s; 50 ms fade-out; mono; -16 LUFS, peak -2 dBFS |
+| `crowd_scream_3` | [Male_Scream_7.wav](https://freesound.org/people/tonsil5/sounds/416545/) (416545) | tonsil5 | CC0 1.0 | silence trimmed; cut to 2.4 s; 50 ms fade-out; mono; -16 LUFS, peak -2 dBFS |
+| `crowd_gasp` | [Crowd gasp.wav](https://freesound.org/people/RadioCounseling/sounds/635110/) (635110) | RadioCounseling | CC0 1.0 | silence trimmed; cut to 1.5 s; 30 ms fade-out; mono; -16 LUFS, peak -2 dBFS |
+| `crowd_gasp_2` | [CRWDReac_Crowd Gasping In Surprise, Unvoiced, Short_ShaneVincent_GSC24_XY-AKG214-96k.wav](https://freesound.org/people/ShangusBurger/sounds/763874/) (763874) | ShangusBurger | CC0 1.0 | silence trimmed; cut to 1.6 s; 30 ms fade-out; mono; -16 LUFS, peak -2 dBFS |
+| `crowd_gasp_3` | [Gasp 5.wav](https://freesound.org/people/jayfrosting/sounds/333402/) (333402) | jayfrosting | CC0 1.0 | silence trimmed; cut to 1.2 s; 30 ms fade-out; mono; -16 LUFS, peak -2 dBFS |
+| `library_shush` | [Old Men Shh.wav](https://freesound.org/people/cmilo1269/sounds/491965/) (491965) | cmilo1269 | CC0 1.0 | silence trimmed; cut to 1.6 s; 100 ms fade-out; mono; -16 LUFS, peak -2 dBFS |
+| `library_shush_2` | [Shhh1.wav](https://freesound.org/people/luisa115/sounds/412673/) (412673) | luisa115 | CC0 1.0 | silence trimmed; cut to 1.6 s; 100 ms fade-out; mono; -16 LUFS, peak -2 dBFS |
+| `library_scream` | [Scream2_Hissy.aif](https://freesound.org/people/RutgerMuller/sounds/104029/) (104029) + [FL_Scream 1.wav](https://freesound.org/people/Lithe-Fider/sounds/9703/) (9703) | Lithe-Fider, RutgerMuller | CC BY 3.0, CC0 1.0 | layered; pitched -3 st; pitched -5 st; +0.1 s; mixed at -6 dB; silence trimmed; cut to 2.6 s; 50 ms fade-out; mono; -15 LUFS, peak -2 dBFS |
+| `library_scream_2` | [Creepy Monster Wail.wav](https://freesound.org/people/Lashim/sounds/585048/) (585048) | Lashim | CC0 1.0 | pitched -2 st; mixed at -2 dB; silence trimmed; cut to 3 s; 100 ms fade-out; mono; -15 LUFS, peak -2 dBFS |
+| `dog_snarl` | [Growl3](https://freesound.org/people/RetroGooby/sounds/846957/) (846957) | RetroGooby | CC0 | pitched -4 st; silence trimmed; cut to 2.5 s; 50 ms fade-out; mono; -15 LUFS, peak -2 dBFS |
+| `dog_snarl_2` | [growl6.wav](https://freesound.org/people/lendrick/sounds/77637/) (77637) | lendrick | CC0 1.0 | pitched -3 st; silence trimmed; cut to 1.5 s; 50 ms fade-out; mono; -15 LUFS, peak -2 dBFS |
+| `dog_snarl_3` | [growl 9.wav](https://freesound.org/people/_stubb/sounds/389653/) (389653) | _stubb | CC0 1.0 | pitched -2 st; silence trimmed; cut to 2.2 s; 50 ms fade-out; mono; -15 LUFS, peak -2 dBFS |
+| `dog_howl` | [Dog howl](https://freesound.org/people/schots/sounds/382736/) (382736) | schots | CC0 1.0 | pitched -3 st; silence trimmed; cut to 2.6 s; 100 ms fade-out; mono; -15 LUFS, peak -2 dBFS |
+| `dog_howl_2` | [dogs-howling-yelping-distance-far-04.wav](https://freesound.org/people/Gerent/sounds/558725/) (558725) | Gerent | CC0 1.0 | pitched -4 st; silence trimmed; cut to 3 s; 100 ms fade-out; mono; -15 LUFS, peak -2 dBFS |
+| `taxi_cackle` | [Ghastly Cackle](https://freesound.org/people/137SOUNDS/sounds/276837/) (276837) | 137SOUNDS | CC BY 3.0 | silence trimmed; cut to 3.5 s; 100 ms fade-out; mono; -16 LUFS, peak -2 dBFS |
+| `taxi_cackle_2` | [Witch Cackle](https://freesound.org/people/AntumDeluge/sounds/417826/) (417826) | AntumDeluge | CC0 1.0 | silence trimmed; cut to 3.2 s; 100 ms fade-out; mono; -16 LUFS, peak -2 dBFS |
+| `taxi_cackle_3` | [Clown Cackle](https://freesound.org/people/magnuswaker/sounds/581095/) (581095) | magnuswaker | CC0 1.0 | silence trimmed; cut to 3 s; 100 ms fade-out; mono; -16 LUFS, peak -2 dBFS |
+| `swarm_chitter` | [creaturechitter.wav](https://freesound.org/people/j1987/sounds/106126/) (106126) | j1987 | CC0 1.0 | pitched +2 st; silence trimmed; cut to 0.8 s; 30 ms fade-out; mono; -18 LUFS, peak -2 dBFS |
+| `swarm_chitter_2` | [Insect Animal Growl Chitter](https://freesound.org/people/SecureSubset/sounds/800277/) (800277) | SecureSubset | CC0 1.0 | pitched +2 st; silence trimmed; cut to 1.2 s; 30 ms fade-out; mono; -18 LUFS, peak -2 dBFS |
+| `swarm_chitter_3` | [chitter 1.wav](https://freesound.org/people/simmfoc/sounds/28484/) (28484) | simmfoc | CC BY 3.0 | pitched +3 st; silence trimmed; cut to 0.6 s; 30 ms fade-out; mono; -18 LUFS, peak -2 dBFS |
+| `step_asphalt` | [Footsteps boots run on asphalt](https://freesound.org/people/YannSauvin/sounds/777606/) (777606) | YannSauvin | CC0 1.0 | silence trimmed; 20 ms fade-out; mono; -20 LUFS, peak -1.5 dBFS |
+| `step_asphalt_2` | [Footsteps boots run on asphalt](https://freesound.org/people/YannSauvin/sounds/777606/) (777606) | YannSauvin | CC0 1.0 | silence trimmed; 20 ms fade-out; mono; -20 LUFS, peak -1.5 dBFS |
+| `step_asphalt_3` | [Footsteps boots run on asphalt](https://freesound.org/people/YannSauvin/sounds/777606/) (777606) | YannSauvin | CC0 1.0 | silence trimmed; 20 ms fade-out; mono; -20 LUFS, peak -1.5 dBFS |
+| `step_asphalt_4` | [Footsteps boots run on asphalt](https://freesound.org/people/YannSauvin/sounds/777606/) (777606) | YannSauvin | CC0 1.0 | silence trimmed; 20 ms fade-out; mono; -20 LUFS, peak -1.5 dBFS |
+| `step_asphalt_5` | [Footsteps boots run on asphalt](https://freesound.org/people/YannSauvin/sounds/777606/) (777606) | YannSauvin | CC0 1.0 | silence trimmed; 20 ms fade-out; mono; -20 LUFS, peak -1.5 dBFS |
+| `step_asphalt_6` | [Footsteps boots run on asphalt](https://freesound.org/people/YannSauvin/sounds/777606/) (777606) | YannSauvin | CC0 1.0 | silence trimmed; 20 ms fade-out; mono; -20 LUFS, peak -1.5 dBFS |
 
 ## Sources
 
@@ -107,7 +159,6 @@ Licences: CC0 1.0 (no attribution required, credited anyway) and CC BY 4.0 / CC 
 | 241262 | Sci-Fi Engine.wav | lewis100011 | CC BY 3.0 | https://freesound.org/people/lewis100011/sounds/241262/ |
 | 553075 | Foley_Mechanism_Light_Buzz_Short_Loop_Mono_DR05.wav | Nox_Sound | CC0 1.0 | https://freesound.org/people/Nox_Sound/sounds/553075/ |
 | 853012 | PropellerSpin_Slow | Wavewire | CC BY 4.0 | https://freesound.org/people/Wavewire/sounds/853012/ |
-| 9376 | beeploop-02.flac | 833-45 | CC BY 3.0 | https://freesound.org/people/833-45/sounds/9376/ |
 | 65176 | steam.aif | tim.kahn | CC BY 4.0 | https://freesound.org/people/tim.kahn/sounds/65176/ |
 | 460352 | OfficeHolePuncher.wav | Tycoh | CC0 1.0 | https://freesound.org/people/Tycoh/sounds/460352/ |
 | 331719 | Belt Buckle | IndigoRay | CC0 1.0 | https://freesound.org/people/IndigoRay/sounds/331719/ |
@@ -125,19 +176,6 @@ Licences: CC0 1.0 (no attribution required, credited anyway) and CC BY 4.0 / CC 
 | 136542 | ELECTRIC_ZAP_001.wav | JoelAudio | CC0 1.0 | https://freesound.org/people/JoelAudio/sounds/136542/ |
 | 315918 | electric zap.aiff | bevibeldesign | CC BY 4.0 | https://freesound.org/people/bevibeldesign/sounds/315918/ |
 | 536741 | Zap.ogg | egomassive | CC0 1.0 | https://freesound.org/people/egomassive/sounds/536741/ |
-| 646307 | Evil Laugh_1.wav | NinjaSharkStudios | CC0 1.0 | https://freesound.org/people/NinjaSharkStudios/sounds/646307/ |
-| 650615 | Gremlin Laughing - Evil Creature | el_boss | CC0 1.0 | https://freesound.org/people/el_boss/sounds/650615/ |
-| 252785 | EVIL LAUGH.wav | xtrgamr | CC BY 4.0 | https://freesound.org/people/xtrgamr/sounds/252785/ |
-| 861568 | Dark Ghost Warrior Voice 04 - Spectral Warlock Vocal Defeat | TommasoMotteran | CC BY 4.0 | https://freesound.org/people/TommasoMotteran/sounds/861568/ |
-| 390614 | zombie moan 01 | TRNGLE | CC BY 3.0 | https://freesound.org/people/TRNGLE/sounds/390614/ |
-| 325402 | Moan_Extended 01.wav | n_audioman | CC BY 4.0 | https://freesound.org/people/n_audioman/sounds/325402/ |
-| 489901 | Scary Monster Roar #2 | NicknameLarry | CC0 1.0 | https://freesound.org/people/NicknameLarry/sounds/489901/ |
-| 442966 | Dragon Hurt | qubodup | CC0 1.0 | https://freesound.org/people/qubodup/sounds/442966/ |
-| 796670 | Mummy Zombie Hurt 3 | Frostnox | CC BY 4.0 | https://freesound.org/people/Frostnox/sounds/796670/ |
-| 738439 | Orc Grunt 3 | qubodup | CC BY 4.0 | https://freesound.org/people/qubodup/sounds/738439/ |
-| 348647 | Slurping, Sipping and Gulp 2 | redafs | CC BY 4.0 | https://freesound.org/people/redafs/sounds/348647/ |
-| 401932 | slurp.mp3 | qalba4j | CC0 1.0 | https://freesound.org/people/qalba4j/sounds/401932/ |
-| 568043 | coffee slurp 5 | benkenart | CC0 1.0 | https://freesound.org/people/benkenart/sounds/568043/ |
 | 60028 | Double Whoosh | qubodup | CC0 1.0 | https://freesound.org/people/qubodup/sounds/60028/ |
 | 170518 | Rubber Crunch  whoosh no punch.wav | alexkandrell | CC BY 3.0 | https://freesound.org/people/alexkandrell/sounds/170518/ |
 | 188960 | Monster suction | FK_Prod | CC0 1.0 | https://freesound.org/people/FK_Prod/sounds/188960/ |
@@ -154,10 +192,7 @@ Licences: CC0 1.0 (no attribution required, credited anyway) and CC BY 4.0 / CC 
 | 22617 | beeping loop.flac | tim.kahn | CC BY 4.0 | https://freesound.org/people/tim.kahn/sounds/22617/ |
 | 50620 | metal_hissing.wav | vibe_crc | CC0 1.0 | https://freesound.org/people/vibe_crc/sounds/50620/ |
 | 512456 | Old Truck Ignition.wav | THO2160416 | CC BY 3.0 | https://freesound.org/people/THO2160416/sounds/512456/ |
-| 659094 | auto22idle.wav | hikkanen | CC0 1.0 | https://freesound.org/people/hikkanen/sounds/659094/ |
-| 127980 | Big Block V8 Rev.mp3 | Henaway | CC0 1.0 | https://freesound.org/people/Henaway/sounds/127980/ |
 | 845604 | VEHEngi-HYUNDAI KONA_Engine Start Stop Exterior 02_KVV AUDIO_FREE | KVV_Audio | CC BY 4.0 | https://freesound.org/people/KVV_Audio/sounds/845604/ |
-| 800708 | SS2000_wail_seamless | ThePeasantJoe | CC0 1.0 | https://freesound.org/people/ThePeasantJoe/sounds/800708/ |
 | 217138 | 1964 Chrysler Horn Honk (Short) | lonemonk | CC BY 4.0 | https://freesound.org/people/lonemonk/sounds/217138/ |
 | 556689 | Car Door open and close.wav | NachtmahrTV | CC0 1.0 | https://freesound.org/people/NachtmahrTV/sounds/556689/ |
 | 778421 | Car_Door_Closing_Dull_04 | BlondPanda | CC0 1.0 | https://freesound.org/people/BlondPanda/sounds/778421/ |
@@ -191,6 +226,87 @@ Licences: CC0 1.0 (no attribution required, credited anyway) and CC BY 4.0 / CC 
 | 651541 | wind draft loop 1 | nsstudios | CC BY 4.0 | https://freesound.org/people/nsstudios/sounds/651541/ |
 | 467951 | UI Button Click | benzix2 | CC0 1.0 | https://freesound.org/people/benzix2/sounds/467951/ |
 | 213148 | Click | complex_waveform | CC BY 4.0 | https://freesound.org/people/complex_waveform/sounds/213148/ |
+| 235166 | giggle3.wav | Reitanna | CC0 1.0 | https://freesound.org/people/Reitanna/sounds/235166/ |
+| 202949 | Stomach Gurgle 5.wav | sribubba | CC0 1.0 | https://freesound.org/people/sribubba/sounds/202949/ |
+| 434790 | Stupid person giggle.mp3 | David_Jacob | CC0 1.0 | https://freesound.org/people/David_Jacob/sounds/434790/ |
+| 466900 | BlowingRaspberry.mp3 | flowerdove2168 | CC0 1.0 | https://freesound.org/people/flowerdove2168/sounds/466900/ |
+| 439091 | Ethan - Giggle 2.ogg | FourthWoods | CC-BY | https://freesound.org/people/FourthWoods/sounds/439091/ |
+| 720820 | Stomach Gurgle 9 | R1nkata | CC0 1.0 | https://freesound.org/people/R1nkata/sounds/720820/ |
+| 345273 | belch.wav | kulppari | CC0 1.0 | https://freesound.org/people/kulppari/sounds/345273/ |
+| 346022 | The Loudest Belch.mp3 | SonicBlu | CC0 1.0 | https://freesound.org/people/SonicBlu/sounds/346022/ |
+| 399767 | Burp 5 | tehteho | CC0 1.0 | https://freesound.org/people/tehteho/sounds/399767/ |
+| 532969 | Whine.wav | nataliabm09 | CC0 1.0 | https://freesound.org/people/nataliabm09/sounds/532969/ |
+| 18276 | baby_whine.aif | tim.kahn | CC BY 4.0 | https://freesound.org/people/tim.kahn/sounds/18276/ |
+| 718999 | Dethan whining | sirdethan | CC BY 4.0 | https://freesound.org/people/sirdethan/sounds/718999/ |
+| 805051 | TOONAnml-Blue Snowball Microphone, CU_Pig Squeal, Human Imitation, Cartoon_Nicholas Judy_TDC | designerschoice | CC BY 4.0 | https://freesound.org/people/designerschoice/sounds/805051/ |
+| 323710 | raspberry.wav | Reitanna | CC0 1.0 | https://freesound.org/people/Reitanna/sounds/323710/ |
+| 345382 | Tongue out ( raspberry) | majd_abdulqadir | CC BY 4.0 | https://freesound.org/people/majd_abdulqadir/sounds/345382/ |
+| 736457 | Raspberry | 9voltfan | CC0 1.0 | https://freesound.org/people/9voltfan/sounds/736457/ |
+| 436665 | slurp1.wav | herraportti | CC0 1.0 | https://freesound.org/people/herraportti/sounds/436665/ |
+| 552676 | Gulp.boaay | BOAAY | CC0 | https://freesound.org/people/BOAAY/sounds/552676/ |
+| 508393 | Chewing.mp3 | douglas6969 | CC0 1.0 | https://freesound.org/people/douglas6969/sounds/508393/ |
+| 566573 | Slurping.mp3 | MilliiStewart15 | CC BY 4.0 | https://freesound.org/people/MilliiStewart15/sounds/566573/ |
+| 423479 | comical bite and chew | watsnick | CC BY 4.0 | https://freesound.org/people/watsnick/sounds/423479/ |
+| 488578 | Slurping Noodles | sirTmoney | CC0 1.0 | https://freesound.org/people/sirTmoney/sounds/488578/ |
+| 761619 | gulp, gulping sound | SoundThief1960 | CC0 1.0 | https://freesound.org/people/SoundThief1960/sounds/761619/ |
+| 648973 | Gulping, Swallowing 2 | AtoMediaDesign | CC BY 4.0 | https://freesound.org/people/AtoMediaDesign/sounds/648973/ |
+| 651534 | v8 engine rev.wav | overmedium | CC0 1.0 | https://freesound.org/people/overmedium/sounds/651534/ |
+| 776234 | hyundai-i20-car-idle-9 | compsgn120JP | CC0 1.0 | https://freesound.org/people/compsgn120JP/sounds/776234/ |
+| 127980 | Big Block V8 Rev.mp3 | Henaway | CC0 1.0 | https://freesound.org/people/Henaway/sounds/127980/ |
+| 339703 | Audi V8 Acceleration Sound | FFKoenigsegg20012017 | CC0 1.0 | https://freesound.org/people/FFKoenigsegg20012017/sounds/339703/ |
+| 330299 | Siren | maycuddlepie | CC0 1.0 | https://freesound.org/people/maycuddlepie/sounds/330299/ |
+| 692523 | VEHSirn_Police Car Siren.Go Under SFX_EM.wav | newlocknew | CC BY 4.0 | https://freesound.org/people/newlocknew/sounds/692523/ |
+| 874698 | Fire Alarm Panel Repeated Beeps | loganzsound | CC0 1.0 | https://freesound.org/people/loganzsound/sounds/874698/ |
+| 733332 | Wheelock MT-115-WH Code 3 Sound File | Ricardoraymond17 | CC0 1.0 | https://freesound.org/people/Ricardoraymond17/sounds/733332/ |
+| 733331 | System Sensor Advance Code 3 Sound File | Ricardoraymond17 | CC0 1.0 | https://freesound.org/people/Ricardoraymond17/sounds/733331/ |
+| 620965 | Pole Role | cdonahueucsd | CC-BY | https://freesound.org/people/cdonahueucsd/sounds/620965/ |
+| 352775 | Aluminium Pole 2 | spoonbender | CC BY 4.0 | https://freesound.org/people/spoonbender/sounds/352775/ |
+| 414820 | Opening Garage.mp3 | bokal | CC0 1.0 | https://freesound.org/people/bokal/sounds/414820/ |
+| 49997 | 080316 garage door opening.wav | BoilingSand | CC BY 3.0 | https://freesound.org/people/BoilingSand/sounds/49997/ |
+| 420971 | Close Heavy Door.ogg | Hefler | CC BY 3.0 | https://freesound.org/people/Hefler/sounds/420971/ |
+| 565187 | open close door 10m 150903_0759 ST.wav | klankbeeld | CC BY 4.0 | https://freesound.org/people/klankbeeld/sounds/565187/ |
+| 812252 | Lock_click_in_steel_door | Zabuhailo | CC BY 4.0 | https://freesound.org/people/Zabuhailo/sounds/812252/ |
+| 789922 | Generic Metallic Click 2 | Cpfcfan10 | CC BY 4.0 | https://freesound.org/people/Cpfcfan10/sounds/789922/ |
+| 167048 | Old Lever Pull | DrMinky | CC BY 4.0 | https://freesound.org/people/DrMinky/sounds/167048/ |
+| 394526 | [Elektrosluch] 50Hz Transformer.WAV | gear_clinkz | CC BY 4.0 | https://freesound.org/people/gear_clinkz/sounds/394526/ |
+| 479297 | R19-40-Steam Hiss.wav | craigsmith | CC0 1.0 | https://freesound.org/people/craigsmith/sounds/479297/ |
+| 393663 | WaHi Airbrakes blast.mp3 | chripei | CC0 1.0 | https://freesound.org/people/chripei/sounds/393663/ |
+| 432723 | NYC subway subtle rumble | Vortichez | CC BY 4.0 | https://freesound.org/people/Vortichez/sounds/432723/ |
+| 197331 | Steam 4 | nicStage | CC BY 4.0 | https://freesound.org/people/nicStage/sounds/197331/ |
+| 95054 | ambulance passing.aif | plamdi1 | CC0 1.0 | https://freesound.org/people/plamdi1/sounds/95054/ |
+| 451321 | auto horn honk real nice clean slight street echo India.flac | kyles | CC0 1.0 | https://freesound.org/people/kyles/sounds/451321/ |
+| 436589 | JM_TRANSPORT_EXT_Horn 01a - Car_Short_Mini Countryman.wav | Julien_Matthey | CC0 1.0 | https://freesound.org/people/Julien_Matthey/sounds/436589/ |
+| 81173 | Horn Honk.wav | mkoenig | CC BY 3.0 | https://freesound.org/people/mkoenig/sounds/81173/ |
+| 451699 | school bus truck int idle front foot area perspective.flac | kyles | CC0 | https://freesound.org/people/kyles/sounds/451699/ |
+| 711410 | bus5 idle | prabashm | CC0 1.0 | https://freesound.org/people/prabashm/sounds/711410/ |
+| 816361 | Car pass (fast) | its-slava | CC BY 4.0 | https://freesound.org/people/its-slava/sounds/816361/ |
+| 89568 | Vehicle_Mail Truck Pass.mp3 | CGEffex | CC BY 4.0 | https://freesound.org/people/CGEffex/sounds/89568/ |
+| 751202 | Utility vehicle_passby 1A | snapssound | CC BY 4.0 | https://freesound.org/people/snapssound/sounds/751202/ |
+| 657493 | bus_pass5.wav | bus_samples_ | CC0 1.0 | https://freesound.org/people/bus_samples_/sounds/657493/ |
+| 839574 | A bus passes by | VasiliiFeshchenko | CC0 1.0 | https://freesound.org/people/VasiliiFeshchenko/sounds/839574/ |
+| 211146 | Another Crowd | unfa | CC0 1.0 | https://freesound.org/people/unfa/sounds/211146/ |
+| 391358 | Scream NO - Female.wav | guamorims | CC0 1.0 | https://freesound.org/people/guamorims/sounds/391358/ |
+| 415353 | Screaming2.wav | owly-bee | CC BY 4.0 | https://freesound.org/people/owly-bee/sounds/415353/ |
+| 416545 | Male_Scream_7.wav | tonsil5 | CC0 1.0 | https://freesound.org/people/tonsil5/sounds/416545/ |
+| 635110 | Crowd gasp.wav | RadioCounseling | CC0 1.0 | https://freesound.org/people/RadioCounseling/sounds/635110/ |
+| 763874 | CRWDReac_Crowd Gasping In Surprise, Unvoiced, Short_ShaneVincent_GSC24_XY-AKG214-96k.wav | ShangusBurger | CC0 1.0 | https://freesound.org/people/ShangusBurger/sounds/763874/ |
+| 333402 | Gasp 5.wav | jayfrosting | CC0 1.0 | https://freesound.org/people/jayfrosting/sounds/333402/ |
+| 491965 | Old Men Shh.wav | cmilo1269 | CC0 1.0 | https://freesound.org/people/cmilo1269/sounds/491965/ |
+| 412673 | Shhh1.wav | luisa115 | CC0 1.0 | https://freesound.org/people/luisa115/sounds/412673/ |
+| 104029 | Scream2_Hissy.aif | RutgerMuller | CC0 1.0 | https://freesound.org/people/RutgerMuller/sounds/104029/ |
+| 9703 | FL_Scream 1.wav | Lithe-Fider | CC BY 3.0 | https://freesound.org/people/Lithe-Fider/sounds/9703/ |
+| 585048 | Creepy Monster Wail.wav | Lashim | CC0 1.0 | https://freesound.org/people/Lashim/sounds/585048/ |
+| 846957 | Growl3 | RetroGooby | CC0 | https://freesound.org/people/RetroGooby/sounds/846957/ |
+| 77637 | growl6.wav | lendrick | CC0 1.0 | https://freesound.org/people/lendrick/sounds/77637/ |
+| 389653 | growl 9.wav | _stubb | CC0 1.0 | https://freesound.org/people/_stubb/sounds/389653/ |
+| 382736 | Dog howl | schots | CC0 1.0 | https://freesound.org/people/schots/sounds/382736/ |
+| 558725 | dogs-howling-yelping-distance-far-04.wav | Gerent | CC0 1.0 | https://freesound.org/people/Gerent/sounds/558725/ |
+| 276837 | Ghastly Cackle | 137SOUNDS | CC BY 3.0 | https://freesound.org/people/137SOUNDS/sounds/276837/ |
+| 417826 | Witch Cackle | AntumDeluge | CC0 1.0 | https://freesound.org/people/AntumDeluge/sounds/417826/ |
+| 581095 | Clown Cackle | magnuswaker | CC0 1.0 | https://freesound.org/people/magnuswaker/sounds/581095/ |
+| 106126 | creaturechitter.wav | j1987 | CC0 1.0 | https://freesound.org/people/j1987/sounds/106126/ |
+| 800277 | Insect Animal Growl Chitter | SecureSubset | CC0 1.0 | https://freesound.org/people/SecureSubset/sounds/800277/ |
+| 28484 | chitter 1.wav | simmfoc | CC BY 3.0 | https://freesound.org/people/simmfoc/sounds/28484/ |
 | 777606 | Footsteps boots run on asphalt | YannSauvin | CC0 1.0 | https://freesound.org/people/YannSauvin/sounds/777606/ |
 
 CC BY sources are modified (cut, layered, normalised, re-encoded) as the Processing column says; author, title, link and licence are given above for attribution.
