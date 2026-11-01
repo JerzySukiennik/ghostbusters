@@ -87,6 +87,7 @@ async function boot() {
     scene.environmentIntensity = 0.22;
   }
   if (packG.json?.trap) trapG.json = { ...trapG.json, ...packG.json.trap };
+  for (const p of plate.props || []) for (const c of p.colliders || (p.collider ? [p.collider] : [])) phys.own(c, p);
   if (!(fx instanceof FB.FallbackFX)) {
     fx.ownsStreamImpacts = true;
     fx.groundY = 0;
@@ -113,7 +114,13 @@ async function boot() {
   game.setStyle(style);
   ecto.sync(true); ecto.interp(1);
   progress(1, 'Warming shaders');
-  try { R.renderer.compile(scene, camera); } catch {}
+  try {
+    const prevRT = R.renderer.getRenderTarget();
+    R.renderer.setRenderTarget(R.composer.renderTarget1);
+    const warm = R.renderer.compileAsync(scene, camera);
+    R.renderer.setRenderTarget(prevRT);
+    await warm;
+  } catch (e) { console.warn('[warm]', e?.message || e); }
   game.info = { ecto: !ectoG.fallback, pack: !packG.fallback, wand: !wandG.fallback, trap: !trapG.fallback, avatar: avatar.real, fx: !(fx instanceof FB.FallbackFX), plate: !plate.fallback, audio: Object.keys(audio.manifest).length };
   loadTxt.textContent = '';
   go.disabled = false; go.textContent = 'Play';

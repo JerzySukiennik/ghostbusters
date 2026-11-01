@@ -31,6 +31,7 @@ export class Game {
     this.hud.objective('Suit up at the back of the Ecto-1');
     this.hud.style(this.style);
     this.ghost.obj.visible = true;
+    this.ghost.onWreck = (p) => this.hud.damage(p);
     this.ghost.start();
     this.ambience = this.audio.loop('amb_city_night', { bus: 'amb', gain: 0.8, fadeIn: 2 });
     this.wind = this.audio.loop('amb_wind', { bus: 'amb', gain: 0.35, fadeIn: 3 });

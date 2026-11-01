@@ -131,17 +131,26 @@ export class Proton {
       if (this.scorchT <= 0) { this.scorchT = 0.09; this.fx.impact(this.end.clone(), h.normal.clone(), 'scorch'); }
     }
     const p = h.owner;
-    if (p && p.body && p.body.isDynamic && p.body.isDynamic()) {
-      const m = Math.max(2, p.mass || p.body.mass() || 10);
-      const k = Math.min(260, m * 9) * dt;
-      p.body.applyImpulseAtPoint({ x: dir.x * k, y: dir.y * k + k * 0.45, z: dir.z * k }, { x: this.end.x, y: this.end.y, z: this.end.z }, true);
-      if (p.breakable) {
-        p.hp = (p.hp ?? 40) - 34 * dt;
-        if (p.hp <= 0 && !p.dead && p.onBreak) { p.onBreak(dir.clone()); this.hud?.damage?.(p); this.audio?.play(p.material === 'glass' ? 'break_glass' : p.material === 'wood' ? 'break_wood' : 'hit_metal', { pos: this.end }); }
+    if (p && p.body && !p.dead && !p.broken && p.kind !== 'ecto' && p.kind !== 'player') {
+      if (p.body.isDynamic && p.body.isDynamic()) {
+        const m = Math.max(2, p.mass || p.body.mass() || 10);
+        const k = Math.min(260, m * 9) * dt;
+        p.body.applyImpulseAtPoint({ x: dir.x * k, y: dir.y * k + k * 0.45, z: dir.z * k }, { x: this.end.x, y: this.end.y, z: this.end.z }, true);
       }
+      if (p.breakable) this.wreck(p, 34 * dt, dir);
     } else if (h.owner && h.owner.kind === 'ecto' && this.t - (this.carT || -9) > 6) {
       this.carT = this.t;
       this.hud?.toast?.('Not the car!', 1.2);
+    }
+  }
+
+  wreck(p, amount, dir) {
+    if (p.dead || p.broken) return;
+    if (p.damage) p.damage(amount, dir.clone());
+    else { p.hp = (p.hp ?? 40) - amount; if (p.hp <= 0 && p.onBreak) p.onBreak(dir.clone()); }
+    if (p.dead || p.broken || (p.hp !== undefined && p.hp <= 0)) {
+      this.hud?.damage?.(p);
+      this.audio?.play(p.material === 'glass' ? 'break_glass' : p.material === 'wood' ? 'break_wood' : p.material === 'plastic' ? 'hit_plastic' : 'hit_metal', { pos: this.end });
     }
   }
 
@@ -277,9 +286,9 @@ export class Proton {
         this.renderer.addTrauma(0.45); this.renderer.addFlash(0.06);
         this.audio?.play('hit_metal', { pos: boom, gain: 0.8 }); this.audio?.play('zap', { pos: boom });
         for (const p of this.plate.props) {
-          if (!p.breakable || p.dead || !p.body) continue;
-          const t = p.body.translation();
-          if (Math.hypot(t.x - boom.x, t.y - boom.y, t.z - boom.z) < 2.2) { p.hp = (p.hp ?? 40) - 45; if (p.hp <= 0 && p.onBreak) { p.onBreak(_b.clone()); this.hud?.damage?.(p); } }
+          if (!p.breakable || p.dead || p.broken || !p.body) continue;
+          const t = p.object3D ? p.object3D.position : p.body.translation();
+          if (Math.hypot(t.x - boom.x, t.y - boom.y, t.z - boom.z) < 2.2) this.wreck(p, 45, _b);
         }
       }
     }

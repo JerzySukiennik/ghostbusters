@@ -15,7 +15,8 @@ export class Ghost {
     this.cart = plate.spawns.hotdogCart?.pos?.clone() || this.home.clone().setY(1.2);
     this.route = (plate.spawns.ghostRoute || []).map((p) => p.clone());
     if (!this.route.length) for (let i = 0; i < 8; i++) { const a = i / 8 * Math.PI * 2; this.route.push(V(Math.cos(a) * 12, 3.5, 18 + Math.sin(a) * 9)); }
-    this.food = plate.props.filter((p) => /food|hot.?dog|bun|sausage|pretzel|soda|mustard|ketchup/i.test(p.kind + ' ' + p.id));
+    this.food = plate.props.filter((p) => p.food || /food|hot.?dog|bun|sausage|pretzel|soda|mustard|ketchup/i.test(p.kind + ' ' + p.id));
+    if (this.food.length) { const c = this.food[0].object3D.position; if (this.cart.distanceTo(c) > 4) this.cart.set(c.x, Math.max(1, c.y), c.z); }
     this.pos = this.cart.clone().add(V(0, 1.1, 0));
     this.vel = V(); this.want = V(); this.struggle = V(); this.lookDir = V(0, 0, 1);
     this.state = 'eat'; this.st = 0; this.will = 100; this.maxWill = 100;
@@ -58,16 +59,21 @@ export class Ghost {
 
   knockProps(r = 1.3, power = 1) {
     for (const p of this.plate.props) {
-      if (p.dead || !p.body || !p.body.isDynamic?.()) continue;
-      const t = p.body.translation();
+      if (p.dead || p.broken || !p.body) continue;
+      const t = p.object3D ? p.object3D.position : p.body.translation();
       _b.set(t.x - this.pos.x, t.y - this.pos.y, t.z - this.pos.z);
       const d = _b.length();
       if (d > r + this.radius) continue;
       _b.normalize();
-      const k = (p.mass || 10) * (0.6 + this.vel.length() * 0.35) * power;
-      p.body.applyImpulse({ x: _b.x * k + this.vel.x * k * 0.2, y: k * 0.5, z: _b.z * k + this.vel.z * k * 0.2 }, true);
-      p.body.applyTorqueImpulse({ x: rnd(-1, 1) * k * 0.15, y: rnd(-1, 1) * k * 0.15, z: rnd(-1, 1) * k * 0.15 }, true);
-      if (p.breakable && power > 1.5) { p.hp = (p.hp ?? 30) - 25 * power; if (p.hp <= 0 && !p.dead && p.onBreak) p.onBreak(_b.clone()); }
+      if (p.body.isDynamic?.()) {
+        const k = (p.mass || 10) * (0.6 + this.vel.length() * 0.35) * power;
+        p.body.applyImpulse({ x: _b.x * k + this.vel.x * k * 0.2, y: k * 0.5, z: _b.z * k + this.vel.z * k * 0.2 }, true);
+        p.body.applyTorqueImpulse({ x: rnd(-1, 1) * k * 0.15, y: rnd(-1, 1) * k * 0.15, z: rnd(-1, 1) * k * 0.15 }, true);
+      }
+      if (p.breakable && power > 1.5) {
+        if (p.damage) p.damage(25 * power, _b.clone()); else { p.hp = (p.hp ?? 30) - 25 * power; if (p.hp <= 0 && p.onBreak) p.onBreak(_b.clone()); }
+        if (p.broken || p.dead) this.onWreck?.(p);
+      }
     }
   }
 
@@ -88,8 +94,8 @@ export class Ghost {
         this.eatT -= dt;
         if (this.eatT <= 0) {
           this.eatT = rnd(1.1, 2.0); this.mouth = 1; this.say('ghost_eat', 0.9);
-          const f = this.food.find((p) => !p.dead && !p.eaten && p.object3D);
-          if (f) { f.eaten = true; f.object3D.visible = false; if (f.body) { try { this.phys.world.removeRigidBody(f.body); } catch {} f.dead = true; } }
+          const f = this.food.find((p) => !p.dead && !p.broken && !p.eaten && p.object3D);
+          if (f) { f.eaten = true; f.dead = true; f.object3D.visible = false; try { f.body?.setEnabled(false); } catch {} }
         }
         if (ctx.engaged && (dP < 10 || this.st > 14)) { this.say('ghost_laugh'); this.set('roam'); }
         break;
