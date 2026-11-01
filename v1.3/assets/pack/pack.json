@@ -1,0 +1,680 @@
+{
+ "version": "1.0",
+ "generated": "2026-11-01T01:35:03Z",
+ "units": "metres, glTF space (Y up). Quaternions [x, y, z, w]. Poses are relative to each asset root.",
+ "build": "blender/pack/build_pack.py, build_wand.py, build_trap.py (Blender 4.5 headless); decals: blender/pack/decals.py; this file: blender/pack/write_json.py",
+ "emissive_convention": "Emissive materials (names contain Emit) carry the full ON colour in emissiveFactor x KHR_materials_emissive_strength. The game multiplies per segment (vertex attribute _seg, 0..N-1) by its own level 0..1; N is in the node extras \"segments\".",
+ "texture_sets": {
+  "film": "embedded in each GLB (1984 hero condition: black paint, light edge wear, dust)",
+  "worn": {
+   "note": "Afterlife-style heavy wear for style=modern; swap baseColor and occlusion/metallicRoughness maps of the *Mat material (same UVs)",
+   "protonpack": [
+    "protonpack_worn_basecolor.jpg",
+    "protonpack_worn_orm.jpg"
+   ],
+   "wand": [
+    "wand_worn_basecolor.jpg",
+    "wand_worn_orm.jpg"
+   ],
+   "trap": [
+    "trap_worn_basecolor.jpg",
+    "trap_worn_orm.jpg"
+   ],
+   "material": {
+    "protonpack": "ProtonPackMat",
+    "wand": "WandMat",
+    "trap": "TrapMat"
+   },
+   "orm_channels": "R occlusion, G roughness, B metallic",
+   "colorspace": "basecolor sRGB, orm linear"
+  }
+ },
+ "protonpack": {
+  "file": "protonpack.glb",
+  "root": "ProtonPack",
+  "mass_kg": 14.0,
+  "origin": "centre of the ALICE frame contact face (z = 0 plane touching the back), at the frame vertical centre; contact normal +Z toward the wearer; pack extends to -Z; wearer right = -X",
+  "frame": {
+   "type": "ALICE LC-1",
+   "height": 0.524,
+   "width": 0.32,
+   "top_bar_y": 0.27,
+   "shelf_y": -0.262
+  },
+  "motherboard": {
+   "width": 0.37,
+   "top_y": 0.316,
+   "rear_face_z": -0.08
+  },
+  "cyclotron": {
+   "centre": [
+    0.0,
+    -0.2108,
+    -0.2325
+   ],
+   "lid_radius": 0.1143,
+   "body_radius": 0.127
+  },
+  "empties": {
+   "GunMount": {
+    "position": [
+     -0.317,
+     0.231,
+     -0.071
+    ],
+    "quaternion": [
+     0.5,
+     -0.5,
+     0.5,
+     0.5
+    ]
+   },
+   "HoseAnchor": {
+    "position": [
+     -0.16439,
+     -0.29312,
+     -0.07217
+    ],
+    "quaternion": [
+     -0.126503,
+     -0.744371,
+     0.646407,
+     0.109854
+    ]
+   },
+   "Vent": {
+    "position": [
+     -0.046,
+     -0.3098,
+     -0.262
+    ],
+    "quaternion": [
+     -0.707107,
+     0.0,
+     0.0,
+     0.707107
+    ]
+   },
+   "StrapTop_L": {
+    "position": [
+     0.085,
+     0.262,
+     -0.004
+    ],
+    "quaternion": [
+     0,
+     0,
+     0,
+     1
+    ]
+   },
+   "StrapTop_R": {
+    "position": [
+     -0.085,
+     0.262,
+     -0.004
+    ],
+    "quaternion": [
+     0,
+     0,
+     0,
+     1
+    ]
+   },
+   "StrapBottom_L": {
+    "position": [
+     0.14,
+     -0.236,
+     -0.004
+    ],
+    "quaternion": [
+     0,
+     0,
+     0,
+     1
+    ]
+   },
+   "StrapBottom_R": {
+    "position": [
+     -0.14,
+     -0.236,
+     -0.004
+    ],
+    "quaternion": [
+     0,
+     0,
+     0,
+     1
+    ]
+   },
+   "Belt_L": {
+    "position": [
+     0.175,
+     -0.205,
+     -0.004
+    ],
+    "quaternion": [
+     0,
+     0,
+     0,
+     1
+    ]
+   },
+   "Belt_R": {
+    "position": [
+     -0.175,
+     -0.205,
+     -0.004
+    ],
+    "quaternion": [
+     0,
+     0,
+     0,
+     1
+    ]
+   },
+   "Handle": {
+    "position": [
+     0.0,
+     0.27,
+     -0.026
+    ],
+    "quaternion": [
+     0,
+     0,
+     0,
+     1
+    ]
+   }
+  },
+  "empty_notes": {
+   "GunMount": "Wand root pose when docked: barrel down (wand +Z = pack -Y), wand top outward (wand +Y = pack -X), heatsink side facing back. Wand MountHook lands on the pack gun-mount hook plate.",
+   "HoseAnchor": "+Z = direction the hose leaves (end of the short hose stub at the lower right).",
+   "Vent": "N-filter face; +Y = steam direction (out of the back).",
+   "Handle": "Top grab point on the ALICE frame top bar."
+  },
+  "emissive": {
+   "CyclotronEmit": {
+    "segments": 4,
+    "color": [
+     1.0,
+     0.035,
+     0.015
+    ],
+    "map": {
+     "0": "upper-left (wearer left, seen from behind)",
+     "1": "upper-right",
+     "2": "lower-right",
+     "3": "lower-left"
+    },
+    "spin": "film: 0->1->2->3 clockwise seen from behind"
+   },
+   "PowerCellEmit": {
+    "segments": 15,
+    "color": [
+     0.12,
+     0.42,
+     1.0
+    ],
+    "map": "0 bottom .. 14 top"
+   },
+   "PackLightsEmit": {
+    "segments": 2,
+    "map": {
+     "0": "red indicator lamp, top right column",
+     "1": "amber lamp on the PPD (top left)"
+    }
+   }
+  },
+  "hose": {
+   "radius": 0.013,
+   "outer_radius_ribs": 0.0135,
+   "rib_pitch": 0.0064,
+   "sample_node": "HoseSample",
+   "sample_length": 0.2,
+   "sample_note": "HoseSample sits at the pack origin along +Z and is visible in the file: set visible=false on load (extras.hidden). Its material HoseMat has a rib normal map: UV u = arc length / rib_pitch (repeat), v = around.",
+   "ends": [
+    "protonpack HoseAnchor",
+    "wand HoseAnchor"
+   ]
+  },
+  "stats": {
+   "triangles": 39944,
+   "materials": [
+    "CyclotronEmit",
+    "HoseMat",
+    "PackDecals",
+    "PackLightsEmit",
+    "PowerCellEmit",
+    "ProtonPackMat"
+   ],
+   "material_count": 6,
+   "mb": 4.08,
+   "bounds": {
+    "min": [
+     -0.217,
+     -0.36279,
+     -0.2917
+    ],
+    "max": [
+     0.217,
+     0.37223,
+     0.0
+    ]
+   },
+   "size": [
+    0.434,
+    0.73502,
+    0.2917
+   ]
+  },
+  "bounds_note": "bounds exclude the hidden HoseSample; y range slightly exceeds the contract +-0.36 (cyclotron bottom -0.363, blue Legris loop top +0.372)"
+ },
+ "wand": {
+  "file": "wand.glb",
+  "root": "Wand",
+  "mass_kg": 1.4,
+  "length": 0.57,
+  "origin": "palm centre of the right hand on the rear grip (handle axis); barrel +Z, up +Y, wand left = +X",
+  "empties": {
+   "GripFront": {
+    "position": [
+     0.00925,
+     -0.06802,
+     0.36
+    ],
+    "quaternion": [
+     0.0,
+     0.0,
+     0.258825,
+     0.965924
+    ]
+   },
+   "Tip": {
+    "position": [
+     0.0,
+     -0.052,
+     0.46
+    ],
+    "quaternion": [
+     0,
+     0,
+     0,
+     1
+    ]
+   },
+   "HoseAnchor": {
+    "position": [
+     0.0,
+     -0.0074,
+     -0.1105
+    ],
+    "quaternion": [
+     0.0,
+     0.987327,
+     -0.1587,
+     0.0
+    ]
+   },
+   "MountHook": {
+    "position": [
+     0.0,
+     -0.101,
+     0.113
+    ],
+    "quaternion": [
+     0,
+     0,
+     0,
+     1
+    ]
+   }
+  },
+  "empty_notes": {
+   "GripFront": "Left palm on the ribbed barrel grip: +Z along the barrel, +Y from the palm toward the barrel axis.",
+   "Tip": "Stream emitter, +Z forward.",
+   "HoseAnchor": "+Z = direction the hose leaves (rear, slightly down).",
+   "MountHook": "J-hook that docks on the pack gun mount."
+  },
+  "emissive": {
+   "BargraphEmit": {
+    "segments": 28,
+    "color": [
+     1.0,
+     0.22,
+     0.04
+    ],
+    "map": "0 front .. 27 rear (top panel, left of centre)"
+   },
+   "WandLightsEmit": {
+    "segments": 4,
+    "map": {
+     "0": "slo-blo, red LED on the top panel rear right",
+     "1": "top, clear white dome on the top panel",
+     "2": "vent, amber-white lamp front-bottom left of the gun box",
+     "3": "side, orange hat light on the barrel front block"
+    }
+   },
+   "TipEmit": {
+    "segments": 1,
+    "map": {
+     "0": "barrel tip flasher (inside the clear tip)"
+    }
+   }
+  },
+  "stats": {
+   "triangles": 12224,
+   "materials": [
+    "BargraphEmit",
+    "TipEmit",
+    "WandDecals",
+    "WandLightsEmit",
+    "WandMat"
+   ],
+   "material_count": 5,
+   "mb": 1.03,
+   "bounds": {
+    "min": [
+     -0.0408,
+     -0.11619,
+     -0.11236
+    ],
+    "max": [
+     0.0296,
+     0.037,
+     0.46704
+    ]
+   },
+   "size": [
+    0.0704,
+    0.15319,
+    0.5794
+   ]
+  }
+ },
+ "trap": {
+  "file": "trap.glb",
+  "root": "Trap",
+  "mass_kg": 4.0,
+  "pedal_root": "Pedal",
+  "pedal_mass_kg": 1.2,
+  "origin": "bottom centre on the ground (wheel contact), front = +Z (bargraph end), handle at the rear, left = +X",
+  "doors": {
+   "DoorL": {
+    "hinge": {
+     "position": [
+      0.0495,
+      0.126,
+      0.0
+     ],
+     "quaternion": [
+      0,
+      0,
+      0,
+      1
+     ]
+    },
+    "axis": [
+     0,
+     0,
+     1
+    ],
+    "open_deg": -78.0
+   },
+   "DoorR": {
+    "hinge": {
+     "position": [
+      -0.0495,
+      0.126,
+      0.0
+     ],
+     "quaternion": [
+      0,
+      0,
+      0,
+      1
+     ]
+    },
+    "axis": [
+     0,
+     0,
+     1
+    ],
+    "open_deg": 78.0
+   },
+   "note": "rotate each door node about its local Z by open_deg (signs differ: both swing up and outward)"
+  },
+  "pedal": {
+   "node": "Pedal",
+   "default_pose": {
+    "position": [
+     0.3,
+     0,
+     -0.32
+    ],
+    "quaternion": [
+     0,
+     0.21644,
+     0,
+     0.976296
+    ]
+   },
+   "origin": "bottom centre on the ground, front = +Z",
+   "PedalPlate": {
+    "hinge_local": {
+     "position": [
+      0,
+      0.028,
+      -0.112
+     ],
+     "quaternion": [
+      0,
+      0,
+      0,
+      1
+     ]
+    },
+    "axis": [
+     1,
+     0,
+     0
+    ],
+    "press_deg": 9.0,
+    "rest_angle_deg": 13.0,
+    "note": "pose relative to Pedal; rotate the plate node about its local X by +press_deg to stomp"
+   },
+   "PedalAnchor_local": {
+    "position": [
+     -0.071,
+     0.02,
+     -0.147
+    ],
+    "quaternion": [
+     0,
+     1,
+     0,
+     0.0
+    ]
+   }
+  },
+  "empties": {
+   "BeamOrigin": {
+    "position": [
+     0.0,
+     0.126,
+     0.032
+    ],
+    "quaternion": [
+     0,
+     0,
+     0,
+     1
+    ]
+   },
+   "CableAnchor": {
+    "position": [
+     0.018,
+     0.038,
+     -0.182
+    ],
+    "quaternion": [
+     0.0,
+     0.985865,
+     -0.167544,
+     0.0
+    ]
+   },
+   "Smoke_1": {
+    "position": [
+     -0.044,
+     0.136,
+     0.116
+    ],
+    "quaternion": [
+     0,
+     0,
+     0,
+     1
+    ]
+   },
+   "Smoke_2": {
+    "position": [
+     0.044,
+     0.136,
+     0.116
+    ],
+    "quaternion": [
+     0,
+     0,
+     0,
+     1
+    ]
+   },
+   "Smoke_3": {
+    "position": [
+     -0.044,
+     0.136,
+     -0.052
+    ],
+    "quaternion": [
+     0,
+     0,
+     0,
+     1
+    ]
+   },
+   "Smoke_4": {
+    "position": [
+     0.044,
+     0.136,
+     -0.052
+    ],
+    "quaternion": [
+     0,
+     0,
+     0,
+     1
+    ]
+   },
+   "Smoke_5": {
+    "position": [
+     0.0,
+     0.142,
+     0.034
+    ],
+    "quaternion": [
+     0,
+     0,
+     0,
+     1
+    ]
+   },
+   "Smoke_6": {
+    "position": [
+     0.0,
+     0.122,
+     -0.15
+    ],
+    "quaternion": [
+     0,
+     0,
+     0,
+     1
+    ]
+   }
+  },
+  "cable": {
+   "radius": 0.0075,
+   "ends": [
+    "trap CableAnchor",
+    "pedal PedalAnchor"
+   ],
+   "material_hint": "black corrugated split loom, same look as HoseMat"
+  },
+  "emissive": {
+   "TrapEmit": {
+    "segments": 13,
+    "map": {
+     "0-9": "bargraph on the front cap top, 0 = wearer-right end (-X) .. 9 = +X end",
+     "10": "yellow lamp, front cap top",
+     "11": "red lamp, rear block top",
+     "12": "interior flash bulbs under the doors"
+    }
+   }
+  },
+  "smoke_note": "Smoke_1..4 door corners, Smoke_5 door seam centre, Smoke_6 rear vent",
+  "stats_trap": {
+   "triangles": 6714,
+   "materials": [
+    "TrapDecals",
+    "TrapEmit",
+    "TrapMat"
+   ],
+   "material_count": 3,
+   "mb": 1.34,
+   "bounds": {
+    "min": [
+     -0.0652,
+     0.00037,
+     -0.2
+    ],
+    "max": [
+     0.0657,
+     0.178,
+     0.17198
+    ]
+   },
+   "size": [
+    0.1309,
+    0.17763,
+    0.37198
+   ]
+  },
+  "stats_pedal": {
+   "triangles": 3242,
+   "materials": [
+    "TrapDecals",
+    "TrapMat"
+   ],
+   "material_count": 2,
+   "mb": 1.34,
+   "bounds": {
+    "min": [
+     0.15087,
+     -0.003,
+     -0.49211
+    ],
+    "max": [
+     0.43917,
+     0.093,
+     -0.1598
+    ]
+   },
+   "size": [
+    0.2883,
+    0.096,
+    0.33231
+   ]
+  }
+ }
+}
