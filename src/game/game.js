@@ -88,10 +88,9 @@ export class Game {
       player.teleport(_a.lerpVectors(from, target.pos, e).setY(target.pos.y), fy + Math.atan2(Math.sin(target.yaw - fy), Math.cos(target.yaw - fy)) * e);
       player.vel.set(0, 0, 0); player.speed = k < 1 ? 1.2 : 0;
     };
-    await this.wait(0.85);
+    await this.wait(Math.max(0.85, ecto.seq.slideAt));
     this.autopilot = null;
-    ecto.slideTray(true);
-    await this.wait(1.35);
+    await this.wait(ecto.deployTray() + 0.1);
     const clip = avatar.anim.has('don_pack');
     if (clip && avatar.carriers.pack) {
       const ev = avatar.json?.events?.don_pack || avatar.json?.don_pack || {};
@@ -143,9 +142,9 @@ export class Game {
     player.packed = true;
     this.hud.toast('Pack powered up', 1.4);
     await this.wait(0.7);
-    ecto.slideTray(false);
+    const back = ecto.stowTray();
     rig.endCine('foot'); rig.yaw = player.yaw; rig.pitch = -0.1;
-    await this.wait(1.1);
+    await this.wait(back);
     ecto.openRear(false);
     this.busy = false;
     this.mission = 'find';
@@ -156,8 +155,8 @@ export class Game {
     const { ecto, gear, player, audio } = this;
     this.busy = true; this.proton.stopAll(); gear.powerDown();
     ecto.openRear(true);
-    await this.wait(0.8); ecto.slideTray(true);
-    await this.wait(1.2);
+    await this.wait(ecto.seq.slideAt);
+    await this.wait(ecto.deployTray() + 0.1);
     gear.dock(); this.wandMode = 'dock';
     this.detachToScene(gear.pack); this.packMode = 'fly';
     if (this.avatar.harness) this.avatar.harness.visible = false;
@@ -172,8 +171,9 @@ export class Game {
     this.packFly = null;
     ecto.slots[this.slotIndex].add(gear.pack); gear.pack.position.set(0, 0, 0); gear.pack.quaternion.identity();
     this.packMode = 'slot'; gear.state = 'stowed'; player.packed = false;
-    await this.wait(0.3); ecto.slideTray(false);
-    await this.wait(1.1); ecto.openRear(false);
+    await this.wait(0.3);
+    await this.wait(ecto.stowTray());
+    ecto.openRear(false);
     this.busy = false;
   }
 

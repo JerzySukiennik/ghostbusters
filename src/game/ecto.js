@@ -28,24 +28,38 @@ export class Ecto {
       const o = n(name); if (!o) return;
       this.parts[key] = { o, kind, axis: new THREE.Vector3(...(axis || [0, 1, 0])).normalize(), amount, rq: o.quaternion.clone(), rp: o.position.clone(), t: 0, target: 0, speed: 1 };
     };
-    const J = this.json;
-    part('rear', 'RearDoor', 'rot', J.rearDoor?.axis || [1, 0, 0], THREE.MathUtils.degToRad(J.rearDoor?.open_deg ?? J.rearDoor?.openAngleDeg ?? -95));
-    part('tray', 'PackTray', 'move', J.tray?.axis || [0, 0, -1], J.tray?.travel_m ?? J.tray?.travel ?? 1.4);
-    if (n('PackTray2')) part('tray2', 'PackTray2', 'move', J.tray2?.axis || J.tray?.axis2 || J.tray?.axis || [0, 0, -1], J.tray2?.travel_m ?? J.tray?.travel2_m ?? 0.6);
-    part('doorL', 'Door_FL', 'rot', J.doors?.Door_FL?.axis || [0, 1, 0], THREE.MathUtils.degToRad(J.doors?.Door_FL?.open_deg ?? 62));
-    part('doorR', 'Door_FR', 'rot', J.doors?.Door_FR?.axis || [0, 1, 0], THREE.MathUtils.degToRad(J.doors?.Door_FR?.open_deg ?? -62));
+    const J = this.json, rad = THREE.MathUtils.degToRad;
+    const rear = J.RearDoor || J.rearDoor || {}, tr = J.PackTray || J.tray || {}, t2 = J.PackTray2 || J.tray2 || null;
+    part('rear', 'RearDoor', 'rot', rear.axis_local || rear.axis || [1, 0, 0], rad(rear.open_deg ?? rear.openAngleDeg ?? -95));
+    part('tray', 'PackTray', 'move', tr.axis_local || tr.axis || [0, 0, -1], tr.travel_m ?? tr.travel ?? 1.4);
+    if (n('PackTray2')) {
+      if (t2 && t2.angle_deg !== undefined) part('tray2', 'PackTray2', 'rot', t2.axis_local || [0, 1, 0], rad(t2.angle_deg));
+      else part('tray2', 'PackTray2', 'move', t2?.axis_local || t2?.axis || [0, 0, -1], t2?.travel_m ?? 0.6);
+    }
+    const dl = J.Door_FL || J.doors?.Door_FL || {}, dr = J.Door_FR || J.doors?.Door_FR || {};
+    part('doorL', 'Door_FL', 'rot', dl.axis_local || dl.axis || [0, 1, 0], rad(dl.open_deg ?? 62));
+    part('doorR', 'Door_FR', 'rot', dr.axis_local || dr.axis || [0, 1, 0], rad(dr.open_deg ?? -62));
+    const seq = J.pack_sequence_s || {};
+    const span = (a, d) => (Array.isArray(a) ? Math.max(0.2, a[1] - a[0]) : d);
+    this.seq = { door: span(seq.rear_door_open, 0.9), slide: span(seq.tray_slide, 1.4), swing: span(seq.rack_swing, 0.9), slideAt: Array.isArray(seq.tray_slide) ? seq.tray_slide[0] : 0.8 };
+    this.sched = [];
     this.steerWheel = n('SteeringWheel'); this.steerRest = this.steerWheel?.quaternion.clone();
-    this.steerAxis = new THREE.Vector3(...(J.steering?.axis || [0, 0, 1]));
+    this.steerAxis = new THREE.Vector3(...(J.SteeringWheel?.axis_local || J.steering?.axis || [0, 0, 1]));
+    this.steerRatio = J.SteeringWheel?.ratio || 14;
     this.beacon = n('Beacon');
-    this.beaconAxis = new THREE.Vector3(...(J.beacon?.axis || [0, 1, 0]));
+    this.beaconAxis = new THREE.Vector3(...(J.Beacon?.axis_local || J.beacon?.axis || [0, 1, 0]));
+    this.beaconRate = ((J.Beacon?.rpm || 90) / 60) * Math.PI * 2;
     this.slots = [1, 2, 3, 4].map((i) => n('PackSlot_' + i)).filter(Boolean);
     this.pickups = [1, 2, 3, 4].map((i) => n('PackPickup_' + i));
     this.empties = { seat: n('Seat_Driver'), exit: n('Exit_Driver'), stow: n('TrapStow'), siren: n('Siren'), exhaust: n('Exhaust'), hl: n('Headlight_L'), hr: n('Headlight_R') };
     this.emit = {};
-    for (const k of ['HeadlightEmit', 'TailLightEmit', 'BeaconEmit', 'InteriorEmit']) {
-      const o = n(k); if (!o) continue;
-      const meshes = []; o.traverse((m) => { if (m.isMesh) { m.material = m.material.clone(); meshes.push(m); } });
-      this.emit[k] = meshes;
+    for (const k of ['HeadlightEmit', 'TailLightEmit', 'BeaconEmit', 'InteriorEmit', 'GrilleLightEmit', 'InteriorGaugesEmit']) {
+      const meshes = [];
+      const o = n(k);
+      if (o) o.traverse((m) => { if (m.isMesh) meshes.push(m); });
+      model.traverse((m) => { if (m.isMesh && !meshes.includes(m) && [].concat(m.material).some((x) => x && x.name === k)) meshes.push(m); });
+      for (const m of meshes) m.material = Array.isArray(m.material) ? m.material.map((x) => (x.name === k ? x.clone() : x)) : m.material.clone();
+      if (meshes.length) this.emit[k] = meshes;
     }
     const bar = n('LightBarEmit');
     this.bar = null;
@@ -138,14 +152,40 @@ export class Ecto {
     const saved = [];
     for (const k of ['tray', 'tray2']) {
       const p = this.parts[k]; if (!p) continue;
-      saved.push([p, p.o.position.clone()]);
-      p.o.position.copy(p.rp).addScaledVector(p.axis, p.amount);
+      saved.push([p, p.o.position.clone(), p.o.quaternion.clone()]);
+      if (p.kind === 'rot') p.o.quaternion.copy(p.rq).multiply(_q.setFromAxisAngle(p.axis, p.amount));
+      else p.o.position.copy(p.rp).addScaledVector(p.axis, p.amount);
     }
     this.root.updateMatrixWorld(true);
     const r = fn();
-    for (const [p, v] of saved) p.o.position.copy(v);
+    for (const [p, v, q] of saved) { p.o.position.copy(v); p.o.quaternion.copy(q); }
     this.root.updateMatrixWorld(true);
     return r;
+  }
+
+  later(dt, fn) { this.sched.push({ t: this.t + dt, fn }); }
+
+  setEmit(key, v) {
+    for (const m of this.emit[key] || []) {
+      if (Array.isArray(m.material)) { for (const x of m.material) if (x.name === key) x.emissiveIntensity = v; }
+      else m.material.emissiveIntensity = v;
+    }
+  }
+
+  deployTray() {
+    this.set('tray', 1, 1 / this.seq.slide);
+    if (this.audio) this.audio.play('tray_slide', { obj: this.parts.tray?.o || this.root });
+    if (!this.parts.tray2) return this.seq.slide;
+    this.later(this.seq.slide, () => { this.set('tray2', 1, 1 / this.seq.swing); this.audio?.play('tray_slide', { obj: this.parts.tray2?.o || this.root, rate: 1.25, gain: 0.7 }); });
+    return this.seq.slide + this.seq.swing;
+  }
+
+  stowTray() {
+    if (!this.parts.tray2) { this.set('tray', 0, 1 / this.seq.slide); this.audio?.play('tray_slide', { obj: this.root }); return this.seq.slide; }
+    this.set('tray2', 0, 1 / this.seq.swing);
+    this.audio?.play('tray_slide', { obj: this.root, rate: 1.25, gain: 0.7 });
+    this.later(this.seq.swing, () => { this.set('tray', 0, 1 / this.seq.slide); this.audio?.play('tray_slide', { obj: this.root }); });
+    return this.seq.swing + this.seq.slide;
   }
 
   pickupPose(i, pos) { return this.withTrayOut(() => this.pickupPoseNow(i, pos)); }
@@ -164,7 +204,7 @@ export class Ecto {
   partT(key) { return this.parts[key]?.t ?? 0; }
 
   openRear(open) {
-    this.set('rear', open ? 1 : 0, open ? 1.25 : 1.05);
+    this.set('rear', open ? 1 : 0, 1 / this.seq.door);
     if (this.audio) this.audio.play(open ? 'reardoor_open' : 'reardoor_close', { obj: this.parts.rear?.o || this.root });
   }
 
@@ -241,6 +281,7 @@ export class Ecto {
 
   update(dt, time) {
     this.t += dt;
+    for (let i = this.sched.length - 1; i >= 0; i--) if (this.sched[i].t <= this.t) { const f = this.sched[i].fn; this.sched.splice(i, 1); f(); }
     for (const k in this.parts) {
       const p = this.parts[k];
       if (p.t !== p.target) p.t = p.t < p.target ? Math.min(p.target, p.t + dt * p.speed) : Math.max(p.target, p.t - dt * p.speed);
@@ -256,15 +297,18 @@ export class Ecto {
       const st = i < 2 ? this.vc.wheelSteering(i) ?? 0 : 0;
       wh.o.quaternion.copy(_q.setFromAxisAngle(_v.set(0, 1, 0), st)).multiply(wh.rest).multiply(_q2.setFromAxisAngle(_v.set(1, 0, 0), wh.spin));
     });
-    if (this.steerWheel) this.steerWheel.quaternion.copy(this.steerRest).multiply(_q.setFromAxisAngle(this.steerAxis, this.steer * 9));
-    if (this.beacon && this.beaconOn) this.beacon.quaternion.multiply(_q.setFromAxisAngle(this.beaconAxis, dt * 9.5));
-    const pulse = this.beaconOn ? 0.5 + 0.5 * Math.sin(this.t * 9.5) : 0;
-    for (const m of this.emit.BeaconEmit || []) m.material.emissiveIntensity = this.beaconOn ? 3 + 9 * pulse : 0.05;
-    this.beaconLight.intensity = this.beaconOn ? 60 : 0;
-    for (const m of this.emit.HeadlightEmit || []) m.material.emissiveIntensity = this.lightsOn ? 9 : 0.1;
-    for (const m of this.emit.TailLightEmit || []) m.material.emissiveIntensity = this.lightsOn ? (this.brakeLit ? 9 : 3.5) : 0.2;
-    for (const m of this.emit.InteriorEmit || []) m.material.emissiveIntensity = this.engine ? 1.5 : 0.2;
+    if (this.steerWheel) this.steerWheel.quaternion.copy(this.steerRest).multiply(_q.setFromAxisAngle(this.steerAxis, this.steer * this.steerRatio * 0.5));
+    if (this.beacon && this.beaconOn) this.beacon.quaternion.multiply(_q.setFromAxisAngle(this.beaconAxis, dt * this.beaconRate));
+    const pulse = this.beaconOn ? 0.5 + 0.5 * Math.sin(this.t * this.beaconRate) : 0;
+    const flash = this.beaconOn ? (Math.sin(this.t * (this.siren ? 14 : 7)) > 0 ? 1 : 0) : 0;
     this.brakeLit = this.occupied && this.throttle < -0.05 || (this.occupied && this.fwdSpeed > 1 && this.throttle < 0.05);
+    this.setEmit('GrilleLightEmit', flash ? 8 : 0.1);
+    this.setEmit('InteriorGaugesEmit', this.engine ? 1.2 : 0.15);
+    this.setEmit('BeaconEmit', this.beaconOn ? 3 + 9 * pulse : 0.05);
+    this.beaconLight.intensity = this.beaconOn ? 60 : 0;
+    this.setEmit('HeadlightEmit', this.lightsOn ? 9 : 0.1);
+    this.setEmit('TailLightEmit', this.lightsOn ? (this.brakeLit ? 9 : 3.5) : 0.2);
+    this.setEmit('InteriorEmit', this.engine ? 1.5 : 0.2);
     for (const l of this.lights) l.intensity = this.lightsOn ? 180 : 0;
     if (this.bar) {
       const lv = this.bar.levels, n = this.bar.count, ph = Math.floor(this.t * (this.siren ? 7 : 3.5));
