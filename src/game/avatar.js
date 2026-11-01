@@ -25,13 +25,14 @@ export class Avatar {
     const real = !!gltf;
     if (!gltf) { key = 'base'; gltf = await assets.glb('assets/lead/jurek_base.glb', 'Avatar'); }
     const json = real ? await assets.json('assets/avatar/avatar.json') : null;
+    const crew = real && key !== 'jurek' ? (await assets.json('assets/avatar/crew.json'))?.characters?.[key] : null;
     const shared = real && key !== 'jurek' ? await assets.glb(URL('jurek'), 'Ghostbuster') : null;
     if (!gltf.pristine) gltf.pristine = cloneSkinned(gltf.scene);
     const src = clone || gltf.used ? { scene: cloneSkinned(gltf.pristine), animations: gltf.animations } : gltf;
     gltf.used = true;
     const own = !!(src.animations && src.animations.length);
     const anims = (own ? src.animations : shared?.animations) || [];
-    const a = new Avatar({ scene: src.scene, animations: anims }, real, json);
+    const a = new Avatar({ scene: src.scene, animations: anims }, real, crew?.packWorn ? { ...json, packWorn: crew.packWorn } : json);
     if (!own && shared) { if (!shared.pristine) shared.pristine = cloneSkinned(shared.scene); a.clipScale = a.d.restWorldP.get('Hips').y / hipY(shared.pristine); }
     a.char = key;
     a.setNick(nick);
