@@ -180,14 +180,15 @@ export class Game {
 
   cineSuit() {
     const ecto = this.ecto, player = this.player;
+    const fw = V(), rt = V();
     const f = (t, pos, look) => {
-      const s = Math.min(1, t / 6);
-      _a.set(2.9 - s * 1.1, 1.55 - s * 0.15, -6.3 + s * 0.9).applyMatrix4(ecto.root.matrixWorld);
-      pos.copy(_a);
-      look.copy(player.feet).add(_b.set(0, 1.15, 0));
-      _b.set(0, 0, -1).applyQuaternion(ecto.root.quaternion);
-      look.addScaledVector(_b, -0.25);
-      return 48;
+      const s = Math.min(1, t / 6), e = s * s * (3 - 2 * s);
+      fw.set(0, 0, 1).applyQuaternion(ecto.root.quaternion).setY(0).normalize();
+      rt.set(fw.z, 0, -fw.x);
+      pos.copy(player.feet).addScaledVector(rt, 2.7 - e * 0.8).addScaledVector(fw, -2.4 + e * 0.6);
+      pos.y = player.feet.y + 1.55 - e * 0.1;
+      look.copy(player.feet).addScaledVector(fw, 0.35); look.y += 1.1;
+      return 46;
     };
     f.ease = 0.9;
     return f;

@@ -126,8 +126,10 @@ export class Proton {
 
   hitSurface(dt, h, dir) {
     this.sparkT -= dt; this.scorchT -= dt;
-    if (this.sparkT <= 0) { this.sparkT = 0.045; this.fx.impact(this.end.clone(), h.normal.clone(), 'spark'); }
-    if (this.scorchT <= 0) { this.scorchT = 0.09; this.fx.impact(this.end.clone(), h.normal.clone(), 'scorch'); }
+    if (!this.fx.ownsStreamImpacts) {
+      if (this.sparkT <= 0) { this.sparkT = 0.045; this.fx.impact(this.end.clone(), h.normal.clone(), 'spark'); }
+      if (this.scorchT <= 0) { this.scorchT = 0.09; this.fx.impact(this.end.clone(), h.normal.clone(), 'scorch'); }
+    }
     const p = h.owner;
     if (p && p.body && p.body.isDynamic && p.body.isDynamic()) {
       const m = Math.max(2, p.mass || p.body.mass() || 10);
@@ -156,7 +158,7 @@ export class Proton {
     this.snd.loop?.gain(0.35, 0.15);
     this.snd.cap = this.audio?.loop('stream_capture_loop', { pos: tip, gain: 0.95, fadeIn: 0.15 });
     this.hitSound(false);
-    this.renderer.addTrauma(0.45); this.renderer.addFlash(0.12);
+    this.renderer.addTrauma(0.45); this.renderer.addFlash(0.05); this.renderer.hitStop(0.05, 0.15);
     this.hud?.toast?.('Wrangle it!', 1.4);
     this.sT = 0;
   }

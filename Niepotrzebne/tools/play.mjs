@@ -22,6 +22,8 @@ const kill = setTimeout(() => { console.log(logs.join('\n') + '\n[play] hard tim
 browser.on('disconnected', () => { console.log(logs.slice(-20).join('\n') + '\n[play] browser disconnected'); setTimeout(() => process.exit(3), 500); });
 const E = (fn, a) => page.evaluate(fn, a);
 const wait = (ms) => page.waitForTimeout(ms);
+const until = (js, ms = 60000) => page.waitForFunction(js, null, { timeout: ms, polling: 200 }).catch(() => logs.push('[play] until timeout: ' + js));
+const suited = () => until('window.__gb && !window.__gb.busy && window.__gb.gear.state === "worn" && window.__gb.mission !== "suit"', 90000);
 let n = 0;
 const shot = async (name) => { const p = `${out}/${scen}_${String(n++).padStart(2, '0')}_${name}.jpg`; await page.screenshot({ path: p, type: 'jpeg', quality: 82 }); return p; };
 const aimAt = (x, y, z) => E(([x, y, z]) => { const g = window.__gb, c = g.camera.position; const dx = x - c.x, dy = y - c.y, dz = z - c.z; g.rig.yaw = Math.atan2(dx, dz); g.rig.pitch = Math.atan2(dy, Math.hypot(dx, dz)); }, [x, y, z]);
@@ -47,7 +49,7 @@ try {
     for (let i = 0; i < 12; i++) { await wait(550); await shot('t' + i); if (i >= 7) console.log('t' + i, JSON.stringify(await state())); }
     await wait(1500); await shot('done');
   } else if (scen === 'fire' || scen === 'capture' || scen === 'film') {
-    await suit(); await wait(7200);
+    await suit(); await suited(); await wait(400);
     await E(() => { const g = window.__gb, V = g.player.feet.constructor; g.player.teleport(new V(9, 0, 2), 0); g.rig.yaw = 0; g.ghost.set('roam'); g.ghost.pos.set(9.5, 2.6, 10); g.ghost.vel.set(0, 0, 0); g.engaged = true; g.mission = 'bust'; g.ghost.prankT = 99; g.ghost.tauntT = 99; g.ghost.swoopCd = 99; });
     await wait(300);
     const gp = await E(() => window.__gb.ghost.pos.toArray());
@@ -81,7 +83,7 @@ try {
     }
     await E(() => { window.__gb.input.btn[0] = false; });
   } else if (scen === 'pose') {
-    await suit(); await wait(7200);
+    await suit(); await suited(); await wait(400);
     await E(() => { const g = window.__gb, V = g.player.feet.constructor; g.player.teleport(new V(9, 0, 2), 0); g.ghost.set('roam'); g.ghost.prankT = g.ghost.tauntT = g.ghost.swoopCd = 99; g.engaged = true; g.mission = 'bust'; });
     for (const [gy, gz, side] of [[1.6, 9, 1], [4.5, 7, 1], [1.6, 9, -1], [6, 4, 1]]) {
       await E(([gy, gz, side]) => {
@@ -108,7 +110,7 @@ try {
       await shot(`pose_${gy}_${side}`);
     }
   } else if (scen === 'bot') {
-    await suit(); await wait(7200);
+    await suit(); await suited(); await wait(400);
     await E(() => { const g = window.__gb, V = g.player.feet.constructor; g.player.teleport(new V(4, 0, 6), 0); g.rig.yaw = 0; });
     let t0 = Date.now(), first = null;
     for (let i = 0; i < 90; i++) {

@@ -87,6 +87,16 @@ async function boot() {
     scene.environmentIntensity = 0.22;
   }
   if (packG.json?.trap) trapG.json = { ...trapG.json, ...packG.json.trap };
+  if (!(fx instanceof FB.FallbackFX)) {
+    fx.ownsStreamImpacts = true;
+    fx.groundY = 0;
+    let moon = plate.lights?.moon || null;
+    if (!moon) scene.traverse((o) => { if (!moon && o.isDirectionalLight) moon = o; });
+    if (moon && fx.setLighting) {
+      const dir = moon.position.clone().sub(moon.target?.position || new THREE.Vector3()).normalize();
+      fx.setLighting({ keyDir: dir, keyColor: moon.color.clone().multiplyScalar(Math.min(0.35, 0.12 * (moon.intensity || 1))) });
+    }
+  }
   const sp = plate.spawns;
   const ecto = new Ecto({ gltf: ectoG, phys, audio, scene, spawn: sp.ecto });
   const gear = new Gear({ packGltf: packG, wandGltf: wandG, scene, audio });
