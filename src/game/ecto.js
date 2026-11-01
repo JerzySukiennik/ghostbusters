@@ -7,6 +7,7 @@ import { segmentize } from '../engine/segments.js';
 const V = (x = 0, y = 0, z = 0) => new THREE.Vector3(x, y, z), Q = () => new THREE.Quaternion();
 const _v = V(), _q = Q(), _q2 = Q(), _m = new THREE.Matrix4();
 const GEARS = [3.96, 2.55, 1.55, 1.0], FINAL = 3.36, IDLE = 650;
+const POWER = 235000, MAXF = 19000, TOP = 42, BRAKE = 6400, HAND = 2400, COAST = 380, PARK = 3200, DRAG = 0.7, GRIP = [1.95, 1.95, 1.8, 1.8], HAND_GRIP = 1.35;
 const ease = (t) => t * t * (3 - 2 * t);
 
 export class Ecto {
@@ -81,7 +82,7 @@ export class Ecto {
     const R = phys.RAPIER, w = phys.world;
     const yaw = spawn.yaw || 0;
     this.body = w.createRigidBody(R.RigidBodyDesc.dynamic().setTranslation(spawn.pos.x, spawn.pos.y + 0.15, spawn.pos.z)
-      .setRotation({ x: 0, y: Math.sin(yaw / 2), z: 0, w: Math.cos(yaw / 2) }).setLinearDamping(0.05).setAngularDamping(0.6).setCanSleep(true));
+      .setRotation({ x: 0, y: Math.sin(yaw / 2), z: 0, w: Math.cos(yaw / 2) }).setLinearDamping(0.01).setAngularDamping(0.3).setCanSleep(true));
     const mass = J.mass_kg || 2600;
     const hulls = [];
     model.traverse((o) => { if (o.isMesh && /^Collider/.test(o.name)) hulls.push(o); });
@@ -110,13 +111,13 @@ export class Ecto {
       if (!wh) return;
       const p = wh.p;
       this.vc.addWheel({ x: p.x, y: p.y + this.rest * 0.75, z: p.z }, { x: 0, y: -1, z: 0 }, { x: -1, y: 0, z: 0 }, this.rest, radius);
-      this.vc.setWheelSuspensionStiffness(i, 22);
-      this.vc.setWheelSuspensionCompression(i, 2.3);
-      this.vc.setWheelSuspensionRelaxation(i, 2.9);
+      this.vc.setWheelSuspensionStiffness(i, 30);
+      this.vc.setWheelSuspensionCompression(i, 3.4);
+      this.vc.setWheelSuspensionRelaxation(i, 4.2);
       this.vc.setWheelMaxSuspensionTravel(i, 0.22);
-      this.vc.setWheelMaxSuspensionForce(i, 90000);
-      this.vc.setWheelFrictionSlip(i, i < 2 ? 1.55 : 1.4);
-      this.vc.setWheelSideFrictionStiffness(i, 0.95);
+      this.vc.setWheelMaxSuspensionForce(i, 120000);
+      this.vc.setWheelFrictionSlip(i, GRIP[i]);
+      this.vc.setWheelSideFrictionStiffness(i, 1.05);
     });
     this.steer = 0; this.throttle = 0; this.brake = 0; this.gear = 0; this.rpm = IDLE; this.speed = 0; this.fwdSpeed = 0;
     this.engine = false; this.siren = false; this.lightsOn = false; this.beaconOn = true; this.occupied = false;
@@ -300,26 +301,34 @@ export class Ecto {
       const fwd = input.key('KeyW') || input.key('ArrowUp'), back = input.key('KeyS') || input.key('ArrowDown');
       steerIn = (input.key('KeyA') || input.key('ArrowLeft') ? 1 : 0) - (input.key('KeyD') || input.key('ArrowRight') ? 1 : 0);
       hand = input.key('Space');
-      if (fwd) { if (this.fwdSpeed < -0.6) brk = 1; else thr = 1; }
-      if (back) { if (this.fwdSpeed > 0.6) brk = 1; else thr = -0.55; }
-    } else brk = 0.35;
-    this.throttle += (thr - this.throttle) * Math.min(1, dt * (thr ? 3 : 8));
+      if (fwd) { if (this.fwdSpeed < -0.8) brk = 1; else thr = 1; }
+      if (back) { if (this.fwdSpeed > 0.8) brk = 1; else thr = -0.7; }
+    } else brk = 0.5;
+    if (brk) this.throttle = 0;
+    else {
+      this.throttle += (thr - this.throttle) * Math.min(1, dt * (thr ? 5 : 10));
+      if (!thr && Math.abs(this.throttle) < 0.04) this.throttle = 0;
+    }
     const sp = Math.abs(this.fwdSpeed);
-    const maxSteer = THREE.MathUtils.lerp(0.62, 0.17, Math.min(1, sp / 30));
-    this.steer += THREE.MathUtils.clamp(steerIn * maxSteer - this.steer, -2.4 * dt, 2.4 * dt);
+    const maxSteer = THREE.MathUtils.lerp(0.6, 0.24, Math.min(1, sp / 32));
+    const rate = (steerIn ? 4.2 : 6) * dt;
+    this.steer += THREE.MathUtils.clamp(steerIn * maxSteer - this.steer, -rate, rate);
     const g = GEARS[this.gear];
-    const torqueCurve = THREE.MathUtils.clamp(1.15 - Math.pow(this.rpm / 4700, 3) * 0.6, 0.15, 1.15);
-    const force = this.engine ? this.throttle * 2150 * g * torqueCurve * (this.fwdSpeed > 41 && this.throttle > 0 ? 0.05 : 1) : 0;
+    const cut = (this.fwdSpeed > TOP && this.throttle > 0) || (this.fwdSpeed < -9 && this.throttle < 0) ? 0 : this.shiftT > 0.15 ? 0.55 : 1;
+    const force = this.engine ? this.throttle * Math.min(MAXF, POWER / Math.max(4, sp)) * cut : 0;
+    const idle = !this.engine || !this.occupied ? PARK : !thr && !brk ? COAST : 0;
     for (let i = 0; i < 4; i++) {
       if (!this.wheels[i]) continue;
       if (i < 2) this.vc.setWheelSteering(i, this.steer);
+      else this.vc.setWheelFrictionSlip(i, hand ? HAND_GRIP : GRIP[i]);
       this.vc.setWheelEngineForce(i, i >= 2 ? force / 2 : 0);
-      this.vc.setWheelBrake(i, brk * 55 + (hand && i >= 2 ? 90 : 0) + (!this.engine || !this.occupied ? 18 : 0));
+      this.vc.setWheelBrake(i, (brk * BRAKE + idle + (hand && i >= 2 ? HAND : 0)) * dt);
     }
     this.vc.updateVehicle(dt, undefined, groups(G.VEHICLE, G.STATIC | G.PROP));
     this.fwdSpeed = this.vc.currentVehicleSpeed();
     const lv = this.body.linvel();
     this.speed = Math.hypot(lv.x, lv.z);
+    if (this.speed > 1) { const k = DRAG * this.speed * dt; this.body.applyImpulse({ x: -lv.x * k, y: 0, z: -lv.z * k }, true); }
     const wheelRpm = Math.abs(this.fwdSpeed) / this.radius * 60 / (Math.PI * 2) * FINAL;
     this.shiftT = Math.max(0, this.shiftT - dt);
     let target = Math.max(IDLE, wheelRpm * g);

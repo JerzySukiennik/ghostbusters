@@ -4,7 +4,7 @@ import { G } from '../engine/physics.js';
 
 const V = (x = 0, y = 0, z = 0) => new THREE.Vector3(x, y, z);
 const _a = V(), _b = V(), _c = V(), _d = V(), _e = V();
-const RANGE = 22;
+const RANGE = 420, AIR = 170, REEL = 9;
 
 function raySphere(o, d, c, r, maxT) {
   _e.copy(o).sub(c);
@@ -61,13 +61,13 @@ export class Proton {
     const can = gear.canFire() && c.enabled;
     const camPos = c.camPos, camDir = c.camDir;
     const startT = Math.max(0, c.camPos.distanceTo(c.pivot) - 0.2);
-    let aimT = 40;
+    let aimT = AIR;
     _a.copy(camPos).addScaledVector(camDir, startT);
-    const h = this.phys.cast(_a, camDir, 40, G.STATIC | G.PROP | G.VEHICLE | G.DEBRIS);
+    const h = this.phys.cast(_a, camDir, RANGE, G.STATIC | G.PROP | G.VEHICLE | G.DEBRIS);
     if (h) aimT = startT + h.dist;
     if (!this.wrangling) for (const g of this.ghosts) {
       if (!this.live(g)) continue;
-      const t = raySphere(camPos, camDir, g.pos, g.radius * 1.15, 60);
+      const t = raySphere(camPos, camDir, g.pos, g.radius * 1.15, RANGE);
       if (t > startT && t < aimT) aimT = t;
     }
     this.aim.copy(camPos).addScaledVector(camDir, aimT);
@@ -169,8 +169,8 @@ export class Proton {
   }
 
   lock(tip, g) {
-    this.mode = 'capture'; this.tension = 0; this.target = g; this.lockT = 0; this.desired.copy(g.pos);
-    this.lockD = THREE.MathUtils.clamp(g.pos.distanceTo(tip), 3.5, 10);
+    this.mode = 'capture'; this.tension = 0; this.target = g; this.lockT = 0; this.reelT = 0; this.desired.copy(g.pos);
+    this.lockD = Math.max(3.5, g.pos.distanceTo(tip));
     g.lock(this.pid);
     this.snd.loop?.gain(0.35, 0.15);
     this.snd.cap = this.audio?.loop('stream_capture_loop', { pos: tip, gain: 0.95, fadeIn: 0.15 });
@@ -184,7 +184,8 @@ export class Proton {
     this.lockT += dt;
     const pending = ghost && ghost.puppet && this.lockT < 1.2 && ghost.state !== 'sucked';
     if (!ghost || !ghost.alive || (!pending && ghost.state !== 'wrangled' && ghost.state !== 'slammed' && ghost.state !== 'stagger')) { this.stopAll(); return; }
-    this.lockD = THREE.MathUtils.clamp(this.lockD - c.wheel * 0.6, 3, 11);
+    if (this.lockD > 10) { this.lockD = Math.max(10, this.lockD - dt * REEL * (1 + this.lockD / 40)); this.reelT = 1; }
+    else { this.reelT = Math.max(0, (this.reelT || 0) - dt); this.lockD = THREE.MathUtils.clamp(this.lockD - c.wheel * 0.6, 3, 11); }
     const cam0 = c.camPos.distanceTo(c.pivot);
     let D = cam0 + this.lockD;
     _a.copy(c.camPos).addScaledVector(c.camDir, cam0);
@@ -205,6 +206,7 @@ export class Proton {
     ghost.wrangle(this.pid, this.desired, this.counter);
     let off = ghost.pos.distanceTo(this.desired);
     if (ghost.puppet) off = Math.min(3, ghost.netOff?.[this.pid] ?? 0);
+    if (this.reelT > 0) off = Math.min(off, 1.2);
     this.tension = THREE.MathUtils.clamp(this.tension + (off > 1.35 ? (off - 1.35) * 0.42 : -0.32) * dt + (this.counter > 0.25 ? -0.25 * dt : 0), 0, 1);
     this.end.copy(ghost.pos); this.endKind = 'ghost'; this.endN.copy(this.dir).negate();
     this.sparkT -= dt;
@@ -248,7 +250,7 @@ export class Proton {
     this.gear.addHeat(0.2);
     m.visible = true; m.position.copy(c.tip);
     _a.copy(this.aim).sub(c.tip).normalize();
-    this.darts.push({ m, v: _a.clone().multiplyScalar(44), life: 1.2 });
+    this.darts.push({ m, v: _a.clone().multiplyScalar(52), life: 3.2 });
     this.audio?.play('stream_start', { pos: c.tip, gain: 0.9, rate: 1.35 });
     this.audio?.play('zap', { pos: c.tip });
     this.rig.kick.addScaledVector(c.camDir, -0.22);

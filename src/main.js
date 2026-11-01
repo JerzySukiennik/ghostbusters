@@ -23,7 +23,7 @@ import * as FB from './game/fallbacks.js';
 const params = new URLSearchParams(location.search);
 const force = (params.get('fallback') || '').split(',');
 const store = { get: (k, d) => { try { return localStorage.getItem(k) || d; } catch { return d; } }, set: (k, v) => { try { localStorage.setItem(k, v); } catch {} } };
-let style = params.get('style') || store.get('gb.style', 'modern');
+const style = 'film';
 let quality = params.get('q') || store.get('gb.q', 'medium');
 const errEl = document.getElementById('err');
 const report = (e) => { console.error(e); errEl.textContent = String(e?.stack || e?.message || e).slice(0, 600); };
@@ -214,15 +214,13 @@ async function boot() {
   document.getElementById('again').onclick = () => { const u = new URL(location.href); u.searchParams.delete('room'); location.href = u.toString(); };
   document.getElementById('free').onclick = () => game.freeRoam();
   const segs = [];
-  for (const [ids, cur, set] of [[['lookSeg', 'pLook'], style, (v) => { game.setStyle(v); store.set('gb.style', v); }], [['qSeg', 'pQ'], quality, (v) => { R.setPreset(v); store.set('gb.q', v); }]]) {
+  for (const [ids, cur, set] of [[['qSeg', 'pQ'], quality, (v) => { R.setPreset(v); store.set('gb.q', v); }]]) {
     const all = ids.map((id) => document.getElementById(id));
     const mark = (v) => all.forEach((seg) => seg.querySelectorAll('button').forEach((b) => b.classList.toggle('on', b.dataset.v === v)));
     mark(cur);
     segs.push(mark);
     all.forEach((seg) => seg.querySelectorAll('button').forEach((b) => (b.onclick = () => { mark(b.dataset.v); set(b.dataset.v); })));
   }
-  const prevStyle = game.onStyle;
-  game.onStyle = (s) => { prevStyle(s); segs[0](s); };
   const sens = document.getElementById('sens'), vol = document.getElementById('vol');
   sens.value = store.get('gb.sens', '1'); vol.value = store.get('gb.vol', '0.9');
   const applySettings = () => { rig.sensMul = +sens.value; if (audio.master) audio.master.gain.value = +vol.value; store.set('gb.sens', sens.value); store.set('gb.vol', vol.value); };

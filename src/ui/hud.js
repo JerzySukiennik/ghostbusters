@@ -43,7 +43,7 @@ export class HUD {
     this.set('heatv', Math.round(v * 100), (x) => (this.el.heati.style.width = x + '%'));
   }
 
-  style(s) { this.set('style', s, (v) => (this.el.style.textContent = v === 'film' ? '1984 FILM' : 'MODERN')); }
+  style(s) { if (this.el.style) this.set('style', s, (v) => (this.el.style.textContent = v === 'film' ? '1984 FILM' : 'MODERN')); }
 
   speed(on, mph) {
     this.el.speed.classList.toggle('on', on);

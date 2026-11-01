@@ -16,7 +16,7 @@ const TRANSIENTS = 8;
 const IMPACT_KINDS = ['spark', 'scorch', 'slime', 'ghostHit', 'slam', 'debris'];
 
 export class FX {
-  constructor({ renderer, scene, camera, quality = 'medium', style = 'modern' } = {}) {
+  constructor({ renderer, scene, camera, quality = 'medium', style = 'film' } = {}) {
     this.renderer = renderer;
     this.scene = scene;
     this.camera = camera;
@@ -74,11 +74,6 @@ export class FX {
     setOnionhead(this.ghostGeometry, mesh);
     this.stats = { ghostLoadMs: Math.round(performance.now() - tg0), ghostTris: mesh.index.length / 3, ghostVerts: mesh.position.length / 3 };
     const proxies = new THREE.Group();
-    const proxy = (geo, mat) => { const m = new THREE.Mesh(geo, mat); m.frustumCulled = false; proxies.add(m); };
-    for (const p of Object.values(this.pools)) proxy(p.mesh.geometry, p.mesh.material === p.mats.film ? p.mats.modern : p.mats.film);
-    proxy(this.decals.mesh.geometry, this.decals.mesh.material === this.decals.mats.film ? this.decals.mats.modern : this.decals.mats.film);
-    for (const g of this._ghosts) proxy(g.body.geometry, g.body.material === g.mats.film ? g.mats.modern : g.mats.film);
-    this.root.add(proxies);
     const prev = r.getRenderTarget();
     const rt = new THREE.WebGLRenderTarget(8, 8, { type: THREE.HalfFloatType });
     const a = new THREE.WebGLRenderTarget(8, 8, { type: THREE.HalfFloatType });

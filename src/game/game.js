@@ -338,7 +338,7 @@ export class Game {
     else if (trap.state === 'full' && this.near(trap.pos, 1.8)) prompt = ['E', 'Pick up the trap', () => this.pickTrap()];
     else if (trap.state === 'armed' && this.near(trap.pos, 1.6)) prompt = ['E', 'Pick up the trap', () => { trap.pickUp(); this.audio.play('cloth_rustle', { pos: trap.pos }); }];
     else if (nearRear && gear.state === 'stowed') prompt = ['E', 'Suit up', () => this.suitUp()];
-    else if (nearRear && gear.state === 'worn' && trap.state === 'belt' && (this.mission === 'done' || this.mission === 'wait' || !this.ghostsLeft())) prompt = ['E', 'Stow your gear', () => this.unsuit()];
+    else if (nearRear && gear.state === 'worn' && (trap.state === 'belt' || trap.state === 'stowed') && (this.mission === 'done' || this.mission === 'wait' || trap.state === 'stowed' || !this.ghostsLeft())) prompt = ['E', 'Stow your gear', () => this.unsuit()];
     else if (nearDoor || (this.net && nearPass)) prompt = gear.state === 'stowed' ? ['F', this.net && this.net.carDriver() ? 'Ride along' : 'Drive', () => this.enterCar()] : ['F', 'Stow your gear first', null];
     hud.prompt(prompt ? prompt[0] : null, prompt ? prompt[1] : '');
     if (prompt && prompt[2] && input.pressed('Key' + prompt[0])) prompt[2]();
@@ -468,7 +468,6 @@ export class Game {
     for (let i = this.timers.length - 1; i >= 0; i--) if (this.timers[i].t <= this.time) { const r = this.timers[i].r; this.timers.splice(i, 1); r(); }
     const { input, rig, player, avatar, ecto, gear, trap, proton, hud, fx } = this;
     if (this.demoOn) this.demoTick();
-    if (input.enabled && input.pressed('KeyV')) this.setStyle(this.style === 'film' ? 'modern' : 'film');
     this.jumpQ = input.pressed('Space') ? 0.15 : Math.max(0, (this.jumpQ || 0) - dt);
     rig.input(input.dx, input.dy);
     this.interactions();

@@ -56,24 +56,22 @@ export class RemotePlayer {
   }
 
   apply(st, now) {
-    this.st = st;
-    if (st.p) this.samples.push({ t: now, p: V(st.p[0], st.p[1], st.p[2]), y: st.y || 0 });
+    this.st = st; this.lastAt = now;
+    if (st.p) this.samples.push({ t: now, p: V(st.p[0], st.p[1], st.p[2]), y: st.y || 0, e: st.e ? V(st.e[0], st.e[1], st.e[2]) : null, a: st.a ? V(st.a[0], st.a[1], st.a[2]) : null });
     if (this.samples.length > 8) this.samples.shift();
-    if (st.e) this.endT.set(st.e[0], st.e[1], st.e[2]);
-    if (st.a) this.aim.set(st.a[0], st.a[1], st.a[2]);
     if (this.trap) this.trap.fromNet(st.tr);
   }
 
   sample() {
     const S = this.samples, rt = performance.now() - 130;
     if (!S.length) return;
-    let a = S[0], b = S[S.length - 1];
-    for (let i = 0; i < S.length - 1; i++) if (S[i].t <= rt && S[i + 1].t >= rt) { a = S[i]; b = S[i + 1]; break; }
-    if (rt >= b.t || a === b) { this.pos.copy(b.p); this.yaw = b.y; return; }
-    if (rt <= a.t) { this.pos.copy(a.p); this.yaw = a.y; return; }
-    const k = (rt - a.t) / Math.max(1, b.t - a.t);
+    let a = S[S.length - 1], b = a, k = 0;
+    if (rt <= S[0].t) a = b = S[0];
+    else for (let i = 0; i < S.length - 1; i++) if (S[i + 1].t >= rt) { a = S[i]; b = S[i + 1]; k = (rt - a.t) / Math.max(1, b.t - a.t); break; }
     this.pos.lerpVectors(a.p, b.p, k);
     this.yaw = a.y + wrap(b.y - a.y) * k;
+    if (b.e) this.endT.lerpVectors(a.e || b.e, b.e, k);
+    if (b.a) this.aim.lerpVectors(a.a || b.a, b.a, k);
   }
 
   wearState(pk) {
@@ -155,21 +153,24 @@ export class RemotePlayer {
     const hold = this.pk === 1 && !inCar ? 1 : 0;
     this.hold.apply(av, dt, { hold, aimHold: st.f > 0 || st.am, wrangle: st.f === 2 ? 1 : 0, sprint: st.sp, wandObj: this.gear.wand, gripFront: this.gear.n.front, time, aimPoint: this.aim, hipOff: st.ho || 0 });
     const g = this.gear;
+    const live = performance.now() - (this.lastAt || 0) < 700;
+    const on = this.pk === 1 && st.f > 0 && !inCar && live;
     g.heat = st.h || 0;
-    g.update(dt, { firing: st.f > 0, mode: st.f === 2 ? 'capture' : 'blast', style });
+    g.update(dt, { firing: on, mode: st.f === 2 ? 'capture' : 'blast', style });
     if (this.label) { av.object.getWorldPosition(_a); this.label.position.copy(_a).add(_b.set(0, (av.height || 1.75) + 0.28, 0)); this.label.visible = !inCar; }
-    const on = this.pk === 1 && st.f > 0 && !inCar;
     if (on && g.n.tip) {
       g.n.tip.getWorldPosition(_a); g.n.tip.getWorldQuaternion(_q);
       const dir = _b.set(0, 0, 1).applyQuaternion(_q);
-      if (!this.firing) this.end.copy(this.endT);
-      this.end.lerp(this.endT, 1 - Math.exp(-dt * 16));
+      const gh = st.f === 2 && st.wr ? this.game.ghosts[st.wr[0]] : null;
+      if (gh && gh.active && !gh.gone) this.end.copy(gh.pos);
+      else if (!this.firing) this.end.copy(this.endT);
+      else this.end.lerp(this.endT, 1 - Math.exp(-dt * 30));
       this.stream?.update(dt, { on: true, mode: st.f === 2 ? 'capture' : 'blast', origin: _a, dir, end: this.end, endNormal: dir.clone().negate(), endKind: st.ek === 1 ? 'ghost' : st.ek === 2 ? 'surface' : 'air', heat: g.heat, tension: st.tn || 0, ghostPos: this.end });
       this.tip = this.tip || V(); this.tip.copy(_a);
       if (!this.snd.loop) { this.audio?.play('stream_start', { pos: _a, gain: 0.8 }); this.snd.loop = this.audio?.loop('stream_loop', { pos: _a, gain: 0.7, fadeIn: 0.08 }); }
       this.snd.loop?.pos(_a);
     } else {
-      if (this.firing) this.stream?.update(dt, { on: false });
+      this.stream?.update(dt, { on: false });
       if (this.snd.loop) { this.snd.loop.stop(0.12); this.snd.loop = null; this.audio?.play('stream_stop', { pos: this.tip || this.pos, gain: 0.6 }); }
     }
     this.firing = on ? st.f : 0;
@@ -186,7 +187,7 @@ export class RemotePlayer {
     this.gone = true;
     if (this.slot >= 0) this.game.gear.markTaken(this.slot, false);
     this.snd.loop?.stop(0.1);
-    this.stream?.update(0.016, { on: false });
+    for (let i = 0; i < 3; i++) this.stream?.update(0.1, { on: false });
     if (this.trap) { this.trap.fromNet({ s: 'belt', p: [0, -50, 0], v: 0 }); }
     if (this.avatar) this.avatar.object.removeFromParent();
     if (this.gear) { this.gear.pack.removeFromParent(); this.gear.wand.removeFromParent(); this.gear.hose.removeFromParent(); for (const it of this.gear.steam.items) it.s.removeFromParent(); this.gear.snd.hum?.stop(0.1); this.gear.snd.alarm?.stop(0.1); }
