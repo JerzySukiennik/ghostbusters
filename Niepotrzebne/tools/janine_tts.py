@@ -80,22 +80,32 @@ def radio(raw, out_base, rate=24000):
 def main(spec_path, out_dir):
     spec = json.load(open(spec_path))
     os.makedirs(out_dir, exist_ok=True)
+    man_path = os.path.join(out_dir, "lines.json")
+    man = json.load(open(man_path)) if os.path.exists(man_path) else {}
     report = {}
     for line in spec["lines"]:
         base = os.path.join(out_dir, line["id"])
-        if os.path.exists(base + ".mp3") and not line.get("force"):
+        if os.path.exists(base + ".mp3") and not line.get("force") and man.get(line["id"], {}).get("text") == line["text"]:
             continue
         n = len(line["text"].split())
-        for attempt in range(4):
+        good = None
+        for attempt in range(6):
             raw = tts(line["text"], line.get("voice", spec.get("voice", "Kore")), line.get("style", spec.get("style", STYLE)))
             if len(raw) / 48000 > 1.5 + n / 1.6:
                 print(line["id"], "too long, retry", round(len(raw) / 48000, 1), flush=True)
                 continue
             ok, got = heard_ok(raw, line["text"])
             if ok:
+                good = raw
                 break
             print(line["id"], "mismatch, retry:", got[:120].replace("\n", " "), flush=True)
+        if good is None:
+            print(line["id"], "FAILED", flush=True)
+            continue
+        raw = good
         report[line["id"]] = round(radio(raw, base), 2)
+        man[line["id"]] = {"text": line["text"], "dur": report[line["id"]], "files": [line["id"] + ".ogg", line["id"] + ".mp3"]}
+        json.dump(man, open(man_path, "w"), indent=1)
         print(line["id"], report[line["id"]], flush=True)
     return report
 

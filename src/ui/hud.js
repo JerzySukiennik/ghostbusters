@@ -83,6 +83,27 @@ export class HUD {
 
   talk(on) { this.el.radio.classList.toggle('talk', on); }
 
+  subtitle(who, text) {
+    const e = this.el.subt || (this.el.subt = $('#sub'));
+    if (!who) { e.classList.remove('on'); return; }
+    e.querySelector('b').lastChild.textContent = who;
+    e.querySelector('span').textContent = text;
+    e.classList.add('on');
+  }
+
+  nav(n) {
+    const e = this.el.nav || (this.el.nav = $('#nav'));
+    e.classList.toggle('on', !!n);
+    if (!n) return;
+    const ang = { left: -90, right: 90, bear_left: -40, bear_right: 40, uturn: 180 }[n.type] || 0;
+    this.set('navA', ang, (v) => (e.querySelector('svg').style.transform = `rotate(${v}deg)`));
+    const d = n.dist > 950 ? (n.dist / 1609).toFixed(1) + ' mi' : Math.max(0, Math.round(n.dist / 10) * 10) + ' m';
+    this.set('navD', d, (v) => (e.querySelector('.d').textContent = v));
+    this.set('navS', n.street || (n.type === 'straight' ? 'Straight on' : n.type.replace('bear_', 'keep ').replace('uturn', 'turn around')), (v) => (e.querySelector('.s').textContent = v));
+  }
+
+  keepDispatch(s) { if (this.radioT > 0) this.radioT = s; }
+
   hideDispatch() { this.radioT = 0; this.el.radio.classList.remove('on', 'talk'); }
 
   damage(p) {

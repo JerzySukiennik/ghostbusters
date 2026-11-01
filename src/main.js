@@ -16,6 +16,9 @@ import { Trap } from './game/trap.js';
 import { Proton } from './game/proton.js';
 import { Game } from './game/game.js';
 import { HUD } from './ui/hud.js';
+import { Radio } from './game/radio.js';
+import { GPS } from './game/gps.js';
+import { RouteLine } from './game/routeline.js';
 import { Room } from './net/room.js';
 import { Net } from './net/sync.js';
 import * as FB from './game/fallbacks.js';
@@ -42,6 +45,14 @@ const progress = (k, label) => {
 const plateMap = () => {
   const h = L.PLATE.half;
   return { bounds: [-h, -h, h, h], roads: [{ pts: [[0, -h], [0, h]], w: L.AVE.x1 - L.AVE.x0 }, { pts: [[-h, 0], [h, 0]], w: L.ST.z1 - L.ST.z0 }], blocks: L.BUILDINGS.map((b) => b.box) };
+};
+
+const plateRoads = () => {
+  const h = L.PLATE.half - 1;
+  return {
+    nodes: [{ id: 'c', p: [0, 0] }, { id: 'n', p: [0, -h] }, { id: 's', p: [0, h] }, { id: 'w', p: [-h, 0] }, { id: 'e', p: [h, 0] }],
+    lanes: [{ from: 'n', to: 'c', name: 'Varick St' }, { from: 'c', to: 's', name: 'Varick St' }, { from: 'w', to: 'c', name: 'N Moore St' }, { from: 'c', to: 'e', name: 'N Moore St' }],
+  };
 };
 
 async function glbOr(assets, url, label, fb, jsonUrl) {
@@ -81,6 +92,7 @@ async function boot() {
   const audio = new AudioSys();
   const input = new Input(R.canvas);
   const hud = new HUD();
+  const radio = new Radio(audio, hud);
   const ctxBase = { THREE, RAPIER: phys.RAPIER, world: phys.world, scene, renderer: R.renderer, camera, quality, style };
   progress(0.05, 'Plate');
   const plateP = loadPlate(ctxBase);
@@ -93,6 +105,7 @@ async function boot() {
     glbOr(assets, 'assets/pack/trap.glb', 'trap', FB.fallbackTrap, 'assets/pack/pack.json'),
     Avatar.load(assets, store.get('gb.nick', 'JUREK')),
     audio.load(),
+    radio.load(),
   ]);
   if (!scene.environment) {
     const pm = new THREE.PMREMGenerator(R.renderer);
@@ -124,7 +137,9 @@ async function boot() {
   const proton = new Proton({ fx, gear, phys, ghosts, plate, audio, renderer: R, rig, hud });
   const remoteStreams = [fx.createStream(), fx.createStream(), fx.createStream()];
   const remoteTraps = [0, 1, 2].map(() => new Trap({ gltf: { scene: tpl.trap.clone(true), json: trapG.json }, scene, phys, audio, fx, renderer: R, hud, remote: true }));
-  const game = new Game({ renderer: R, scene, camera, phys, input, audio, hud, fx, plate, ecto, gear, avatar, player, rig, ghosts, trap, proton, style, assets });
+  const gps = new GPS(plate.roads || plateRoads(), { side: plate.roads ? 0 : 4 });
+  const routeLine = new RouteLine(scene, plate.heightAt ? (x, z) => plate.heightAt(x, z) : null);
+  const game = new Game({ renderer: R, scene, camera, phys, input, audio, hud, fx, plate, ecto, gear, avatar, player, rig, ghosts, trap, proton, style, assets, radio, gps, routeLine });
   game.setup();
   hud.setMap(plate.minimap || plateMap());
   const applyPasses = () => R.setExtraPasses(typeof fx.postPasses === 'function' ? fx.postPasses() : []);
@@ -225,7 +240,8 @@ async function boot() {
     document.body.classList.add('playing');
     pauseSet.append(setEl); setPanel.classList.remove('on');
     rig.endCine('foot'); rig.yaw = player.yaw + 0.2; rig.pitch = -0.12;
-    setTimeout(() => hud.dispatch({ when: '9:42 PM', title: 'Hot dog cart', text: 'Corner of the avenue. Something green is eating everything on the cart. Then the cart.', pay: '$5,000 · Class 5' }, 9), 1400);
+    game.setGoal(ghosts[0].cart, 'Hot dog stand');
+    setTimeout(() => game.dispatchCall('job_hotdog_corner', { when: '9:42 PM', title: 'Hot dog stand', text: 'N Moore St & Varick St. Something green is eating everything on the cart. Then the cart.', pay: '$5,000 · Class 5' }), 1400);
   };
   go.onclick = async () => { await swapAvatar(); start(); };
   window.__start = start;

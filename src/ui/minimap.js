@@ -28,7 +28,7 @@ export class Minimap {
     this.map = { off, S, x0, z0 };
   }
 
-  setRoute(pts) { this.route = pts && pts.length > 1 ? pts : null; }
+  setRoute(pts, i0 = 0) { this.route = pts && pts.length > 1 ? pts : null; this.r0 = Math.max(0, Math.min(i0, (pts?.length || 2) - 2)); }
 
   fit() {
     const css = this.cv.clientWidth, dpr = Math.min(2, devicePixelRatio || 1);
@@ -51,7 +51,7 @@ export class Minimap {
     if (m) c.drawImage(m.off, m.x0, m.z0, m.off.width / m.S, m.off.height / m.S);
     if (this.route) {
       c.lineCap = 'round'; c.lineJoin = 'round';
-      c.beginPath(); this.route.forEach(([x, z], i) => (i ? c.lineTo(x, z) : c.moveTo(x, z)));
+      c.beginPath(); const r = this.route; c.moveTo(r[this.r0][0], r[this.r0][1]); for (let i = this.r0 + 1; i < r.length; i++) c.lineTo(r[i][0], r[i][1]);
       c.strokeStyle = 'rgba(0,0,0,.6)'; c.lineWidth = 9 * d / ppm; c.stroke();
       c.strokeStyle = '#fff'; c.lineWidth = 4.5 * d / ppm; c.stroke();
     }

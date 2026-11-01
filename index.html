@@ -70,6 +70,9 @@ body:not(.playing) #hud{opacity:0}
 .mk.ghost .l em{color:rgba(157,255,106,.75)}
 .mk.ghost .stem{background:linear-gradient(var(--ecto),rgba(157,255,106,0));height:26px}
 .mk.ghost .arw::after{border-left-color:var(--ecto)}
+.mk.goal .d{width:20px;height:20px;background:var(--ink)}
+.mk.goal .l{font-size:13px}
+.mk.goal .stem{height:56px}
 .mk.edge .in{transform:translate(-50%,-15px)}
 .mk.edge .stem{display:none}
 .mk.edge .arw{display:block}
@@ -196,6 +199,18 @@ body:not(.playing) #hud{opacity:0}
 #pause .card{width:min(360px,86vw);display:flex;flex-direction:column;gap:18px}
 #pause h2{font:400 clamp(56px,6vw,96px)/.86 var(--disp);text-transform:uppercase}
 #pause .hint{font:600 12px/1.5 var(--cond);letter-spacing:.2em;text-transform:uppercase;color:var(--faint)}
+#sub{position:absolute;left:50%;bottom:calc(var(--edge) + 2px);transform:translateX(-50%);max-width:min(720px,56vw);display:flex;align-items:baseline;gap:12px;padding:9px 16px;background:rgba(0,0,0,.62);opacity:0;transition:opacity .25s}
+#sub.on{opacity:1}
+#sub b{flex:none;display:flex;align-items:center;gap:8px;font:700 11px/1 var(--cond);letter-spacing:.38em;text-transform:uppercase;color:var(--mute)}
+#sub b i{width:7px;height:7px;border-radius:50%;background:var(--ink);animation:blink 1s ease-in-out infinite}
+@keyframes blink{50%{opacity:.2}}
+#sub span{font:500 16px/1.35 var(--body);text-shadow:0 1px 6px #000}
+#nav{position:absolute;left:calc(var(--edge) + clamp(128px,11.5vw,188px) + 18px);bottom:calc(var(--edge) + clamp(40px,3.6vw,60px) + 18px);display:flex;align-items:center;gap:12px;opacity:0;transition:opacity .3s}
+#nav.on{opacity:1}
+#nav svg{width:34px;height:34px;flex:none;filter:drop-shadow(0 1px 6px rgba(0,0,0,.7))}
+#nav .t{display:flex;flex-direction:column;gap:5px}
+#nav .d{font:400 22px/1 var(--disp);letter-spacing:.03em;text-shadow:0 2px 12px rgba(0,0,0,.7)}
+#nav .s{font:700 11px/1 var(--cond);letter-spacing:.3em;text-transform:uppercase;color:var(--mute)}
 #err{position:fixed;left:16px;bottom:16px;z-index:9;color:var(--err);font:12px/1.4 ui-monospace,Menlo,monospace;max-width:80vw;white-space:pre-wrap}
 @media (max-width:700px){#start .col{left:16px;right:16px}#start .crew{right:16px}#setPanel{left:16px;right:16px;width:auto}#start .tag{display:none}#objective{max-width:70vw}#radio{width:min(300px,70vw)}}
 </style>
@@ -212,6 +227,8 @@ body:not(.playing) #hud{opacity:0}
   <div id="prompt"><b></b><span></span></div>
   <div id="map"><canvas></canvas></div>
   <div id="speed"><span>0</span><small>MPH</small></div>
+  <div id="nav"><svg viewBox="-20 -20 40 40"><path d="M0-15 L10-3 L3.5-3 L3.5 14 L-3.5 14 L-3.5-3 L-10-3 Z" fill="#f3f1ec"/></svg><div class="t"><span class="d"></span><span class="s"></span></div></div>
+  <div id="sub"><b><i></i>Janine</b><span></span></div>
   <div id="roster"></div>
   <div id="heat"><span class="l">PACK</span><div class="b"><i></i></div></div>
   <div id="toast"></div>

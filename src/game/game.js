@@ -4,6 +4,12 @@ import * as THREE from 'three';
 const V = (x = 0, y = 0, z = 0) => new THREE.Vector3(x, y, z), Q = () => new THREE.Quaternion();
 const _a = V(), _b = V(), _c = V(), _q = Q(), _q2 = Q(), _s = V(), _t = V(), _u = V();
 const UP = new THREE.Vector3(0, 1, 0);
+const NAV = {
+  left_next: ['nav_left_next', 1], right_next: ['nav_right_next', 1], left_now: ['nav_left_now', 3], right_now: ['nav_right_now', 3],
+  bear_left_next: ['nav_bear_left', 1], bear_left_now: ['nav_bear_left', 3], bear_right_next: ['nav_bear_right', 1], bear_right_now: ['nav_bear_right', 3],
+  uturn: ['nav_uturn', 3], uturn_next: ['nav_uturn', 2], uturn_now: ['nav_uturn', 3], recalc: ['nav_recalc', 2],
+  close: ['nav_close', 2], on_left: ['nav_on_left', 2], on_right: ['nav_on_right', 2], arrive: ['nav_arrive', 2],
+};
 
 export class Game {
   constructor(o) {
@@ -16,6 +22,7 @@ export class Game {
     this.startT = 0; this.done = false; this.net = null; this.seat = 0;
     this.tipW = V(); this.wandDirW = V(0, 0, 1);
     this.heads = [this.head];
+    this.navGoal = null; this.navInCar = null; this.navCar = { x: 0, z: 0, fx: 0, fz: 1, speed: 0 }; this.wrecks = 0;
   }
 
   get ghost() {
@@ -41,12 +48,12 @@ export class Game {
     this.rig.yaw = player.yaw + 0.25;
     this.hud.objective('Suit up at the back of the Ecto-1');
     this.ghosts.forEach((g, i) => {
-      g.onWreck = (p) => { this.hud.damage(p); this.net?.wrecked(p); };
+      g.onWreck = (p) => { this.hud.damage(p); this.wreckCall(p); this.net?.wrecked(p); };
       g.onKnock = (p, imp) => this.net?.knocked(p, imp);
       g.onEat = (p) => this.net?.ate(p);
       if (i > 0) g.deactivate(); else g.start();
     });
-    this.proton.onWreck = (p, dir) => this.net?.wrecked(p, dir);
+    this.proton.onWreck = (p, dir) => { this.wreckCall(p); this.net?.wrecked(p, dir); };
     this.proton.onBoom = (p, n, d) => this.net?.boom(p, n, d);
     this.ambience = this.audio.loop('amb_city_night', { bus: 'amb', gain: 0.8, fadeIn: 2 });
     this.wind = this.audio.loop('amb_wind', { bus: 'amb', gain: 0.35, fadeIn: 3 });
@@ -64,6 +71,70 @@ export class Game {
   }
 
   wornPose() { return this.avatar.wornPose(); }
+
+  say(id, o) { return this.radio?.say(id, o) || false; }
+
+  dispatchCall(id, card) {
+    this.hud.dispatch(card, 30);
+    if (!this.say(id, { prio: 2, ttl: 40, onEnd: () => this.hud.keepDispatch(4) })) this.hud.keepDispatch(9);
+  }
+
+  wreckCall(p) {
+    const k = ((p.kind || '') + ' ' + (p.id || '')).toLowerCase();
+    this.wrecks++;
+    if (k.includes('hydrant')) this.say('dmg_2', { prio: 1, ttl: 4, cooldown: 30, group: 'dmg' });
+    else if (this.wrecks >= 4 && this.say('dmg_1', { prio: 1, ttl: 4, cooldown: 45, group: 'dmg' })) this.wrecks = 0;
+  }
+
+  setGoal(pos, name = '') {
+    this.navGoal = pos ? { x: pos.x, y: pos.y || 0, z: pos.z, name } : null;
+    this.hud.goal = this.navGoal;
+    this.navInCar = null;
+    if (this.navGoal) this.navRoute();
+    else { this.gps?.clear(); this.hud.minimap.setRoute(null); this.hud.nav(null); }
+  }
+
+  carPose(o) {
+    const r = this.ecto.root;
+    _u.set(0, 0, 1).applyQuaternion(r.quaternion);
+    const L = Math.hypot(_u.x, _u.z) || 1;
+    o.x = r.position.x; o.z = r.position.z; o.fx = _u.x / L; o.fz = _u.z / L; o.speed = Math.abs(this.ecto.fwdSpeed || 0);
+    return o;
+  }
+
+  navRoute() { return !!(this.gps && this.navGoal) && this.gps.route(this.carPose(this.navCar), this.navGoal); }
+
+  navStep(dt) {
+    const { gps, hud, player } = this;
+    if (this.navGoal && (this.engaged || this.net?.engaged || this.done)) this.setGoal(null);
+    const g = this.navGoal, inCar = player.mode === 'car' && !!g;
+    this.routeLine?.update(dt, gps, inCar);
+    if (!g || !gps) return;
+    if (inCar !== this.navInCar) {
+      this.navInCar = inCar;
+      if (inCar) {
+        this.navRoute();
+        const n = gps.next();
+        if (gps.pts && gps.total > 160 && (!n || n.dist > 160)) this.say('nav_straight', { prio: 1, ttl: 5, replace: 'nav_' });
+      }
+      hud.minimap.setRoute(inCar ? gps.pts : null);
+      if (!inCar) hud.nav(null);
+    }
+    if (!inCar) {
+      if (this.mission !== 'suit') { _u.set(g.x, g.y + 1.6, g.z); hud.mark('goal', _u, { kind: 'goal', label: g.name, dist: player.feet.distanceTo(_u), edge: true }); }
+      return;
+    }
+    const car = this.carPose(this.navCar);
+    for (const e of gps.update(dt, car)) {
+      const n = NAV[e];
+      if (n) this.say(n[0], { prio: n[1], ttl: n[1] >= 3 ? 2.5 : 5, cut: n[1] >= 3, replace: 'nav_', cooldown: 3, group: n[0] });
+    }
+    if (!gps.pts) { hud.nav(null); hud.minimap.setRoute(null); return; }
+    hud.minimap.setRoute(gps.pts, gps.idx - 1);
+    hud.nav(gps.next() || { type: 'straight', dist: gps.total - gps.s, street: g.name });
+    _u.set(g.x, g.y + 2.2, g.z);
+    hud.mark('goal', _u, { kind: 'goal', label: g.name, dist: Math.hypot(g.x - car.x, g.z - car.z), edge: true });
+  }
 
   packToBack() {
     this.avatar.wear(this.gear.pack);
@@ -414,6 +485,7 @@ export class Game {
     if (this.net) this.stats.crew = this.net.room.order.map((p) => String(this.net.room.players[p]?.nick || 'Buster').toUpperCase()).join(', ');
     this.hud.objective('Bust complete');
     this.hud.report(this.stats);
+    this.say(this.hud.broken <= 3 ? 'paid_2' : 'paid_1', { prio: 2, ttl: 10 });
     document.exitPointerLock?.();
     this.input.enabled = false;
   }
@@ -451,7 +523,7 @@ export class Game {
     const by = this.net && g.owner && g.owner !== this.net.pid ? String(this.net.room.players[g.owner]?.nick || 'They').toUpperCase() : null;
     this.hud.toast(by ? `${by} got one!` : 'We got one!', 2.2);
     if (this.proton.target === g) this.proton.stopAll();
-    if (!this.ghostsLeft() && this.mission !== 'done') this.mission = 'return';
+    if (!this.ghostsLeft() && this.mission !== 'done') { this.mission = 'return'; this.say(Math.random() < 0.5 ? 'cap_1' : 'cap_2', { prio: 2, ttl: 8 }); }
     this.net?.ghostCaptured(g);
   }
 
@@ -491,6 +563,7 @@ export class Game {
     this.audio.play('slime_splat', { pos: this.head, gain: 1.2 });
     this.player.stun = 0.6; this.stats.slimed++;
     this.hud.toast('Slimed!', 1.4);
+    this.say('slime_1', { prio: 1, ttl: 6, cooldown: 30 });
     this.renderer.addTrauma(0.5);
   }
 
@@ -572,6 +645,8 @@ export class Game {
     hud.cross(armed && player.mode === 'foot', proton.wrangling ? proton.tension : 0, this.ghosts.some((g) => g.alive && g.active && proton.aim.distanceTo(g.pos) < g.radius * 1.4));
     hud.heat(gear.state === 'worn' && player.mode === 'foot', gear.heat, gear.heat > 0.82, gear.over > 0);
     hud.speed(player.mode === 'car' && this.seat === 0, Math.abs(ecto.fwdSpeed) * 2.237);
+    this.radio?.update(dt);
+    this.navStep(dt);
     this.guides();
     hud.update(dt, this);
     if (player.landed !== undefined && player.landed < -4) this.audio.play('land', { pos: player.feet });
