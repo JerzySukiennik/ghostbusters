@@ -1,0 +1,15 @@
+.DS_Store
+.env
+Niepotrzebne/refs/
+Niepotrzebne/work/
+Niepotrzebne/locks/
+Niepotrzebne/progress/status/
+node_modules/
+__pycache__/
+*.blend1
+.claude/
+blender/avatar/
+*.blend
+blender/crew/work/
+blender/crew/cache/
+firebase-debug.log
