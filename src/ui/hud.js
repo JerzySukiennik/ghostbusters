@@ -71,6 +71,7 @@ export class HUD {
     const m = Math.floor(s.time / 60), sec = Math.floor(s.time % 60);
     this.el.sub.textContent = `Onionhead is in the trap. ${m}:${String(sec).padStart(2, '0')} on the clock.`;
     const rows = [
+      ...(s.crew ? [['Crew', s.crew]] : []),
       ['Bust fee', money(5000)],
       ['Property damage', '-' + money(this.bill)],
       ['Things wrecked', String(this.broken)],
@@ -78,9 +79,29 @@ export class HUD {
       ['Slams · boson darts', `${s.slams} · ${s.darts}`],
       ['Invoice to the city', money(5000 - this.bill), true],
     ];
-    this.el.rows.innerHTML = rows.map(([a, b, t]) => `<div class="row${t ? ' tot' : ''}"><span>${a}</span><span>${b}</span></div>`).join('');
+    this.el.rows.replaceChildren(...rows.map(([a, b, t]) => {
+      const r = document.createElement('div'); r.className = 'row' + (t ? ' tot' : '');
+      for (const v of [a, b]) { const s = document.createElement('span'); s.textContent = v; r.append(s); }
+      return r;
+    }));
     this.el.done.classList.add('on');
   }
 
   hideReport() { this.el.done.classList.remove('on'); }
+
+  roster(room) {
+    const el = document.getElementById('roster');
+    if (!el) return;
+    if (!room || !room.code) { el.classList.remove('on'); return; }
+    el.classList.add('on');
+    el.textContent = '';
+    const code = document.createElement('div'); code.className = 'code'; code.append('ROOM '); const b = document.createElement('b'); b.textContent = room.code; code.append(b); el.append(code);
+    for (const pid of room.order) {
+      const d = document.createElement('div');
+      d.className = 'p' + (pid === room.pid ? ' me' : '');
+      d.textContent = String(room.players[pid]?.nick || 'BUSTER').toUpperCase();
+      if (pid === room.host) { const i = document.createElement('i'); i.textContent = 'HOST'; d.append(i); }
+      el.append(d);
+    }
+  }
 }

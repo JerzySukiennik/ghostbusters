@@ -1,21 +1,41 @@
 // Player avatar: loads the Ghostbuster GLB (or the plain Jurek fallback), owns the animator, prop carriers, name tag, harness and arm IK.
 import * as THREE from 'three';
+import { clone as cloneSkinned } from 'three/addons/utils/SkeletonUtils.js';
 import { Animator } from './anim.js';
 import { findNode } from '../engine/assets.js';
 
 const CUSTOM = ['don_pack', 'fire_ready', 'fire_aim', 'wrangle', 'throw_trap', 'stomp_pedal', 'celebrate'];
 const V = (x = 0, y = 0, z = 0) => new THREE.Vector3(x, y, z), Q = () => new THREE.Quaternion();
 const _a = V(), _b = V(), _c = V(), _d = V(), _e = V(), _t = V(), _p = V(), _q = Q(), _q2 = Q(), _pq = Q();
+export const CHARACTERS = ['jurek', 'crew_1', 'crew_2', 'crew_3'];
+const URL = (c) => (c === 'jurek' ? 'assets/avatar/jurek_gb.glb' : `assets/avatar/${c}.glb`);
+const hipY = (root) => { root.updateMatrixWorld(true); let y = 0; root.traverse((o) => { if (o.isBone && o.name === 'Hips') y = o.getWorldPosition(V()).y; }); return y || 0.925; };
 
 export class Avatar {
-  static async load(assets, nick = 'JUREK') {
-    let gltf = await assets.glb('assets/avatar/jurek_gb.glb', 'Ghostbuster');
+  static async available(assets) {
+    const out = [];
+    for (const c of CHARACTERS) if (await assets.exists(URL(c))) out.push(c);
+    return out;
+  }
+
+  static async load(assets, nick = 'JUREK', char = 'jurek', clone = false) {
+    if (!CHARACTERS.includes(char)) char = 'jurek';
+    let key = char, gltf = await assets.glb(URL(char), 'Ghostbuster');
+    if (!gltf && char !== 'jurek') { key = 'jurek'; gltf = await assets.glb(URL('jurek'), 'Ghostbuster'); }
     const real = !!gltf;
-    if (!gltf) gltf = await assets.glb('assets/lead/jurek_base.glb', 'Avatar');
+    if (!gltf) { key = 'base'; gltf = await assets.glb('assets/lead/jurek_base.glb', 'Avatar'); }
     const json = real ? await assets.json('assets/avatar/avatar.json') : null;
-    const a = new Avatar(gltf, real, json);
+    const shared = real && key !== 'jurek' ? await assets.glb(URL('jurek'), 'Ghostbuster') : null;
+    if (!gltf.pristine) gltf.pristine = cloneSkinned(gltf.scene);
+    const src = clone || gltf.used ? { scene: cloneSkinned(gltf.pristine), animations: gltf.animations } : gltf;
+    gltf.used = true;
+    const own = !!(src.animations && src.animations.length);
+    const anims = (own ? src.animations : shared?.animations) || [];
+    const a = new Avatar({ scene: src.scene, animations: anims }, real, json);
+    if (!own && shared) { if (!shared.pristine) shared.pristine = cloneSkinned(shared.scene); a.clipScale = a.d.restWorldP.get('Hips').y / hipY(shared.pristine); }
+    a.char = key;
     a.setNick(nick);
-    await a.init();
+    await a.init(key);
     return a;
   }
 
@@ -42,6 +62,7 @@ export class Avatar {
     this.d = { root: this.root, bones: this.bones, rest, restWorldQ: rq, restWorldP: rp };
     this.clipsRaw = (gltf.animations || []).filter((c) => CUSTOM.includes(c.name));
     this.height = rp.get('Head') ? rp.get('Head').y + 0.12 : 1.74;
+    this.scale = (rp.get('Hips')?.y || 0.925) / 0.925;
     this.hand = {};
     for (const s of ['Left', 'Right']) {
       const h = this.bones.get(s + 'Hand');
@@ -65,8 +86,8 @@ export class Avatar {
     this.curlAxis = new THREE.Vector3(1, 0, 0);
   }
 
-  async init() {
-    this.anim = await Animator.create(this.d, this.clipsRaw);
+  async init(key) {
+    this.anim = await Animator.create(this.d, this.clipsRaw, key, this.clipScale || 1);
   }
 
   setNick(nick) {
@@ -78,11 +99,27 @@ export class Avatar {
     g.fillStyle = '#1b1b1b'; g.font = '700 74px "Arial Narrow", Helvetica, Arial, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
     g.fillText(String(nick).toUpperCase().slice(0, 12), 256, 68, 470);
     const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.flipY = false; t.anisotropy = 4;
+    if (!this.tagOwn) { this.tag.material = Array.isArray(this.tag.material) ? this.tag.material.map((x) => x.clone()) : this.tag.material.clone(); this.tagOwn = true; }
     const m = [].concat(this.tag.material)[0];
     if (m) { m.map = t; m.needsUpdate = true; }
   }
 
   bone(n) { return this.bones.get(n); }
+
+  wornPose() {
+    const j = this.json?.packWorn;
+    if (j && j.position) return { bone: j.bone || 'Spine2', pos: V().fromArray(j.position), quat: Q().fromArray(j.quaternion || [0, 0, 0, 1]) };
+    const s2 = this.d.restWorldP.get('Spine2'), s2q = this.d.restWorldQ.get('Spine2');
+    const want = V(0, s2.y - 0.1, s2.z - 0.115);
+    return { bone: 'Spine2', pos: want.sub(s2).applyQuaternion(s2q.clone().invert()), quat: s2q.clone().invert() };
+  }
+
+  wear(pack) {
+    const w = this.wornPose(), b = this.bone(w.bone);
+    if (!b) return;
+    b.add(pack); pack.position.copy(w.pos); pack.quaternion.copy(w.quat);
+    if (this.harness) this.harness.visible = true;
+  }
 
   setWorldQuat(bone, qw) {
     bone.parent.getWorldQuaternion(_pq);

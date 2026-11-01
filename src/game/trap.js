@@ -9,8 +9,8 @@ const _a = V(), _b = V(), _q = new THREE.Quaternion();
 const ease = (t) => t * t * (3 - 2 * t);
 
 export class Trap {
-  constructor({ gltf, scene, phys, audio, fx, renderer, hud }) {
-    Object.assign(this, { scene, phys, audio, fx, renderer, hud });
+  constructor({ gltf, scene, phys, audio, fx, renderer, hud, remote = false }) {
+    Object.assign(this, { scene, phys, audio, fx, renderer, hud, remote });
     const src = gltf.scene;
     this.root = src.getObjectByName('Trap') || src;
     this.pedal = src.getObjectByName('Pedal') || null;
@@ -31,11 +31,15 @@ export class Trap {
     this.tfx = fx.createTrapFX(this.root);
     this.cable = new THREE.Line(new THREE.BufferGeometry().setAttribute('position', new THREE.BufferAttribute(new Float32Array(24 * 3), 3)), new THREE.LineBasicMaterial({ color: 0x0c0c0c }));
     this.cable.frustumCulled = false; this.cable.visible = false; scene.add(this.cable);
-    const R = phys.RAPIER;
-    this.body = phys.world.createRigidBody(R.RigidBodyDesc.dynamic().setTranslation(0, -50, 0).setLinearDamping(0.6).setAngularDamping(2.5).setCcdEnabled(true));
-    this.col = phys.world.createCollider(R.ColliderDesc.cuboid(0.15, 0.06, 0.11).setTranslation(0, 0.06, 0).setMass(4).setFriction(0.45).setRestitution(0.1).setCollisionGroups(groups(G.TRAP, G.STATIC | G.PROP | G.VEHICLE)), this.body);
-    this.body.setEnabled(false);
-    phys.own(this.col, { kind: 'trap', trap: this });
+    this.body = null;
+    if (!remote) {
+      const R = phys.RAPIER;
+      this.body = phys.world.createRigidBody(R.RigidBodyDesc.dynamic().setTranslation(0, -50, 0).setLinearDamping(0.6).setAngularDamping(2.5).setCcdEnabled(true));
+      this.col = phys.world.createCollider(R.ColliderDesc.cuboid(0.15, 0.06, 0.11).setTranslation(0, 0.06, 0).setMass(4).setFriction(0.45).setRestitution(0.1).setCollisionGroups(groups(G.TRAP, G.STATIC | G.PROP | G.VEHICLE)), this.body);
+      this.body.setEnabled(false);
+      phys.own(this.col, { kind: 'trap', trap: this });
+    }
+    this.suckGhost = null;
     this.state = 'belt'; this.st = 0; this.door = 0; this.doorT = 0; this.beam = 0; this.progress = 0; this.openT = 0; this.smokeT = 0; this.t = 0;
     this.pedalPos = V(); this.holder.visible = false;
     this.snd = {};
@@ -47,7 +51,7 @@ export class Trap {
   setState(s) { this.state = s; this.st = 0; }
 
   attachTo(obj, pos, quat) {
-    this.body.setEnabled(false);
+    this.body?.setEnabled(false);
     this.holder.visible = true;
     if (pos) this.holder.position.copy(pos);
     if (quat) this.holder.quaternion.copy(quat);
@@ -70,7 +74,7 @@ export class Trap {
   }
 
   pickUp() {
-    this.body.setEnabled(false);
+    this.body?.setEnabled(false);
     if (this.pedal) this.pedal.visible = false;
     this.cable.visible = false;
     this.setState(this.state === 'full' ? 'carried' : 'belt');
@@ -112,17 +116,58 @@ export class Trap {
     return r < 0.55 + h * 0.42;
   }
 
+  beginSuck(ghost) {
+    this.suckGhost = ghost; this.setState('sucking');
+    this.audio?.play('trap_suck', { pos: this.pos, gain: 1.2 });
+    this.renderer.addTrauma(0.4);
+  }
+
+  toNet() {
+    const p = this.holder.position, r = (v) => Math.round(v * 100) / 100;
+    const o = { s: this.state, p: [r(p.x), r(p.y), r(p.z)], y: r(new THREE.Euler().setFromQuaternion(this.holder.quaternion, 'YXZ').y), v: this.holder.visible ? 1 : 0 };
+    if (this.pedal && this.pedal.visible) o.d = [r(this.pedal.position.x), r(this.pedal.position.y), r(this.pedal.position.z), r(this.pedal.rotation.y)];
+    return o;
+  }
+
+  fromNet(o) {
+    if (!o) return;
+    const prev = this.state;
+    if (o.s !== prev) {
+      this.state = o.s; this.st = 0;
+      if (o.s === 'open') { this.audio?.play('trap_open', { pos: this.pos, gain: 1.1 }); this.snd.beam = this.audio?.loop('trap_beam_loop', { pos: this.pos, gain: 0.9, fadeIn: 0.2, ref: 4 }); }
+      if (prev === 'open' || prev === 'sucking') { this.snd.beam?.stop(0.15); this.snd.beam = null; }
+      if (o.s === 'full') { this.audio?.play('trap_close', { pos: this.pos, gain: 1.2 }); this.smokeT = 6; this.snd.beep = this.audio?.loop('trap_beep', { pos: this.pos, gain: 0.4, delay: 0.6 }); }
+      if (o.s === 'belt' || o.s === 'stowed') { this.snd.beep?.stop(0.2); this.snd.beep = null; }
+    }
+    this.holder.visible = !!o.v && o.s !== 'belt' && o.s !== 'stowed';
+    const tp = this.tp || (this.tp = V());
+    tp.set(o.p[0], o.p[1], o.p[2]);
+    if (this.holder.position.distanceTo(tp) > 3) this.holder.position.copy(tp);
+    this.ty = o.y || 0;
+    if (this.pedal) {
+      this.pedal.visible = !!o.d;
+      if (o.d) { this.pedal.position.set(o.d[0], o.d[1], o.d[2]); this.pedal.rotation.set(0, o.d[3], 0); this.pedalPos.copy(this.pedal.position); }
+    }
+    this.cable.visible = !!o.d && this.holder.visible;
+  }
+
+  netStep(dt) {
+    if (!this.tp) return;
+    this.holder.position.lerp(this.tp, 1 - Math.exp(-dt * 14));
+    this.holder.quaternion.setFromAxisAngle(V(0, 1, 0), this.ty || 0);
+  }
+
   beamPos(out) { if (this.beamO) return this.beamO.getWorldPosition(out); return out.copy(this.pos); }
 
   update(dt, ctx) {
     this.t += dt; this.st += dt;
     if (this.state === 'thrown' || this.state === 'armed' || this.state === 'open' || this.state === 'full') {
-      if (this.body.isEnabled()) {
+      if (this.body && this.body.isEnabled()) {
         const t = this.body.translation(), r = this.body.rotation();
         this.holder.position.set(t.x, t.y, t.z); this.holder.quaternion.set(r.x, r.y, r.z, r.w);
       }
     }
-    if (this.state === 'thrown') {
+    if (this.state === 'thrown' && this.body) {
       const v = this.body.linvel();
       const sp = Math.hypot(v.x, v.y, v.z);
       if (!this.landed && this.holder.position.y < 0.2 && this.st > 0.1) { this.landed = true; this.audio?.play('trap_land', { pos: this.pos }); this.slide = this.audio?.play('trap_slide', { pos: this.pos, gain: 0.9 }); }
@@ -134,23 +179,15 @@ export class Trap {
     for (const d of this.doors) d.o.quaternion.copy(d.rq).multiply(_q.setFromAxisAngle(d.axis, d.ang * ease(Math.min(1, this.door))));
     const beamT = this.state === 'open' ? 1 : this.state === 'sucking' ? 1 : 0;
     this.beam += (beamT - this.beam) * Math.min(1, dt * 10);
-    if (this.state === 'open') {
+    if (this.state === 'open' && !this.remote) {
       this.openT -= dt;
-      const g = ctx.ghost;
-      const inside = g && g.alive && this.inCone(g.pos);
-      this.ghostInside = inside;
-      if (inside && ctx.wrangling) this.progress += dt / (1.1 + Math.max(0, g.will) / 35 * 1.4);
-      else this.progress = Math.max(0, this.progress - dt * 0.5);
-      if (inside && !ctx.wrangling && g.state !== 'sucked') this.progress = Math.max(this.progress, this.progress + dt * 0.15);
-      if (this.progress >= 1 && g) {
-        this.setState('sucking');
-        this.audio?.play('trap_suck', { pos: this.pos, gain: 1.2 });
-        ctx.onSuck?.();
-        g.startSuck(this.beamPos(V()));
-        this.renderer.addTrauma(0.4);
-      } else if (this.openT <= 0) this.close(false);
+      if (this.openT <= 0 && this.progress <= 0.02) this.close(false);
     }
-    if (this.state === 'sucking') { this.renderer.addTrauma(dt * 1.2); if (ctx.ghost && !ctx.ghost.alive) this.close(true); }
+    if (this.state === 'sucking' && !this.remote) {
+      this.renderer.addTrauma(dt * (ctx.near ? 1.2 : 0.3));
+      if (!this.suckGhost || !this.suckGhost.alive) this.close(true);
+      else if (this.suckGhost.state !== 'sucked' && this.st > 1.5) { this.suckGhost = null; this.close(false); }
+    }
     if (this.state === 'full' || this.state === 'carried' || this.state === 'stowed') {
       this.smokeT = Math.max(0, this.smokeT - dt * (this.state === 'stowed' ? 3 : 0.25));
       if (this.smokeT > 0 && Math.random() < dt * 5) for (const s of this.smokes) ctx.steam?.emit(s.getWorldPosition(V()), V(0, 1, 0), 1, 0.6);

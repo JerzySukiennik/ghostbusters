@@ -16,6 +16,8 @@ import { Trap } from './game/trap.js';
 import { Proton } from './game/proton.js';
 import { Game } from './game/game.js';
 import { HUD } from './ui/hud.js';
+import { Room } from './net/room.js';
+import { Net } from './net/sync.js';
 import * as FB from './game/fallbacks.js';
 
 const params = new URLSearchParams(location.search);
@@ -98,17 +100,20 @@ async function boot() {
       fx.setLighting({ keyDir: dir, keyColor: moon.color.clone().multiplyScalar(Math.min(0.35, 0.12 * (moon.intensity || 1))) });
     }
   }
+  const tpl = { pack: packG.scene.clone(true), wand: wandG.scene.clone(true), packJson: packG.json, trap: trapG.scene.clone(true) };
   const sp = plate.spawns;
   const ecto = new Ecto({ gltf: ectoG, phys, audio, scene, spawn: sp.ecto });
   const gear = new Gear({ packGltf: packG, wandGltf: wandG, scene, audio });
   const player = new Player(phys, avatar, sp.player.pos, sp.player.yaw || 0);
   player.spawn = sp.player.pos.clone();
   const rig = new CameraRig(camera, phys);
-  const ghost = new Ghost({ fx, audio, plate, phys });
+  const ghosts = [new Ghost({ fx, audio, plate, phys, id: 0 }), new Ghost({ fx, audio, plate, phys, id: 1 })];
   const trap = new Trap({ gltf: trapG, scene, phys, audio, fx, renderer: R, hud });
   gear.trapRoot = trap.root;
-  const proton = new Proton({ fx, gear, phys, ghost, plate, audio, renderer: R, rig, hud });
-  const game = new Game({ renderer: R, scene, camera, phys, input, audio, hud, fx, plate, ecto, gear, avatar, player, rig, ghost, trap, proton, style, assets });
+  const proton = new Proton({ fx, gear, phys, ghosts, plate, audio, renderer: R, rig, hud });
+  const remoteStreams = [fx.createStream(), fx.createStream(), fx.createStream()];
+  const remoteTraps = [0, 1, 2].map(() => new Trap({ gltf: { scene: tpl.trap.clone(true), json: trapG.json }, scene, phys, audio, fx, renderer: R, hud, remote: true }));
+  const game = new Game({ renderer: R, scene, camera, phys, input, audio, hud, fx, plate, ecto, gear, avatar, player, rig, ghosts, trap, proton, style, assets });
   game.setup();
   const applyPasses = () => R.setExtraPasses(typeof fx.postPasses === 'function' ? fx.postPasses() : []);
   game.onStyle = () => applyPasses();
@@ -124,7 +129,8 @@ async function boot() {
   } catch (e) { console.warn('[warm]', e?.message || e); }
   game.info = { ecto: !ectoG.fallback, pack: !packG.fallback, wand: !wandG.fallback, trap: !trapG.fallback, avatar: avatar.real, fx: !(fx instanceof FB.FallbackFX), plate: !plate.fallback, audio: Object.keys(audio.manifest).length };
   loadTxt.textContent = '';
-  go.disabled = false; go.textContent = 'Play';
+  go.disabled = false; go.textContent = 'Play solo';
+  for (const id of ['quick', 'host', 'join']) document.getElementById(id).disabled = false;
 
   let running = false, t = 0, last = performance.now();
   const title = (tt, pos, look) => {
@@ -136,6 +142,63 @@ async function boot() {
   title.ease = 0.01;
   rig.startCine(title);
 
+  const nickEl = document.getElementById('nick'), codeEl = document.getElementById('code'), charsEl = document.getElementById('chars');
+  nickEl.value = store.get('gb.nick', '');
+  if (params.get('room')) codeEl.value = params.get('room').toUpperCase().slice(0, 4);
+  let char = store.get('gb.char', 'jurek');
+  const nick = () => (nickEl.value.trim() || 'Buster').slice(0, 12);
+  Avatar.available(assets).then(async (list) => {
+    if (list.length < 2) { charsEl.style.display = 'none'; return; }
+    if (!list.includes(char)) char = list[0];
+    for (const c of list) {
+      const b = document.createElement('button'); b.dataset.c = c; b.title = c;
+      const img = new Image(); img.alt = c; img.src = `assets/avatar/portrait_${c}.jpg`; img.onerror = () => { img.remove(); b.textContent = c === 'jurek' ? 'Jurek' : c.replace('crew_', 'Crew '); };
+      b.append(img); charsEl.append(b);
+      b.onclick = () => { char = c; store.set('gb.char', c); charsEl.querySelectorAll('button').forEach((x) => x.classList.toggle('on', x.dataset.c === c)); };
+    }
+    charsEl.querySelectorAll('button').forEach((x) => x.classList.toggle('on', x.dataset.c === char));
+  });
+  const swapAvatar = async () => {
+    store.set('gb.nick', nickEl.value.trim());
+    if (char === game.avatar.char) { game.avatar.setNick(nick()); return; }
+    const nav = await Avatar.load(assets, nick(), char);
+    if (nav.char === game.avatar.char) { game.avatar.setNick(nick()); return; }
+    game.avatar.object.removeFromParent();
+    scene.add(nav.object);
+    player.avatar = nav; game.avatar = nav;
+    nav.object.position.copy(player.feet); nav.object.rotation.set(0, player.yaw, 0);
+  };
+  let room = null, net = null;
+  const online = async (mode) => {
+    if (running) return;
+    const btns = ['go', 'quick', 'host', 'join'].map((id) => document.getElementById(id));
+    btns.forEach((b) => (b.disabled = true));
+    loadTxt.textContent = 'Connecting';
+    try {
+      await swapAvatar();
+      room = room || await Room.connect(params.get('realm') || '');
+      const profile = { nick: nick(), char: game.avatar.char === 'base' ? 'jurek' : game.avatar.char };
+      const r = mode === 'quick' ? await room.quickPlay(profile) : mode === 'host' ? await room.create(profile, false) : await room.join(codeEl.value, profile);
+      net = new Net({ game, room, assets, tpl, streams: remoteStreams, traps: remoteTraps });
+      if (room.order.length) net.onPlayers(room.players, room.order);
+      window.__net = net;
+      history.replaceState(null, '', `?room=${r.code}${params.get('realm') ? '&realm=' + params.get('realm') : ''}`);
+      loadTxt.textContent = '';
+      start();
+      hud.toast(r.fresh ? `Room ${r.code}. Share the code` : `Joined room ${r.code}`, 2.4);
+    } catch (e) {
+      loadTxt.textContent = String(e?.message || e);
+      btns.forEach((b) => (b.disabled = false));
+    }
+  };
+  document.getElementById('quick').onclick = () => online('quick');
+  document.getElementById('host').onclick = () => online('host');
+  document.getElementById('join').onclick = () => online('join');
+  codeEl.addEventListener('keydown', (e) => { e.stopPropagation(); if (e.code === 'Enter') online('join'); });
+  nickEl.addEventListener('keydown', (e) => e.stopPropagation());
+  window.__online = online;
+  addEventListener('beforeunload', () => { net?.leave(); });
+
   const start = () => {
     if (running) return;
     running = true; startedAt = performance.now();
@@ -146,9 +209,9 @@ async function boot() {
     document.body.classList.add('playing');
     rig.endCine('foot'); rig.yaw = player.yaw + 0.2; rig.pitch = -0.12;
   };
-  go.onclick = start;
+  go.onclick = async () => { await swapAvatar(); start(); };
   window.__start = start;
-  document.getElementById('again').onclick = () => location.reload();
+  document.getElementById('again').onclick = () => { const u = new URL(location.href); u.searchParams.delete('room'); location.href = u.toString(); };
   document.getElementById('free').onclick = () => game.freeRoam();
   const segs = [];
   for (const [ids, cur, set] of [[['lookSeg', 'pLook'], style, (v) => { game.setStyle(v); store.set('gb.style', v); }], [['qSeg', 'pQ'], quality, (v) => { R.setPreset(v); store.set('gb.q', v); }]]) {
@@ -174,7 +237,7 @@ async function boot() {
     if (!locked && performance.now() - startedAt > 400) { paused = true; pauseEl.classList.add('on'); }
     if (locked) { paused = false; pauseEl.classList.remove('on'); applySettings(); }
   });
-  addEventListener('keydown', (e) => { if (!running && (e.code === 'Enter' || e.code === 'Space') && !go.disabled) start(); });
+  addEventListener('keydown', (e) => { if (!running && (e.code === 'Enter' || e.code === 'Space') && !go.disabled && document.activeElement?.tagName !== 'INPUT') start(); });
 
   window.__ready = true;
   window.__R = R;
@@ -205,7 +268,7 @@ async function boot() {
     requestAnimationFrame(frame);
     if (window.__hold) return;
     const dt = Math.min(0.05, Math.max(0, (now - last) / 1000)); last = now; t += dt;
-    if (running && paused) {
+    if (running && paused && !net) {
       input.dx = input.dy = 0;
     } else if (running) {
       const gdt = dt * R.timeScale(dt);
@@ -215,8 +278,8 @@ async function boot() {
       phys.update(dt, (h) => ecto.fixed(h, null), () => ecto.sync());
       ecto.interp(1); ecto.update(dt, t);
       rig.update(dt, {});
-      ghost.update(dt, { playerHead: player.feet.clone().setY(1.6), engaged: false });
-      avatar.update({ speed: 0, grounded: true, vy: 0 }, dt, {});
+      for (const g of ghosts) g.update(dt, { playerHead: player.feet.clone().setY(1.6), engaged: false });
+      game.avatar.update({ speed: 0, grounded: true, vy: 0 }, dt, {});
       gear.update(dt, { firing: false, mode: 'blast', style: game.style });
       plate.update(dt);
       fx.update(dt, t);

@@ -6,7 +6,7 @@ const LOWER = /^(Hips|(Left|Right)(UpLeg|Leg|Foot|ToeBase))$/;
 const LIMB = /(Shoulder|Arm|Hand|UpLeg|Leg|Foot|ToeBase)/;
 const LOCO = ['Idle_Loop', 'Walk_Loop', 'Jog_Fwd_Loop', 'Sprint_Loop'];
 let dataP = null;
-const cache = new WeakMap();
+const cache = new Map();
 
 function loadData() {
   if (!dataP) dataP = Promise.all([fetch(BASE + 'ual.json').then((r) => r.json()), fetch(BASE + 'ual.bin').then((r) => r.arrayBuffer())]);
@@ -69,11 +69,12 @@ function build(meta, buf, d) {
 }
 
 export class Animator {
-  static async create(d, custom = []) {
+  static async create(d, custom = [], key = null, scale = 1) {
     const [meta, buf] = await loadData();
-    if (!cache.has(d)) cache.set(d, build(meta, buf, d));
-    const a = new Animator(d, new Map(cache.get(d)));
-    for (const c of custom) a.addClip(c);
+    const k = key || d;
+    if (!cache.has(k)) cache.set(k, build(meta, buf, d));
+    const a = new Animator(d, new Map(cache.get(k)));
+    for (const c of custom) a.addClip(c, undefined, scale);
     return a;
   }
 
@@ -86,13 +87,14 @@ export class Animator {
     this.events = [];
   }
 
-  addClip(clip, loop = /ready|aim|wrangle|_loop/i.test(clip.name)) {
+  addClip(clip, loop = /ready|aim|wrangle|_loop/i.test(clip.name), scale = 1) {
     const lo = [], up = [];
+    const own = (t, node) => { const c = t.clone(); if (scale !== 1 && /\.position$/.test(t.name) && (node === 'Hips' || /Carrier$/.test(node))) c.values = c.values.map((v) => v * scale); return c; };
     for (const t of clip.tracks) {
       const node = t.name.split('.')[0];
-      if (/Carrier$/.test(node)) { lo.push(t.clone()); continue; }
+      if (/Carrier$/.test(node)) { lo.push(own(t, node)); continue; }
       if (!this.d.bones.has(node)) continue;
-      (LOWER.test(node) ? lo : up).push(t.clone());
+      (LOWER.test(node) ? lo : up).push(own(t, node));
     }
     this.clips.set(clip.name, { name: clip.name, dur: clip.duration, loop, custom: true, lo: new THREE.AnimationClip(clip.name + '_lo', clip.duration, lo), up: new THREE.AnimationClip(clip.name + '_up', clip.duration, up) });
   }

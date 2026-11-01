@@ -1,8 +1,8 @@
-// Mission director: wires player, Ecto-1, gear, stream, ghost and trap into the phase-1 bust and owns every interaction and sequence.
+// Mission director: wires player, Ecto-1, gear, stream, ghosts and traps into the bust, solo or as one of up to four online Ghostbusters, and owns every interaction and sequence.
 import * as THREE from 'three';
 
 const V = (x = 0, y = 0, z = 0) => new THREE.Vector3(x, y, z), Q = () => new THREE.Quaternion();
-const _a = V(), _b = V(), _c = V(), _q = Q(), _q2 = Q(), _s = V();
+const _a = V(), _b = V(), _c = V(), _q = Q(), _q2 = Q(), _s = V(), _t = V();
 const UP = new THREE.Vector3(0, 1, 0);
 
 export class Game {
@@ -13,16 +13,27 @@ export class Game {
     this.stats = { time: 0, slimed: 0, slams: 0, darts: 0 };
     this.packMode = 'slot'; this.wandMode = 'dock'; this.wandBlend = 1;
     this.camPos = V(); this.camDir = V(); this.camRight = V(); this.pivot = V(); this.head = V();
-    this.carry = false; this.startT = 0; this.done = false;
+    this.startT = 0; this.done = false; this.net = null; this.seat = 0;
     this.tipW = V(); this.wandDirW = V(0, 0, 1);
-    this.packPose = { p: V(), q: Q() };
+    this.heads = [this.head];
   }
+
+  get ghost() {
+    const t = this.proton?.target;
+    if (t && t.active && t.alive) return t;
+    let best = null, bd = Infinity;
+    for (const g of this.ghosts) { if (!g.active || !g.alive) continue; const d = g.pos.distanceToSquared(this.player.feet); if (d < bd) { bd = d; best = g; } }
+    return best || this.ghosts[0];
+  }
+
+  get authority() { return !this.net || this.net.isHost; }
 
   wait(s) { return new Promise((r) => this.timers.push({ t: this.time + s, r })); }
 
   setup() {
-    const { ecto, gear, plate, player, avatar } = this;
-    gear.spawnSpares(ecto, 4);
+    const { ecto, gear, player, avatar } = this;
+    gear.spawnSpares(ecto, 4, 0);
+    gear.slot = 0;
     this.slotIndex = 0;
     ecto.slots[0]?.add(gear.pack); gear.pack.position.set(0, 0, 0); gear.pack.quaternion.identity();
     gear.dock();
@@ -30,9 +41,14 @@ export class Game {
     this.rig.yaw = player.yaw + 0.25;
     this.hud.objective('Suit up at the back of the Ecto-1');
     this.hud.style(this.style);
-    this.ghost.obj.visible = true;
-    this.ghost.onWreck = (p) => this.hud.damage(p);
-    this.ghost.start();
+    this.ghosts.forEach((g, i) => {
+      g.onWreck = (p) => { this.hud.damage(p); this.net?.wrecked(p); };
+      g.onKnock = (p, imp) => this.net?.knocked(p, imp);
+      g.onEat = (p) => this.net?.ate(p);
+      if (i > 0) g.deactivate(); else g.start();
+    });
+    this.proton.onWreck = (p, dir) => this.net?.wrecked(p, dir);
+    this.proton.onBoom = (p, n, d) => this.net?.boom(p, n, d);
     this.ambience = this.audio.loop('amb_city_night', { bus: 'amb', gain: 0.8, fadeIn: 2 });
     this.wind = this.audio.loop('amb_wind', { bus: 'amb', gain: 0.35, fadeIn: 3 });
     this.proton.attachPool(this.scene);
@@ -49,19 +65,11 @@ export class Game {
     try { localStorage.setItem('gb.style', s); } catch {}
   }
 
-  wornPose() {
-    const j = this.avatar.json?.packWorn;
-    if (j && j.position) return { bone: j.bone || 'Spine2', pos: V().fromArray(j.position), quat: Q().fromArray(j.quaternion || [0, 0, 0, 1]) };
-    const d = this.avatar.d, s2 = d.restWorldP.get('Spine2'), s2q = d.restWorldQ.get('Spine2');
-    const want = V(0, s2.y - 0.1, s2.z - 0.115);
-    return { bone: 'Spine2', pos: want.sub(s2).applyQuaternion(s2q.clone().invert()), quat: s2q.clone().invert() };
-  }
+  wornPose() { return this.avatar.wornPose(); }
 
   packToBack() {
-    const w = this.wornPose(), b = this.avatar.bone(w.bone);
-    b.add(this.gear.pack); this.gear.pack.position.copy(w.pos); this.gear.pack.quaternion.copy(w.quat);
+    this.avatar.wear(this.gear.pack);
     this.packMode = 'worn'; this.gear.state = 'worn';
-    if (this.avatar.harness) this.avatar.harness.visible = true;
   }
 
   backPose(pos, quat) {
@@ -75,23 +83,32 @@ export class Game {
 
   near(p, r) { return this.player.feet.distanceTo(p) < r; }
 
+  car(action, v, broadcast = true) {
+    const e = this.ecto;
+    let d = 0;
+    if (action === 'rear') e.openRear(!!v);
+    else if (action === 'tray') d = v ? e.deployTray() : e.stowTray();
+    if (broadcast) this.net?.emit('car', { a: action, v: v ? 1 : 0 });
+    return d;
+  }
+
   async suitUp() {
     const { ecto, gear, avatar, player, rig, audio } = this;
-    this.busy = true; player.packed = false;
+    this.busy = true; player.packed = false; this.packState = 2;
     const target = ecto.pickupPose(this.slotIndex, V());
     const from = player.feet.clone(), fy = player.yaw;
     rig.startCine(this.cineSuit());
-    ecto.openRear(true);
+    this.car('rear', 1);
     const walk = 0.8;
     let t0 = this.time;
-    this.autopilot = (dt) => {
+    this.autopilot = () => {
       const k = Math.min(1, (this.time - t0) / walk), e = k * k * (3 - 2 * k);
       player.teleport(_a.lerpVectors(from, target.pos, e).setY(target.pos.y), fy + Math.atan2(Math.sin(target.yaw - fy), Math.cos(target.yaw - fy)) * e);
       player.vel.set(0, 0, 0); player.speed = k < 1 ? 1.2 : 0;
     };
     await this.wait(Math.max(0.85, ecto.seq.slideAt));
     this.autopilot = null;
-    await this.wait(ecto.deployTray() + 0.1);
+    if (ecto.partT('tray') < 0.99) await this.wait(this.car('tray', 1) + 0.1);
     const clip = avatar.anim.has('don_pack');
     if (clip && avatar.carriers.pack) {
       const ev = avatar.json?.events?.don_pack || avatar.json?.don_pack || {};
@@ -99,6 +116,7 @@ export class Game {
       this.detachToScene(gear.pack); this.packMode = 'carrier';
       avatar.anim.play('don_pack', { lock: true });
       avatar.anim.oneshot.hold = true;
+      this.packState = 3;
       const at = (k, d) => (typeof ev[k] === 'number' ? ev[k] : d);
       this.cue(at('grab', 0.5), () => audio.play('cloth_rustle', { obj: gear.pack }));
       this.cue(at('strapL', 1.4), () => audio.play('strap_buckle', { obj: gear.pack }));
@@ -116,6 +134,7 @@ export class Game {
       gear.powerUp();
     } else {
       avatar.anim.play('PickUp_Table', { lock: true, rate: 0.9 });
+      this.packState = 3;
       await this.wait(0.45);
       audio.play('cloth_rustle', { obj: gear.pack });
       this.detachToScene(gear.pack); this.packMode = 'fly';
@@ -140,24 +159,24 @@ export class Game {
       await this.wait(0.35);
       gear.powerUp();
     }
-    player.packed = true;
+    player.packed = true; this.packState = 1;
     this.hud.toast('Pack powered up', 1.4);
     await this.wait(0.7);
-    const back = ecto.stowTray();
+    const others = this.net ? this.net.suiting() : 0;
+    const back = others ? 0 : this.car('tray', 0);
     rig.endCine('foot'); rig.yaw = player.yaw; rig.pitch = -0.1;
     await this.wait(back);
-    ecto.openRear(false);
+    if (!others) this.car('rear', 0);
     this.busy = false;
-    this.mission = 'find';
-    this.hud.objective('Find the ghost. Follow the munching.');
+    if (this.mission === 'suit') this.mission = this.engaged ? 'bust' : 'find';
   }
 
   async unsuit() {
     const { ecto, gear, player, audio } = this;
-    this.busy = true; this.proton.stopAll(); gear.powerDown();
-    ecto.openRear(true);
+    this.busy = true; this.proton.stopAll(); gear.powerDown(); this.packState = 2;
+    this.car('rear', 1);
     await this.wait(ecto.seq.slideAt);
-    await this.wait(ecto.deployTray() + 0.1);
+    if (ecto.partT('tray') < 0.99) await this.wait(this.car('tray', 1) + 0.1);
     gear.dock(); this.wandMode = 'dock';
     this.detachToScene(gear.pack); this.packMode = 'fly';
     if (this.avatar.harness) this.avatar.harness.visible = false;
@@ -171,10 +190,9 @@ export class Game {
     await this.wait(1.0);
     this.packFly = null;
     ecto.slots[this.slotIndex].add(gear.pack); gear.pack.position.set(0, 0, 0); gear.pack.quaternion.identity();
-    this.packMode = 'slot'; gear.state = 'stowed'; player.packed = false;
+    this.packMode = 'slot'; gear.state = 'stowed'; player.packed = false; this.packState = 0;
     await this.wait(0.3);
-    await this.wait(ecto.stowTray());
-    ecto.openRear(false);
+    if (!(this.net && this.net.suiting())) { await this.wait(this.car('tray', 0)); this.car('rear', 0); }
     this.busy = false;
   }
 
@@ -198,47 +216,53 @@ export class Game {
 
   async enterCar() {
     const { ecto, player, avatar, rig } = this;
-    this.busy = true;
-    ecto.set('doorL', 1, 2.6);
-    this.audio.play('door_open', { obj: ecto.parts.doorL?.o || ecto.root });
+    let seat = 0;
+    if (this.net) { seat = await this.net.takeSeat(); if (seat < 0) { this.hud.toast('The Ecto-1 is full', 1.4); return; } }
+    this.busy = true; this.seat = seat;
+    const door = seat === 1 || seat === 3 ? 'doorR' : 'doorL';
+    ecto.set(door, 1, 2.6);
+    this.audio.play('door_open', { obj: ecto.parts[door]?.o || ecto.root });
     player.mode = 'script';
     await this.wait(0.38);
     player.setActive(false);
     player.mode = 'car';
     ecto.root.add(avatar.object);
-    const seat = ecto.empties.seat;
-    if (seat) { avatar.object.position.copy(seat.position).add(_a.set(0, -0.53, -0.05)); avatar.object.quaternion.copy(seat.quaternion); }
-    else { avatar.object.position.set(0.42, 0.1, -0.1); avatar.object.quaternion.identity(); }
+    const s = ecto.seatPose(seat);
+    avatar.object.position.copy(s.pos); avatar.object.quaternion.copy(s.quat);
     avatar.anim.setMode('sit');
-    ecto.occupied = true;
+    if (seat === 0) { ecto.occupied = true; ecto.setLocal(true); }
     rig.mode = 'car'; rig.blend = 0; rig.from.pos.copy(this.camera.position); rig.from.look.copy(this.camera.position);
     await this.wait(0.25);
-    ecto.set('doorL', 0, 2.4);
+    ecto.set(door, 0, 2.4);
     await this.wait(0.42);
     this.audio.play('door_close', { obj: ecto.root });
-    ecto.startEngine();
+    if (seat === 0) ecto.startEngine();
     this.busy = false;
   }
 
   async exitCar() {
     const { ecto, player, avatar, rig } = this;
     this.busy = true;
-    ecto.occupied = false;
-    ecto.set('doorL', 1, 2.6);
+    const seat = this.seat, door = seat === 1 || seat === 3 ? 'doorR' : 'doorL';
+    if (seat === 0) ecto.occupied = false;
+    ecto.set(door, 1, 2.6);
     this.audio.play('door_open', { obj: ecto.root });
     await this.wait(0.35);
     const ex = ecto.empties.exit;
     if (ex) ex.getWorldPosition(_a); else ecto.doorPoint(_a);
+    if (seat === 1 || seat === 3) { ecto.root.worldToLocal(_t.copy(_a)); _t.x = -_t.x; ecto.root.localToWorld(_a.copy(_t)); }
+    if (seat >= 2) { ecto.root.worldToLocal(_t.copy(_a)); _t.z -= 1.05; ecto.root.localToWorld(_a.copy(_t)); }
     _a.y = Math.max(0, _a.y);
     let yaw = player.yaw;
-    if (ex) { ex.getWorldQuaternion(_q); _b.set(0, 0, 1).applyQuaternion(_q); yaw = Math.atan2(_b.x, _b.z); }
+    if (ex) { ex.getWorldQuaternion(_q); _b.set(0, 0, 1).applyQuaternion(_q); if (seat === 1 || seat === 3) _b.negate(); yaw = Math.atan2(_b.x, _b.z); }
     this.scene.add(avatar.object);
     avatar.anim.setMode('loco');
     player.teleport(_a, yaw); player.setActive(true); player.mode = 'foot';
     ecto.forward(_c); rig.mode = 'foot'; rig.yaw = Math.atan2(_c.x, _c.z) - 0.35; rig.pitch = -0.12; rig.blend = 0; rig.from.pos.copy(this.camera.position); this.camera.getWorldDirection(_b); rig.from.look.copy(this.camera.position).add(_b);
-    ecto.stopEngine();
+    if (seat === 0) { ecto.stopEngine(); if (this.net) ecto.setLocal(false); }
+    if (this.net) this.net.leaveSeat(seat);
     await this.wait(0.3);
-    ecto.set('doorL', 0, 2.4);
+    ecto.set(door, 0, 2.4);
     await this.wait(0.4);
     this.audio.play('door_close', { obj: ecto.root });
     this.busy = false;
@@ -273,22 +297,25 @@ export class Game {
     this.busy = false;
   }
 
+  ghostsLeft() { return this.ghosts.filter((g) => g.active && g.alive).length; }
+
   updateObjective() {
     const g = this.ghost, t = this.trap, m = this.mission;
     if (m === 'suit' || this.done) return;
-    if (m === 'find') { this.hud.objective('Find the ghost. Follow the munching.'); return; }
-    if (m === 'bust') {
-      if (t.state === 'sucking') this.hud.objective("It's going in!");
-      else if (this.proton.wrangling) {
-        if (t.state === 'belt') this.hud.objective('Got it! Throw the trap under it (Q)');
-        else if (t.state === 'armed') this.hud.objective(this.near(t.pedalPos, 9) ? 'Stomp the pedal to open the trap (Q)' : 'Get back to the pedal');
-        else if (t.state === 'open') this.hud.objective('Drag it into the light!');
-        else this.hud.objective('Hold on to it!');
-      } else if (g.capturable) this.hud.objective('It is weak. Hit it again to lock the capture stream');
-      else this.hud.objective(t.state === 'belt' ? 'Weaken it with the stream (LMB)' : 'Weaken it and drag it over the trap');
-      return;
-    }
-    if (m === 'return') this.hud.objective(t.state === 'carried' ? 'Carry the trap back to the Ecto-1' : 'Pick up the trap (E)');
+    const left = this.ghostsLeft(), many = this.ghosts.filter((x) => x.active).length > 1;
+    const tail = many && left > 0 ? ` (${left} ghosts left)` : '';
+    if (t.state === 'full' || t.state === 'carried') { this.hud.objective(t.state === 'carried' ? 'Carry the trap back to the Ecto-1' : 'Pick up the trap (E)'); return; }
+    if (m === 'wait') { this.hud.objective('Waiting for the team to stow their traps'); return; }
+    if (!left) { this.hud.objective(this.net ? 'All ghosts trapped. Stow the traps' : 'Pick up the trap (E)'); return; }
+    if (m === 'find') { this.hud.objective('Find the ghost. Follow the munching.' + tail); return; }
+    if (t.state === 'sucking') this.hud.objective("It's going in!");
+    else if (this.proton.wrangling) {
+      if (t.state === 'belt') this.hud.objective('Got it! Throw the trap under it (Q)');
+      else if (t.state === 'armed') this.hud.objective(this.near(t.pedalPos, 9) ? 'Stomp the pedal to open the trap (Q)' : 'Get back to the pedal');
+      else if (t.state === 'open') this.hud.objective('Drag it into the light!');
+      else this.hud.objective('Hold on to it!');
+    } else if (g.capturable) this.hud.objective('It is weak. Hit it again to lock the capture stream' + tail);
+    else this.hud.objective((t.state === 'belt' ? 'Weaken it with the stream (LMB)' : 'Weaken it and drag it over a trap') + tail);
   }
 
   interactions() {
@@ -296,20 +323,23 @@ export class Game {
     let prompt = null;
     if (this.busy || player.mode === 'script') { hud.prompt(null); return; }
     if (player.mode === 'car') {
-      hud.prompt(Math.abs(ecto.fwdSpeed) < 3 ? 'F' : null, 'Get out');
-      if (input.pressed('KeyF') && Math.abs(ecto.fwdSpeed) < 3) this.exitCar();
-      if (input.pressed('KeyH')) ecto.toggleSiren();
-      if (input.pressed('KeyG')) this.audio.play('ecto_horn', { obj: ecto.root, bus: 'car' });
+      const canOut = Math.abs(ecto.fwdSpeed) < 3;
+      hud.prompt(canOut ? 'F' : null, 'Get out');
+      if (input.pressed('KeyF') && canOut) this.exitCar();
+      if (this.seat === 0 && input.pressed('KeyH')) ecto.toggleSiren();
+      if (input.pressed('KeyG')) { this.audio.play('ecto_horn', { obj: ecto.root, bus: 'car' }); this.net?.emit('horn', {}); }
       return;
     }
     const rear = ecto.rearPoint(_a), door = ecto.doorPoint(_b);
     const nearRear = this.near(rear, 2.1), nearDoor = this.near(door, 1.7);
+    ecto.root.worldToLocal(_t.copy(this.player.feet));
+    const nearPass = Math.abs(_t.x + 1.45) < 0.9 && Math.abs(_t.z) < 1.6;
     if (trap.state === 'carried' && nearRear) prompt = ['E', 'Stow the trap', () => this.stowTrap()];
     else if (trap.state === 'full' && this.near(trap.pos, 1.8)) prompt = ['E', 'Pick up the trap', () => this.pickTrap()];
     else if (trap.state === 'armed' && this.near(trap.pos, 1.6)) prompt = ['E', 'Pick up the trap', () => { trap.pickUp(); this.audio.play('cloth_rustle', { pos: trap.pos }); }];
     else if (nearRear && gear.state === 'stowed') prompt = ['E', 'Suit up', () => this.suitUp()];
-    else if (nearRear && gear.state === 'worn' && trap.state === 'belt' && this.mission !== 'bust' && this.mission !== 'find') prompt = ['E', 'Stow your gear', () => this.unsuit()];
-    else if (nearDoor) prompt = gear.state === 'stowed' ? ['F', 'Drive', () => this.enterCar()] : ['F', 'Stow your gear first', null];
+    else if (nearRear && gear.state === 'worn' && trap.state === 'belt' && (this.mission === 'done' || this.mission === 'wait' || !this.ghostsLeft())) prompt = ['E', 'Stow your gear', () => this.unsuit()];
+    else if (nearDoor || (this.net && nearPass)) prompt = gear.state === 'stowed' ? ['F', this.net && this.net.carDriver() ? 'Ride along' : 'Drive', () => this.enterCar()] : ['F', 'Stow your gear first', null];
     hud.prompt(prompt ? prompt[0] : null, prompt ? prompt[1] : '');
     if (prompt && prompt[2] && input.pressed('Key' + prompt[0])) prompt[2]();
     if (gear.state === 'worn' && input.pressed('KeyQ')) {
@@ -322,13 +352,13 @@ export class Game {
   pickTrap() {
     this.trap.pickUp();
     this.audio.play('cloth_rustle', { pos: this.trap.pos });
-    this.mission = 'return';
+    if (this.mission !== 'done') this.mission = 'return';
   }
 
   async stowTrap() {
     const { ecto, trap } = this;
     this.busy = true;
-    ecto.openRear(true);
+    this.car('rear', 1);
     await this.wait(0.9);
     const st = ecto.empties.stow;
     trap.setState('stowed');
@@ -336,27 +366,69 @@ export class Game {
     else trap.holder.visible = false;
     this.audio.play('trap_land', { obj: ecto.root });
     await this.wait(0.6);
-    ecto.openRear(false);
+    if (!(this.net && this.net.suiting())) this.car('rear', 0);
     await this.wait(1.0);
     trap.snd.beep?.stop(0.4);
     this.busy = false;
-    this.finish();
+    if (!this.net) this.finish();
+    else { this.mission = 'wait'; this.net.checkWin(); }
   }
 
-  finish() {
+  finish(team) {
+    if (this.done) return;
     this.done = true; this.mission = 'done';
     this.stats.time = this.time - this.startT;
     this.stats.slams = this.proton.stats.slams; this.stats.darts = this.proton.stats.darts;
+    if (team) { this.hud.bill = team.bill ?? this.hud.bill; this.hud.broken = team.broken ?? this.hud.broken; this.stats.team = team.n; }
+    if (this.net) this.stats.crew = this.net.room.order.map((p) => String(this.net.room.players[p]?.nick || 'Buster').toUpperCase()).join(', ');
     this.hud.objective('Bust complete');
     this.hud.report(this.stats);
     document.exitPointerLock?.();
     this.input.enabled = false;
   }
 
+  captureStep(dt) {
+    const traps = [{ owner: this.net ? this.net.pid : 'me', trap: this.trap }];
+    if (this.net) for (const r of this.net.remotes.values()) if (r.trap && r.st) traps.push({ owner: r.pid, trap: r.trap });
+    for (const g of this.ghosts) { g.trapPull = null; g.trapNear = null; }
+    for (const { owner, trap } of traps) {
+      if (trap.state !== 'open') { trap.progress = Math.max(0, (trap.progress || 0) - dt); continue; }
+      trap.beamPos(_a);
+      let any = false;
+      for (const g of this.ghosts) {
+        if (!g.active || !g.alive || g.puppet) continue;
+        const dn = Math.hypot(g.pos.x - _a.x, g.pos.z - _a.z);
+        if (dn < 6 && (!g.trapNear || dn < g.trapNear.distanceTo(g.pos))) g.trapNear = _a.clone();
+        if (!trap.inCone(g.pos)) continue;
+        any = true;
+        g.trapPull = _a.clone();
+        if (g.state === 'wrangled') trap.progress = (trap.progress || 0) + dt / (1.1 + Math.max(0, g.will) / 35 * 1.4);
+        else if (g.state !== 'sucked') trap.progress = (trap.progress || 0) + dt * 0.15;
+        if (trap.progress >= 1) {
+          trap.progress = 0;
+          g.startSuck(_a.clone(), owner);
+          if (trap === this.trap) { this.trap.beginSuck(g); this.proton.stopAll(); }
+          else this.net?.emit('suck', { to: owner, g: g.id });
+          break;
+        }
+      }
+      if (!any) trap.progress = Math.max(0, (trap.progress || 0) - dt * 0.5);
+    }
+  }
+
+  onCaptured(g) {
+    const by = this.net && g.owner && g.owner !== this.net.pid ? String(this.net.room.players[g.owner]?.nick || 'They').toUpperCase() : null;
+    this.hud.toast(by ? `${by} got one!` : 'We got one!', 2.2);
+    if (this.proton.target === g) this.proton.stopAll();
+    if (!this.ghostsLeft() && this.mission !== 'done') this.mission = 'return';
+    this.net?.ghostCaptured(g);
+  }
+
   demo() {
-    const { gear, player, ghost, rig, input } = this;
+    const { gear, player, rig, input } = this;
+    const ghost = this.ghosts[0];
     this.packToBack(); gear.holdWand(); this.wandMode = 'hold'; this.wandBlend = 1;
-    gear.power = true; gear.powered = 1; player.packed = true;
+    gear.power = true; gear.powered = 1; player.packed = true; this.packState = 1;
     this.mission = 'bust'; this.engaged = true;
     player.teleport(V(6.2, 0, 9.5), 0.15);
     ghost.set('roam'); ghost.pos.set(7.6, 2.9, 16.5); ghost.vel.set(0, 0, 0); ghost.will = 30;
@@ -367,7 +439,8 @@ export class Game {
   }
 
   demoTick() {
-    const { gear, ghost, rig, input, camera, proton } = this;
+    const { gear, rig, input, camera, proton } = this;
+    const ghost = this.ghosts[0];
     if (!ghost.alive) return;
     const home = _a.set(7.6 + Math.sin(this.time * 0.9) * 1.2, 2.9 + Math.sin(this.time * 1.3) * 0.5, 16.5);
     if (ghost.state !== 'wrangled') ghost.pos.lerp(home, 0.05);
@@ -393,7 +466,7 @@ export class Game {
   update(dt, alpha) {
     this.time += dt;
     for (let i = this.timers.length - 1; i >= 0; i--) if (this.timers[i].t <= this.time) { const r = this.timers[i].r; this.timers.splice(i, 1); r(); }
-    const { input, rig, player, avatar, ecto, gear, ghost, trap, proton, hud, fx, renderer } = this;
+    const { input, rig, player, avatar, ecto, gear, trap, proton, hud, fx } = this;
     if (this.demoOn) this.demoTick();
     if (input.enabled && input.pressed('KeyV')) this.setStyle(this.style === 'film' ? 'modern' : 'film');
     this.jumpQ = input.pressed('Space') ? 0.15 : Math.max(0, (this.jumpQ || 0) - dt);
@@ -404,9 +477,9 @@ export class Game {
     const armed = gear.state === 'worn' && this.wandMode === 'hold' && !this.wandHide && onFoot && !this.busy;
     const firing = armed && input.btn[0] && input.locked;
     const aim = armed && (firing || input.btn[2] || proton.wrangling);
+    this.aimHeld = aim;
     player.update(dt, alpha, { aim, face: aim ? Math.atan2(proton.aim.x - player.feet.x, proton.aim.z - player.feet.z) : undefined });
-    if (player.mode === 'car') { ecto.interp(alpha); }
-    else ecto.interp(alpha);
+    ecto.interp(alpha);
     ecto.update(dt, this.time);
     this.pivot.copy(player.feet).add(_a.set(0, avatar.height * 0.9, 0));
     if (player.mode === 'car') rig.update(dt, { car: ecto.root, speed: ecto.speed });
@@ -415,8 +488,8 @@ export class Game {
     if (player.mode === 'car') this.camRight.set(1, 0, 0).applyQuaternion(this.camera.quaternion);
     const sp = player.mode === 'foot' ? player.speed : 0;
     avatar.update({ speed: sp, grounded: player.grounded, vy: player.vy }, dt, { overlay: null, dir: player.animDir, sitClip: 'Sitting_Idle_Loop' });
-    if (this.packMode === 'carrier' && avatar.carriers.pack) { avatar.carrierPose('pack', gear.pack.position, gear.pack.quaternion); }
-    if (this.wandMode === 'carrier' && avatar.carriers.wand) { avatar.carrierPose('wand', gear.wand.position, gear.wand.quaternion); }
+    if (this.packMode === 'carrier' && avatar.carriers.pack) avatar.carrierPose('pack', gear.pack.position, gear.pack.quaternion);
+    if (this.wandMode === 'carrier' && avatar.carriers.wand) avatar.carrierPose('wand', gear.wand.position, gear.wand.quaternion);
     this.packFly?.();
     const hold = this.wandMode === 'hold' && !this.wandHide && player.mode === 'foot' ? 1 : 0;
     player.aimPoint.copy(proton.aim);
@@ -435,30 +508,40 @@ export class Game {
     if (gear.n.tip) { gear.n.tip.getWorldPosition(this.tipW); gear.n.tip.getWorldQuaternion(_q); this.wandDirW.set(0, 0, 1).applyQuaternion(_q); }
     else { gear.wand.getWorldPosition(this.tipW); this.wandDirW.set(0, 0, 1).applyQuaternion(gear.wand.quaternion); }
     this.head.copy(player.feet).add(_a.set(0, avatar.height - 0.1, 0));
-    const trapOpen = trap.state === 'open';
+    this.heads.length = 1;
+    if (this.net) for (const r of this.net.remotes.values()) if (r.st && r.ready && r.st.m !== 'c') this.heads.push((r.head ||= V()).copy(r.pos).add(_a.set(0, (r.avatar.height || 1.75) - 0.1, 0)));
+    let openTrap = trap.state === 'open' ? trap : null;
+    if (!openTrap && this.net) for (const r of this.net.remotes.values()) if (r.trap && r.trap.state === 'open' && (!openTrap || r.trap.pos.distanceTo(player.feet) < openTrap.pos.distanceTo(player.feet))) openTrap = r.trap;
     proton.update(dt, {
       enabled: armed, fire: firing, rmb: armed && input.btnHit[2] && input.locked, camPos: this.camPos, camDir: this.camDir, camRight: this.camRight, pivot: this.pivot,
-      tip: this.tipW, wandDir: this.wandDirW, aimOut: _c, flick: input.flick, wheel: input.wheel, trapOpen, trapPos: trap.beamPos(_s), inCone: trapOpen && trap.inCone(ghost.pos),
+      tip: this.tipW, wandDir: this.wandDirW, aimOut: _c, flick: input.flick, wheel: input.wheel, trapOpen: !!openTrap, trapPos: openTrap ? openTrap.beamPos(_s) : _s,
       pull: (v) => { player.vel.x += v.x * dt * 3; player.vel.z += v.z * dt * 3; },
     });
-    if (!this.engaged && this.mission !== 'suit' && (ghost.lastHit < 0.2 || player.feet.distanceTo(ghost.pos) < 15)) {
-      this.engaged = true; this.mission = 'bust'; ghost.say('ghost_laugh', 1.2); hud.toast('There it is!', 1.4);
-    }
-    ghost.update(dt, {
-      playerHead: this.head, engaged: this.engaged, wrangling: proton.wrangling, wrangle: { vel: ghost.vel },
-      onSlime: () => this.slime(), onSlam: (p) => proton.onSlam(p),
-      onCaptured: () => { this.hud.toast('We got one!', 2.2); this.mission = 'return'; proton.stopAll(); },
-    });
-    trap.update(dt, { ghost, wrangling: proton.wrangling, steam: gear.steam, onSuck: () => { proton.stopAll(); } });
+    if (!this.engaged && this.mission !== 'suit') {
+      for (const g of this.ghosts) if (g.active && g.alive && (g.lastHit < 0.2 || player.feet.distanceTo(g.pos) < 15)) { this.engaged = true; this.net?.emit('engage', {}); break; }
+      if (this.engaged) { this.mission = 'bust'; this.ghost.say('ghost_laugh', 1.2); hud.toast('There it is!', 1.4); }
+    } else if (this.engaged && this.mission === 'find') this.mission = 'bust';
+    if (this.authority) this.captureStep(dt);
+    else if (trap.state === 'open') trap.progress = this.ghosts.some((g) => g.active && g.alive && trap.inCone(g.pos)) ? 0.5 : 0;
+    const gctx = {
+      playerHead: this.head, players: this.heads, engaged: this.engaged || !!this.net?.engaged,
+      onSlime: (i) => { if (i === 0) this.slime(); else this.net?.slimeHead(i); },
+      onSlam: (p, g) => { proton.onSlam(p, g); this.net?.emit('slamfx', { p: [p.x, p.y, p.z] }); },
+      onCaptured: (g) => this.onCaptured(g),
+    };
+    for (const g of this.ghosts) { gctx.trapPull = g.trapPull; gctx.trapNear = g.trapNear; g.update(dt, gctx); }
+    trap.update(dt, { steam: gear.steam, near: true });
     gear.update(dt, { firing: proton.on, mode: proton.mode, style: this.style });
+    this.net?.update(dt, this.time);
     this.plate.update(dt);
     fx.update(dt, this.time);
     this.updateObjective();
-    const fightUI = this.engaged && !this.done && ghost.alive;
-    hud.ghost(fightUI, ghost.will, ghost.state === 'wrangled' ? (proton.counter > 0.25 ? 'Holding it' : 'Fight its pull') : ghost.capturable ? 'Weak. Lock the capture stream' : '');
-    hud.cross(armed && player.mode === 'foot', proton.wrangling ? proton.tension : 0, ghost.alive && proton.aim.distanceTo(ghost.pos) < ghost.radius * 1.4);
+    const gh = this.ghost;
+    const fightUI = (this.engaged || this.net?.engaged) && !this.done && gh.alive && gh.active;
+    hud.ghost(fightUI, gh.will, gh.state === 'wrangled' ? (proton.wrangling ? (proton.counter > 0.25 ? 'Holding it' : 'Fight its pull') : 'Wrangled. Help hold it!') : gh.capturable ? 'Weak. Lock the capture stream' : '');
+    hud.cross(armed && player.mode === 'foot', proton.wrangling ? proton.tension : 0, this.ghosts.some((g) => g.alive && g.active && proton.aim.distanceTo(g.pos) < g.radius * 1.4));
     hud.heat(gear.state === 'worn' && player.mode === 'foot', gear.heat, gear.heat > 0.82, gear.over > 0);
-    hud.speed(player.mode === 'car', Math.abs(ecto.fwdSpeed) * 2.237);
+    hud.speed(player.mode === 'car' && this.seat === 0, Math.abs(ecto.fwdSpeed) * 2.237);
     hud.update(dt);
     if (player.landed !== undefined && player.landed < -4) this.audio.play('land', { pos: player.feet });
     player.landed = undefined;
@@ -484,6 +567,7 @@ export class Game {
     const jump = this.jumpQ > 0 && !locked;
     if (jump) this.jumpQ = 0;
     player.step(h, { move: { x: a.x, z: a.z }, camYaw: rig.yaw, sprint: input.key('ShiftLeft') && !input.btn[0], walk: input.key('AltLeft'), jump, aim: (input.btn[0] || input.btn[2] || this.proton.wrangling) && this.gear.state === 'worn', locked });
-    this.ecto.fixed(h, input.enabled ? input : null);
+    if (this.ecto.local === false) this.ecto.netFixed(h);
+    else this.ecto.fixed(h, input.enabled && this.seat === 0 ? input : null);
   }
 }

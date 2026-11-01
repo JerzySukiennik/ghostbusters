@@ -139,6 +139,50 @@ export class Ecto {
   }
 
   forward(out = V()) { return out.set(0, 0, 1).applyQuaternion(this.root.quaternion); }
+
+  seatPose(i = 0) {
+    const s = this.empties.seat;
+    const pos = s ? s.position.clone() : V(0.42, 0.62, -0.05);
+    const quat = s ? s.quaternion.clone() : Q();
+    pos.add(V(0, -0.53, -0.05));
+    if (i === 1) pos.x = -pos.x;
+    if (i >= 2) { pos.z -= 1.05; pos.x = i === 2 ? Math.abs(pos.x) : -Math.abs(pos.x); }
+    return { pos, quat };
+  }
+
+  setLocal(on) {
+    if (this.local === on) return;
+    const R = this.phys.RAPIER;
+    this.local = on;
+    this.body.setBodyType(on ? R.RigidBodyType.Dynamic : R.RigidBodyType.KinematicPositionBased, true);
+    if (on) { this.body.setLinvel({ x: 0, y: 0, z: 0 }, true); this.body.setAngvel({ x: 0, y: 0, z: 0 }, true); }
+    else { const t = this.body.translation(), r = this.body.rotation(); (this.netP ||= V()).set(t.x, t.y, t.z); (this.netQ ||= Q()).set(r.x, r.y, r.z, r.w); }
+  }
+
+  toNet() {
+    const t = this.body.translation(), r = this.body.rotation(), k = (v) => Math.round(v * 1000) / 1000;
+    return { p: [k(t.x), k(t.y), k(t.z)], q: [k(r.x), k(r.y), k(r.z), k(r.w)], v: k(this.fwdSpeed), r: Math.round(this.rpm), th: k(this.throttle), st: k(this.steer), e: this.engine ? 1 : 0, s: this.siren ? 1 : 0, b: this.brakeLit ? 1 : 0 };
+  }
+
+  fromNet(o) {
+    if (!o || !o.p) return;
+    (this.netP ||= V()).set(o.p[0], o.p[1], o.p[2]);
+    (this.netQ ||= Q()).set(o.q[0], o.q[1], o.q[2], o.q[3]).normalize();
+    this.netV = o.v || 0; this.rpm = o.r || this.rpm; this.throttle = o.th || 0; this.steer = o.st || 0; this.brakeNet = !!o.b;
+    if (o.e && !this.engine) this.startEngine(); else if (!o.e && this.engine) this.stopEngine();
+    if (!!o.s !== this.siren) this.toggleSiren();
+  }
+
+  netFixed(dt) {
+    if (this.local || !this.netP) return;
+    const t = this.body.translation(), r = this.body.rotation();
+    _v.set(t.x, t.y, t.z).lerp(this.netP, 1 - Math.exp(-dt * 12));
+    _q.set(r.x, r.y, r.z, r.w).slerp(this.netQ, 1 - Math.exp(-dt * 12));
+    this.body.setNextKinematicTranslation({ x: _v.x, y: _v.y, z: _v.z });
+    this.body.setNextKinematicRotation({ x: _q.x, y: _q.y, z: _q.z, w: _q.w });
+    this.fwdSpeed = this.netV || 0; this.speed = Math.abs(this.fwdSpeed);
+    this.netSpin = (this.netSpin || 0) + this.fwdSpeed / this.radius * dt;
+  }
   world(node, out = V()) { node.updateWorldMatrix(true, false); return out.setFromMatrixPosition(node.matrixWorld); }
   rearPoint(out = V()) { return out.set(0, 0.0, -3.9).applyMatrix4(this.root.matrixWorld); }
   doorPoint(out = V()) { return out.set(1.45, 0, 0.45).applyMatrix4(this.root.matrixWorld); }
@@ -172,7 +216,14 @@ export class Ecto {
     }
   }
 
+  trayLeft(w) {
+    const a = this.parts.tray, b = this.parts.tray2;
+    return (a ? Math.abs(w - a.t) * this.seq.slide : 0) + (b ? Math.abs(w - b.t) * this.seq.swing : 0);
+  }
+
   deployTray() {
+    if (this.trayWant === 1) return this.trayLeft(1);
+    this.trayWant = 1;
     this.set('tray', 1, 1 / this.seq.slide);
     if (this.audio) this.audio.play('tray_slide', { obj: this.parts.tray?.o || this.root });
     if (!this.parts.tray2) return this.seq.slide;
@@ -181,6 +232,8 @@ export class Ecto {
   }
 
   stowTray() {
+    if ((this.trayWant ?? 0) === 0) return this.trayLeft(0);
+    this.trayWant = 0;
     if (!this.parts.tray2) { this.set('tray', 0, 1 / this.seq.slide); this.audio?.play('tray_slide', { obj: this.root }); return this.seq.slide; }
     this.set('tray2', 0, 1 / this.seq.swing);
     this.audio?.play('tray_slide', { obj: this.root, rate: 1.25, gain: 0.7 });
@@ -204,6 +257,7 @@ export class Ecto {
   partT(key) { return this.parts[key]?.t ?? 0; }
 
   openRear(open) {
+    if (this.parts.rear && this.parts.rear.target === (open ? 1 : 0)) return;
     this.set('rear', open ? 1 : 0, 1 / this.seq.door);
     if (this.audio) this.audio.play(open ? 'reardoor_open' : 'reardoor_close', { obj: this.parts.rear?.o || this.root });
   }
@@ -291,17 +345,18 @@ export class Ecto {
     }
     this.wheels.forEach((wh, i) => {
       if (!wh) return;
-      const susp = this.vc.wheelSuspensionLength(i) ?? this.rest;
+      const remote = this.local === false;
+      const susp = remote ? this.rest * 0.62 : (this.vc.wheelSuspensionLength(i) ?? this.rest);
       wh.o.position.set(wh.p.x, wh.p.y + this.rest * 0.75 - susp, wh.p.z);
-      wh.spin = this.vc.wheelRotation(i) ?? wh.spin;
-      const st = i < 2 ? this.vc.wheelSteering(i) ?? 0 : 0;
+      wh.spin = remote ? (this.netSpin || 0) : (this.vc.wheelRotation(i) ?? wh.spin);
+      const st = i < 2 ? (remote ? this.steer : (this.vc.wheelSteering(i) ?? 0)) : 0;
       wh.o.quaternion.copy(_q.setFromAxisAngle(_v.set(0, 1, 0), st)).multiply(wh.rest).multiply(_q2.setFromAxisAngle(_v.set(1, 0, 0), wh.spin));
     });
     if (this.steerWheel) this.steerWheel.quaternion.copy(this.steerRest).multiply(_q.setFromAxisAngle(this.steerAxis, this.steer * this.steerRatio * 0.5));
     if (this.beacon && this.beaconOn) this.beacon.quaternion.multiply(_q.setFromAxisAngle(this.beaconAxis, dt * this.beaconRate));
     const pulse = this.beaconOn ? 0.5 + 0.5 * Math.sin(this.t * this.beaconRate) : 0;
     const flash = this.beaconOn ? (Math.sin(this.t * (this.siren ? 14 : 7)) > 0 ? 1 : 0) : 0;
-    this.brakeLit = this.occupied && this.throttle < -0.05 || (this.occupied && this.fwdSpeed > 1 && this.throttle < 0.05);
+    this.brakeLit = this.local === false ? !!this.brakeNet : (this.occupied && this.throttle < -0.05 || (this.occupied && this.fwdSpeed > 1 && this.throttle < 0.05));
     this.setEmit('GrilleLightEmit', flash ? 8 : 0.1);
     this.setEmit('InteriorGaugesEmit', this.engine ? 1.2 : 0.15);
     this.setEmit('BeaconEmit', this.beaconOn ? 3 + 9 * pulse : 0.05);

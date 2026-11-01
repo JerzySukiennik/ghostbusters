@@ -76,6 +76,24 @@ button.ghost{background:rgba(255,255,255,.1);color:var(--ink)}
 #start .go:disabled{opacity:.45;cursor:default}
 #start .keys{margin-top:22px;display:grid;grid-template-columns:auto 1fr;gap:6px 14px;font-size:13px;color:var(--mute)}
 #start .keys b{color:var(--ink);font-weight:600}
+#start .go.alt{background:rgba(255,255,255,.12);color:var(--ink)}
+#start .row{align-items:center}
+#start .who{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-top:22px}
+#start input{font:600 15px/1 -apple-system,system-ui;color:var(--ink);background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);border-radius:12px;padding:13px 14px;outline:none;width:180px}
+#start input:focus{border-color:rgba(255,255,255,.4)}
+#start .join{display:flex;gap:6px}
+#start #code{width:92px;text-transform:uppercase;letter-spacing:.2em;text-align:center}
+#chars{display:flex;gap:8px}
+#chars button{width:58px;height:72px;padding:0;border-radius:12px;overflow:hidden;background:rgba(255,255,255,.08);border:2px solid transparent;color:var(--ink);font-size:11px}
+#chars button.on{border-color:var(--ink)}
+#chars img{width:100%;height:100%;object-fit:cover;display:block}
+#roster{position:absolute;right:24px;top:22px;display:flex;flex-direction:column;align-items:flex-end;gap:5px;font:600 12px/1.2 -apple-system,system-ui;opacity:0;transition:opacity .3s}
+#roster.on{opacity:1}
+#roster .code{letter-spacing:.2em;color:var(--mute);font-size:11px}
+#roster .code b{color:var(--ink);font-size:13px}
+#roster .p{padding:5px 10px;border-radius:9px;background:var(--glass)}
+#roster .p.me{outline:1px solid rgba(255,255,255,.35)}
+#roster .p i{font-style:normal;color:var(--ecto);margin-left:6px;font-size:10px;letter-spacing:.12em}
 #load{height:3px;width:min(320px,70vw);background:rgba(255,255,255,.12);border-radius:3px;margin-top:16px;overflow:hidden}
 #load i{display:block;height:100%;width:0;background:var(--ink);transition:width .3s}
 #loadtxt{font-size:12px;color:var(--mute);margin-top:8px;min-height:16px}
@@ -97,6 +115,7 @@ button.ghost{background:rgba(255,255,255,.1);color:var(--ink)}
 <div id="hud">
   <canvas id="slime"></canvas>
   <div id="objective"><div class="k">Objective</div><div class="t"></div></div>
+  <div id="roster"></div>
   <div id="ghostbar"><div class="n">Onionhead · Class 5</div><div class="b"><i></i><u></u></div><div class="s"></div></div>
   <div id="cross"><svg viewBox="-32 -32 64 64"><circle r="3" fill="none" stroke="#f2f0ea" stroke-width="1.6" opacity=".9"/><circle id="ring" r="20" fill="none" stroke="#f2f0ea" stroke-opacity=".18" stroke-width="2.5"/><circle id="tens" r="20" fill="none" stroke="#9dff6a" stroke-width="2.5" stroke-linecap="round" transform="rotate(-90)" stroke-dasharray="0 126"/></svg></div>
   <div id="prompt"><kbd>E</kbd><span></span></div>
@@ -113,7 +132,16 @@ button.ghost{background:rgba(255,255,255,.1);color:var(--ink)}
       <div class="seg" id="lookSeg"><button data-v="modern">Modern</button><button data-v="film">1984 film</button></div>
       <div class="seg" id="qSeg"><button data-v="low">Low</button><button data-v="medium">Medium</button><button data-v="high">High</button></div>
     </div>
-    <button class="go" id="go" disabled>Loading</button>
+    <div class="who">
+      <input id="nick" maxlength="12" spellcheck="false" autocomplete="off" placeholder="Your name">
+      <div id="chars"></div>
+    </div>
+    <div class="row">
+      <button class="go" id="go" disabled>Loading</button>
+      <button class="go alt" id="quick" disabled>Quick play</button>
+      <button class="go alt" id="host" disabled>New room</button>
+      <span class="join"><input id="code" maxlength="4" spellcheck="false" autocomplete="off" placeholder="CODE"><button class="go alt" id="join" disabled>Join</button></span>
+    </div>
     <div id="load"><i></i></div>
     <div id="loadtxt"></div>
     <div class="keys">

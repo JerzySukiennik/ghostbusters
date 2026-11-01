@@ -18,7 +18,7 @@ const page = await browser.newPage({ viewport: { width: w, height: h } });
 const logs = [];
 page.on('console', (m) => { if (!/404|deprecated parameters/.test(m.text())) logs.push(`[${m.type()}] ${m.text()}`); });
 page.on('pageerror', (e) => logs.push(`[pageerror] ${e.message}`));
-const kill = setTimeout(() => { console.log(logs.join('\n') + '\n[play] hard timeout'); browser.close().catch(() => {}); setTimeout(() => process.exit(2), 1500); }, 170000);
+const kill = setTimeout(() => { console.log(logs.join('\n') + '\n[play] hard timeout'); browser.close().catch(() => {}); setTimeout(() => process.exit(2), 1500); }, 480000);
 browser.on('disconnected', () => { console.log(logs.slice(-20).join('\n') + '\n[play] browser disconnected'); setTimeout(() => process.exit(3), 500); });
 const E = (fn, a) => page.evaluate(fn, a);
 const wait = (ms) => page.waitForTimeout(ms);
@@ -36,8 +36,8 @@ async function suit() {
 }
 
 try {
-  await page.goto('http://localhost:1984/?' + qs, { waitUntil: 'load', timeout: 120000 });
-  await page.waitForFunction(() => window.__ready === true || document.getElementById('err').textContent, null, { timeout: 120000 });
+  await page.goto('http://localhost:1984/?' + qs, { waitUntil: 'load', timeout: 240000 });
+  await page.waitForFunction(() => window.__ready === true || document.getElementById('err').textContent, null, { timeout: 300000 });
   await E(() => { window.__start(); const g = window.__gb; g.input.locked = true; g.input.enabled = true; });
   await wait(600);
   if (scen === 'walk') {

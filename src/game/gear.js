@@ -108,15 +108,32 @@ export class Gear {
     }
   }
 
-  spawnSpares(ecto, count) {
-    for (let i = 1; i < count; i++) {
+  spawnSpares(ecto, count, mine = 0) {
+    this.spareBySlot = [];
+    for (let i = 0; i < count; i++) {
       const slot = ecto.slots[i]; if (!slot) continue;
       const p = this.pack.clone(true), w = this.wand.clone(true);
       p.traverse((o) => { if (/HoseSample/.test(o.name)) o.visible = false; });
       slot.add(p); p.position.set(0, 0, 0); p.quaternion.identity();
       const m = findNode(p, 'GunMount'); if (m) { m.add(w); w.position.set(0, 0, 0); w.quaternion.identity(); }
-      this.spares.push(p);
+      p.visible = i !== mine;
+      this.spares.push(p); this.spareBySlot[i] = p;
     }
+  }
+
+  assignSlot(ecto, idx) {
+    if (!this.spareBySlot) return;
+    const old = this.slot ?? 0;
+    this.slot = idx;
+    this.spareBySlot.forEach((p, i) => { if (p) p.visible = i !== idx && !this.takenSlots?.has(i); });
+    if (this.state === 'stowed' && ecto.slots[idx]) { ecto.slots[idx].add(this.pack); this.pack.position.set(0, 0, 0); this.pack.quaternion.identity(); }
+    return old;
+  }
+
+  markTaken(i, taken) {
+    (this.takenSlots ||= new Set())[taken ? 'add' : 'delete'](i);
+    const p = this.spareBySlot?.[i];
+    if (p && i !== this.slot) p.visible = !taken;
   }
 
   makeHose(mat) {
