@@ -1,0 +1,154 @@
+{
+ "version": 1,
+ "source": "blender/crew (build_crew.sh)",
+ "characters": {
+  "crew_1": {
+   "file": "crew_1.glb",
+   "portrait": "portrait_crew_1.jpg",
+   "displayName": "Desmond \"Dez\" Okafor",
+   "shortName": "Dez",
+   "age": 36,
+   "summary": "tall lanky engineer, rectangular dark acetate glasses, short dark crew cut, light olive skin, stubble",
+   "rigScale": 1.1,
+   "stature_m": 1.916,
+   "heightWithHair_m": 1.95,
+   "hipsY_m": 1.0175,
+   "eyeY_m": 1.801,
+   "triangles": {
+    "Body": 3736,
+    "Head": 10287,
+    "EyeL": 906,
+    "EyeR": 906,
+    "Hair": 4600,
+    "Glasses": 936,
+    "Suit": 15948,
+    "Boots": 2013,
+    "Belt": 1476,
+    "NameTag": 172,
+    "Patch": 308,
+    "Harness": 3496,
+    "total": 44784
+   },
+   "glbBytes": 9518456,
+   "packWorn": {
+    "bone": "Spine2",
+    "position": [
+     0.0,
+     -0.078436,
+     -0.159215
+    ],
+    "quaternion": [
+     0.042266,
+     -0.0,
+     0.0,
+     0.999106
+    ],
+    "backOffset_m": 0.0093
+   },
+   "nameTag": "NameTag mesh, own 0..1 UV rectangle (u across 110 mm, v up 30 mm), same as jurek_gb",
+   "harness": "Harness hidden by default (extras.hiddenByDefault)"
+  },
+  "crew_2": {
+   "file": "crew_2.glb",
+   "portrait": "portrait_crew_2.jpg",
+   "displayName": "Walter \"Walt\" Kowalczyk",
+   "shortName": "Walt",
+   "age": 58,
+   "summary": "stocky older ex-firefighter, full salt-and-pepper beard, bald crown with grey sides, fair ruddy skin",
+   "rigScale": 0.975,
+   "stature_m": 1.696,
+   "heightWithHair_m": 1.696,
+   "hipsY_m": 0.9019,
+   "eyeY_m": 1.596,
+   "triangles": {
+    "Body": 3720,
+    "Head": 12523,
+    "EyeL": 906,
+    "EyeR": 906,
+    "Hair": 1656,
+    "Suit": 15948,
+    "Boots": 2013,
+    "Belt": 1476,
+    "NameTag": 172,
+    "Patch": 308,
+    "Harness": 3496,
+    "total": 43124
+   },
+   "glbBytes": 10276904,
+   "packWorn": {
+    "bone": "Spine2",
+    "position": [
+     0.0,
+     -0.067387,
+     -0.166315
+    ],
+    "quaternion": [
+     0.042266,
+     -0.0,
+     0.0,
+     0.999106
+    ],
+    "backOffset_m": 0.0335
+   },
+   "nameTag": "NameTag mesh, own 0..1 UV rectangle (u across 110 mm, v up 30 mm), same as jurek_gb",
+   "harness": "Harness hidden by default (extras.hiddenByDefault)"
+  },
+  "crew_3": {
+   "file": "crew_3.glb",
+   "portrait": "portrait_crew_3.jpg",
+   "displayName": "Imani \"Mo\" Asante",
+   "shortName": "Mo",
+   "age": 29,
+   "summary": "paranormal-tech woman, short natural coily hair, deep brown skin, athletic build",
+   "rigScale": 0.945,
+   "stature_m": 1.645,
+   "heightWithHair_m": 1.683,
+   "hipsY_m": 0.8741,
+   "eyeY_m": 1.547,
+   "triangles": {
+    "Body": 3784,
+    "Head": 10283,
+    "EyeL": 906,
+    "EyeR": 906,
+    "Hair": 4260,
+    "Suit": 15948,
+    "Boots": 2013,
+    "Belt": 1476,
+    "NameTag": 172,
+    "Patch": 308,
+    "Harness": 3496,
+    "total": 43552
+   },
+   "glbBytes": 9324588,
+   "packWorn": {
+    "bone": "Spine2",
+    "position": [
+     0.0,
+     -0.066981,
+     -0.141525
+    ],
+    "quaternion": [
+     0.042266,
+     -0.0,
+     0.0,
+     0.999106
+    ],
+    "backOffset_m": 0.0127
+   },
+   "nameTag": "NameTag mesh, own 0..1 UV rectangle (u across 110 mm, v up 30 mm), same as jurek_gb",
+   "harness": "Harness hidden by default (extras.hiddenByDefault)"
+  }
+ },
+ "jurek": {
+  "file": "jurek_gb.glb",
+  "portrait": "portrait_jurek.jpg",
+  "displayName": "Jurek"
+ },
+ "skeleton": {
+  "rig": "v1 Jurek.Rig, 92 joints: same names, hierarchy, joint order and rest rotations as jurek_gb.glb (checked: rotations equal to 1e-5)",
+  "method": "Uniform rest-pose scale per character: every joint offset and every vertex is Jurek x rigScale, baked into the skeleton (root node scale stays 1). Bodies, heads and the uniform are reshaped on top of that scaled skeleton, so any clip keyed for Jurek (rotations + Hips translation) fits without retargeting.",
+  "clips": "Each crew GLB carries the 7 jurek_gb clips already scaled (rotation tracks copied, Hips and carrier translations x rigScale, morph weights copied, constant bone translations and scale tracks dropped) plus the three carrier empties. don_pack PackCarrier is then re-aimed (carrierfix.py, offset in Spine2 space blended in between lift and strapR) so the clip ends exactly on that character's packWorn. The game loader uses own clips when present, so no clipScale is applied. If you prefer the shared jurek_gb clips instead: drop every .position track except Hips and *Carrier, drop .scale tracks, multiply Hips/Carrier positions by rigScale (= the existing clipScale).",
+  "props": "Pack, wand and trap stay real size: place them by the carriers (world pose, ignore scale) or by bone + offset. Offsets given in Jurek bone space (avatar.json wandGrip, leftHandIK) work as is to within rigScale x a few mm; packWorn per character is below; the game reads it only with Niepotrzebne/work/crew/avatar_packworn.patch applied to src/game/avatar.js (without it the pack sits 5-30 mm deep in the crew backs).",
+  "locomotion": "UAL retargeting in src/game/anim.js works unchanged (rest rotations identical; Hips height read from the rig)."
+ }
+}
