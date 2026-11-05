@@ -636,7 +636,7 @@ export class Game {
     trap.update(dt, { steam: gear.steam, near: true });
     gear.update(dt, { firing: proton.on, mode: proton.mode, style: this.style });
     this.net?.update(dt, this.time);
-    this.plate.update(dt);
+    this.plate.update(dt, { focus: [this.player.feet, this.ecto.root.position] });
     fx.update(dt, this.time);
     this.updateObjective();
     const gh = this.ghost;

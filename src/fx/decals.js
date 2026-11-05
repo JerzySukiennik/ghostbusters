@@ -1,4 +1,4 @@
-// Pooled surface decals (scorch with cooling glow, slime splats, slam craters) in one instanced draw.
+// Pooled surface decals (scorch with cooling glow, slime splats, slam rings), 1984 film look, one instanced draw.
 import * as THREE from 'three';
 
 const VS = /* glsl */`
@@ -40,7 +40,6 @@ uniform sampler2D uScorch;
 uniform sampler2D uSlime;
 uniform vec3 uAmb;
 uniform vec3 uLightCol;
-uniform float uFilm;
 varying vec2 vUv;
 varying float vAge;
 varying float vType;
@@ -57,7 +56,7 @@ void main() {
     float R = 0.12 + 0.86 * (1.0 - pow(1.0 - a, 3.0));
     float w = 0.05 + 0.12 * a;
     float ring = exp(-pow((r - R) / w, 2.0)) * step(r, 1.0);
-    vec3 c = mix(vec3(0.9, 1.0, 0.75), vec3(0.4, 1.0, 0.3), a) * (1.0 + uFilm * 0.4);
+    vec3 c = mix(vec3(0.9, 1.0, 0.75), vec3(0.4, 1.0, 0.3), a) * 1.4;
     gl_FragColor = vec4(c * ring * pow(1.0 - a, 2.0) * 2.4, 0.0);
     return;
   }
@@ -68,7 +67,7 @@ void main() {
     float heat = exp(-vAge * (crater > 0.5 ? 0.9 : 0.85));
     float hotMask = t.g * (0.6 + 0.4 * t.a) + t.b * crater * 0.6;
     vec3 glow = mix(vec3(1.0, 0.16, 0.02), vec3(1.0, 0.55, 0.15), heat) * hotMask * heat * heat * (1.6 + 3.0 * heat);
-    glow *= 1.0 - uFilm * 0.3;
+    glow *= 0.7;
     float a = clamp(soot * fade, 0.0, 1.0);
     gl_FragColor = vec4(glow * fade, a);
   } else {
@@ -86,7 +85,7 @@ void main() {
     vec3 H = normalize(L + V);
     float spec = pow(max(dot(nrm, H), 0.0), 60.0) * 2.5 + pow(1.0 - max(dot(nrm, V), 0.0), 4.0) * 0.4;
     vec3 base = mix(vec3(0.05, 0.28, 0.03), vec3(0.22, 0.75, 0.12), h);
-    vec3 col = base * (uAmb * 2.0 + uLightCol * 0.5) + base * (0.35 + uFilm * 0.4) * (0.6 + 0.4 * t.b) + spec * (uLightCol * 0.4 + vec3(0.5, 0.6, 0.5));
+    vec3 col = base * (uAmb * 2.0 + uLightCol * 0.5) + base * 0.75 * (0.6 + 0.4 * t.b) + spec * (uLightCol * 0.4 + vec3(0.5, 0.6, 0.5));
     float a = cov * fade * (0.7 + 0.25 * h);
     gl_FragColor = vec4(col * a, a);
   }
@@ -111,20 +110,17 @@ export class DecalPool {
     g.setAttribute('iE', new THREE.InterleavedBufferAttribute(buf, 4, 8));
     g.instanceCount = capacity;
     const U = fx.U;
-    const make = (film, timeKey) => {
-      const m = new THREE.ShaderMaterial({
-        vertexShader: VS, fragmentShader: FS,
-        uniforms: { uT: U[timeKey], uScorch: { value: fx.tex.scorch }, uSlime: { value: fx.tex.slime }, uAmb: U.uAmb, uLightCol: U.uSmokeLight, uFilm: { value: film } },
-        transparent: true, depthWrite: false, toneMapped: false, fog: false,
-        polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -4,
-      });
-      m.blending = THREE.CustomBlending; m.blendEquation = THREE.AddEquation;
-      m.blendSrc = THREE.OneFactor; m.blendDst = THREE.OneMinusSrcAlphaFactor;
-      m.blendSrcAlpha = THREE.ZeroFactor; m.blendDstAlpha = THREE.OneFactor;
-      return m;
-    };
-    this.mats = { modern: make(0, 'uTime'), film: make(1, 'uTime') };
-    this.mesh = new THREE.Mesh(g, this.mats.modern);
+    const m = new THREE.ShaderMaterial({
+      vertexShader: VS, fragmentShader: FS,
+      uniforms: { uT: U.uTime, uScorch: { value: fx.tex.scorch }, uSlime: { value: fx.tex.slime }, uAmb: U.uAmb, uLightCol: U.uSmokeLight },
+      transparent: true, depthWrite: false, toneMapped: false, fog: false,
+      polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -4,
+    });
+    m.blending = THREE.CustomBlending; m.blendEquation = THREE.AddEquation;
+    m.blendSrc = THREE.OneFactor; m.blendDst = THREE.OneMinusSrcAlphaFactor;
+    m.blendSrcAlpha = THREE.ZeroFactor; m.blendDstAlpha = THREE.OneFactor;
+    this.material = m;
+    this.mesh = new THREE.Mesh(g, m);
     this.mesh.frustumCulled = false;
     this.mesh.renderOrder = 5;
     this.mesh.name = 'fx-decals';
@@ -142,6 +138,5 @@ export class DecalPool {
   }
 
   clear() { for (let i = 0; i < this.cap; i++) this.data[i * 12 + 11] = 0; this.dirty = true; }
-  setStyle(style) { this.mesh.material = this.mats[style] || this.mats.modern; }
   flush() { if (this.dirty) { this.buf.needsUpdate = true; this.dirty = false; } }
 }

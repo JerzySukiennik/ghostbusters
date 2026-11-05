@@ -71,6 +71,10 @@ async function loadFX(ctx) {
 }
 
 async function loadPlate(ctx) {
+  if (!force.includes('plate') && !force.includes('city') && params.get('plate') !== 'v1') {
+    try { const m = await import('./city/index.js'); const c = await m.createCity({ ...ctx, onProgress: (k, t) => progress(0.05 + k * 0.5, t) }); if (c) return c; }
+    catch (e) { console.warn('[city] falling back to the V1 plate:', e?.message || e); }
+  }
   if (!force.includes('plate')) {
     try { const m = await import('./world/plate.js'); const p = await m.createPlate(ctx); if (p) return p; }
     catch (e) { console.warn('[plate] using stand-in:', e?.message || e); }
@@ -137,7 +141,7 @@ async function boot() {
   const proton = new Proton({ fx, gear, phys, ghosts, plate, audio, renderer: R, rig, hud });
   const remoteStreams = [fx.createStream(), fx.createStream(), fx.createStream()];
   const remoteTraps = [0, 1, 2].map(() => new Trap({ gltf: { scene: tpl.trap.clone(true), json: trapG.json }, scene, phys, audio, fx, renderer: R, hud, remote: true }));
-  const gps = new GPS(plate.roads || plateRoads(), { side: plate.roads ? 0 : 4 });
+  const gps = new GPS(plate.roads || plateRoads(), { side: plate.roads ? 0 : 4, lanes: !!plate.roads });
   const routeLine = new RouteLine(scene, plate.heightAt ? (x, z) => plate.heightAt(x, z) : null);
   const game = new Game({ renderer: R, scene, camera, phys, input, audio, hud, fx, plate, ecto, gear, avatar, player, rig, ghosts, trap, proton, style, assets, radio, gps, routeLine });
   game.setup();

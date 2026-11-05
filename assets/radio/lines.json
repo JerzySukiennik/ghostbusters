@@ -94,5 +94,157 @@
    "job_times_square.ogg",
    "job_times_square.mp3"
   ]
+ },
+ "nav_left_next": {
+  "text": "Left at the next corner.",
+  "dur": 2.47,
+  "files": [
+   "nav_left_next.ogg",
+   "nav_left_next.mp3"
+  ]
+ },
+ "nav_right_next": {
+  "text": "Right at the next corner.",
+  "dur": 2.39,
+  "files": [
+   "nav_right_next.ogg",
+   "nav_right_next.mp3"
+  ]
+ },
+ "nav_left_now": {
+  "text": "Left here. Left!",
+  "dur": 3.03,
+  "files": [
+   "nav_left_now.ogg",
+   "nav_left_now.mp3"
+  ]
+ },
+ "nav_right_now": {
+  "text": "Right here, take the right!",
+  "dur": 2.91,
+  "files": [
+   "nav_right_now.ogg",
+   "nav_right_now.mp3"
+  ]
+ },
+ "nav_bear_left": {
+  "text": "Keep left.",
+  "dur": 1.95,
+  "files": [
+   "nav_bear_left.ogg",
+   "nav_bear_left.mp3"
+  ]
+ },
+ "nav_bear_right": {
+  "text": "Keep right.",
+  "dur": 2.23,
+  "files": [
+   "nav_bear_right.ogg",
+   "nav_bear_right.mp3"
+  ]
+ },
+ "nav_uturn": {
+  "text": "You passed it. Turn around.",
+  "dur": 3.43,
+  "files": [
+   "nav_uturn.ogg",
+   "nav_uturn.mp3"
+  ]
+ },
+ "nav_recalc": {
+  "text": "Okay, wrong turn. Hold on, I'm finding you another way.",
+  "dur": 5.35,
+  "files": [
+   "nav_recalc.ogg",
+   "nav_recalc.mp3"
+  ]
+ },
+ "nav_close": {
+  "text": "It's right up ahead.",
+  "dur": 2.51,
+  "files": [
+   "nav_close.ogg",
+   "nav_close.mp3"
+  ]
+ },
+ "nav_on_left": {
+  "text": "It's on your left.",
+  "dur": 2.47,
+  "files": [
+   "nav_on_left.ogg",
+   "nav_on_left.mp3"
+  ]
+ },
+ "nav_on_right": {
+  "text": "It's on your right.",
+  "dur": 2.71,
+  "files": [
+   "nav_on_right.ogg",
+   "nav_on_right.mp3"
+  ]
+ },
+ "nav_arrive": {
+  "text": "That's the place. Go get it.",
+  "dur": 2.91,
+  "files": [
+   "nav_arrive.ogg",
+   "nav_arrive.mp3"
+  ]
+ },
+ "cap_1": {
+  "text": "You got it? Nice. Now get it back here before it gets out.",
+  "dur": 5.27,
+  "files": [
+   "cap_1.ogg",
+   "cap_1.mp3"
+  ]
+ },
+ "cap_2": {
+  "text": "That's one. Bring the trap home, the containment unit is waiting.",
+  "dur": 5.55,
+  "files": [
+   "cap_2.ogg",
+   "cap_2.mp3"
+  ]
+ },
+ "slime_1": {
+  "text": "Did it slime you? Do not get that in the car.",
+  "dur": 4.67,
+  "files": [
+   "slime_1.ogg",
+   "slime_1.mp3"
+  ]
+ },
+ "dmg_2": {
+  "text": "Was that a fire hydrant?",
+  "dur": 3.55,
+  "files": [
+   "dmg_2.ogg",
+   "dmg_2.mp3"
+  ]
+ },
+ "paid_1": {
+  "text": "The city paid. Minus the damage. Again.",
+  "dur": 5.47,
+  "files": [
+   "paid_1.ogg",
+   "paid_1.mp3"
+  ]
+ },
+ "paid_2": {
+  "text": "Payment's in. You broke less stuff this time. Barely.",
+  "dur": 5.15,
+  "files": [
+   "paid_2.ogg",
+   "paid_2.mp3"
+  ]
+ },
+ "nav_home": {
+  "text": "Okay, head back to the Firehouse. I'll talk you in.",
+  "dur": 4.79,
+  "files": [
+   "nav_home.ogg",
+   "nav_home.mp3"
+  ]
  }
 }

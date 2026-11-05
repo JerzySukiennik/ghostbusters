@@ -1,4 +1,4 @@
-// Trap FX: wedge light cone with god rays, suction vortex, sparkles, open and close flashes, electric crawl, smoke.
+// Trap FX (1984 film look): wedge light cone with hard rays, suction vortex, glitter, open and close flashes, blue lightning crawl, smoke.
 import * as THREE from 'three';
 import { NOISE } from './glsl.js';
 import { clamp } from './util.js';
@@ -137,10 +137,7 @@ function vortexGeometry(seg = 120, strands = 3) {
   return g;
 }
 
-const LOOK = {
-  modern: { base: [0.2, 0.06], top: [1.25, 0.95], H: 2.7, colA: [1.0, 0.9, 0.72], colB: [0.7, 0.62, 0.9], gain: 0.42, edge: 0.45, rayK: 0.7, vortex: [1.0, 0.35, 0.7], vI: 1.4, arc: [0.7, 0.8, 1.0], light: [1.0, 0.88, 0.7] },
-  film: { base: [0.22, 0.05], top: [1.6, 0.5], H: 2.9, colA: [1.0, 0.9, 1.0], colB: [0.7, 0.42, 1.0], gain: 0.6, edge: 0.9, rayK: 0.9, vortex: [1.0, 0.45, 0.85], vI: 1.3, arc: [0.25, 0.35, 1.0], light: [0.95, 0.8, 1.0] },
-};
+const LOOK = { base: [0.22, 0.05], top: [1.6, 0.5], H: 2.9, colA: [1.0, 0.9, 1.0], colB: [0.7, 0.42, 1.0], gain: 0.6, edge: 0.9, rayK: 0.9, vortex: [1.0, 0.45, 0.85], vI: 1.3, arc: [0.25, 0.35, 1.0], light: [0.95, 0.8, 1.0] };
 
 export class TrapFX {
   constructor(fx) {
@@ -149,28 +146,22 @@ export class TrapFX {
     this.holder.name = 'fx-trap';
     fx.root.add(this.holder);
     this.trap = null;
-    this.U = { uBase: { value: new THREE.Vector2(0.2, 0.06) }, uTop: { value: new THREE.Vector2(1.2, 0.9) }, uH: { value: 2.7 } };
-    this.cones = {}; this.vortex = {}; this.cu = {}; this.vu = {};
+    const L = LOOK;
+    this.look = L;
+    this.U = { uBase: { value: new THREE.Vector2(L.base[0], L.base[1]) }, uTop: { value: new THREE.Vector2(L.top[0], L.top[1]) }, uH: { value: L.H } };
     const cg = coneGeometry(), vg = vortexGeometry();
-    for (const style of ['modern', 'film']) {
-      const L = LOOK[style];
-      const cu = {
-        ...this.U, uNoise: { value: fx.tex.noise }, uTime: style === 'film' ? fx.U.uTimeQ : fx.U.uTime, uBeam: { value: 0 }, uSuck: { value: 0 },
-        uColA: { value: new THREE.Color(...L.colA) }, uColB: { value: new THREE.Color(...L.colB) }, uEdge: { value: L.edge }, uRayK: { value: L.rayK },
-      };
-      this.cu[style] = cu;
-      const cm = new THREE.ShaderMaterial({ vertexShader: CONE_VS, fragmentShader: CONE_FS, uniforms: cu, transparent: true, depthWrite: false, side: THREE.DoubleSide, blending: THREE.AdditiveBlending, toneMapped: false, fog: false });
-      const cone = new THREE.Mesh(cg, cm);
-      cone.renderOrder = 45; cone.frustumCulled = false; cone.visible = false;
-      this.cones[style] = cone;
-      const vu = { ...this.U, uTime: style === 'film' ? fx.U.uTimeQ : fx.U.uTime, uSpin: { value: 9 }, uPx: fx.U.uPx, uWidth: { value: style === 'film' ? 0.035 : 0.025 }, uI: { value: 0 }, uCol: { value: new THREE.Color(...L.vortex) } };
-      this.vu[style] = vu;
-      const vm = new THREE.ShaderMaterial({ vertexShader: VORTEX_VS, fragmentShader: VORTEX_FS, uniforms: vu, transparent: true, depthWrite: false, side: THREE.DoubleSide, blending: THREE.AdditiveBlending, toneMapped: false, fog: false });
-      const vx = new THREE.Mesh(vg, vm);
-      vx.renderOrder = 46; vx.frustumCulled = false; vx.visible = false;
-      this.vortex[style] = vx;
-      this.holder.add(cone, vx);
-    }
+    this.cu = {
+      ...this.U, uNoise: { value: fx.tex.noise }, uTime: fx.U.uTimeQ, uBeam: { value: 0 }, uSuck: { value: 0 },
+      uColA: { value: new THREE.Color(...L.colA) }, uColB: { value: new THREE.Color(...L.colB) }, uEdge: { value: L.edge }, uRayK: { value: L.rayK },
+    };
+    const cm = new THREE.ShaderMaterial({ vertexShader: CONE_VS, fragmentShader: CONE_FS, uniforms: this.cu, transparent: true, depthWrite: false, side: THREE.DoubleSide, blending: THREE.AdditiveBlending, toneMapped: false, fog: false });
+    this.cone = new THREE.Mesh(cg, cm);
+    this.cone.renderOrder = 45; this.cone.frustumCulled = false; this.cone.visible = false;
+    this.vu = { ...this.U, uTime: fx.U.uTimeQ, uSpin: { value: 9 }, uPx: fx.U.uPx, uWidth: { value: 0.035 }, uI: { value: 0 }, uCol: { value: new THREE.Color(...L.vortex) } };
+    const vm = new THREE.ShaderMaterial({ vertexShader: VORTEX_VS, fragmentShader: VORTEX_FS, uniforms: this.vu, transparent: true, depthWrite: false, side: THREE.DoubleSide, blending: THREE.AdditiveBlending, toneMapped: false, fog: false });
+    this.vortex = new THREE.Mesh(vg, vm);
+    this.vortex.renderOrder = 46; this.vortex.frustumCulled = false; this.vortex.visible = false;
+    this.holder.add(this.cone, this.vortex);
     this.flare = fx.flares.alloc(4);
     this.bolt = fx.bolts.alloc(6);
     this.arcs = new Float32Array(6 * 8);
@@ -185,7 +176,6 @@ export class TrapFX {
     this.open = 0;
     this.suck = 0;
     this.closeTime = 99;
-    this.setStyle(fx.style);
   }
 
   attach(trap) {
@@ -216,17 +206,6 @@ export class TrapFX {
     this.longZ = sz.z > sz.x;
   }
 
-  setStyle(style) {
-    this.style = style;
-    this.look = LOOK[style];
-    const L = this.look;
-    this.U.uBase.value.set(L.base[0], L.base[1]);
-    this.U.uTop.value.set(L.top[0], L.top[1]);
-    this.U.uH.value = L.H;
-    this.cones.modern.visible = false; this.cones.film.visible = false;
-    this.vortex.modern.visible = false; this.vortex.film.visible = false;
-  }
-
   surfacePoint(out) {
     const r = this.fx.rng, b = this.box;
     const face = r.int(5);
@@ -237,7 +216,7 @@ export class TrapFX {
   }
 
   update(dt, p = {}) {
-    const fx = this.fx, r = fx.rng, L = this.look, film = this.style === 'film';
+    const fx = this.fx, r = fx.rng, L = this.look;
     dt = Math.min(Math.max(dt, 0), 0.1);
     const open = clamp(+p.open || 0, 0, 1), beam = clamp(+p.beam || 0, 0, 1), suck = clamp(+p.suck || 0, 0, 1);
     const closed = !!p.closed, smoking = !!p.smoking;
@@ -255,38 +234,36 @@ export class TrapFX {
     this.U.uBase.value.set(L.base[0] * (0.4 + 0.6 * open), L.base[1] * (0.4 + 0.6 * open));
     this.U.uTop.value.set(L.top[0] * nar * (0.5 + 0.5 * beam), L.top[1] * nar * (0.5 + 0.5 * beam));
     this.U.uH.value = L.H * (0.35 + 0.65 * Math.min(1, beam * 1.4));
-    const cone = this.cones[this.style], vx = this.vortex[this.style];
-    const tq = film ? Math.floor(fx.time * 12) / 12 : fx.time;
-    const flick = film ? 0.85 + 0.3 * Math.abs(Math.sin(Math.floor(fx.time * 12) * 12.9898) % 1) : 0.92 + 0.08 * Math.sin(fx.time * 37);
-    const cu = this.cu[this.style];
+    const cone = this.cone, vx = this.vortex;
+    const tq = Math.floor(fx.time * 12) / 12;
+    const flick = 0.85 + 0.3 * Math.abs(Math.sin(Math.floor(fx.time * 12) * 12.9898) % 1);
+    const cu = this.cu;
     cu.uBeam.value = beam * L.gain * flick * (1 + this.flash * 0.6);
     cu.uSuck.value = suck;
     cone.visible = beam > 0.002;
-    const vu = this.vu[this.style];
+    const vu = this.vu;
     vu.uI.value = L.vI * Math.min(1, suck * 3 + beam * 0.25) * beam;
     vu.uSpin.value = 6 + suck * 14;
     vx.visible = beam > 0.002 && vu.uI.value > 0.01;
-    this.cones[film ? 'modern' : 'film'].visible = false;
-    this.vortex[film ? 'modern' : 'film'].visible = false;
 
     if (beam > 0.01) {
       fx.U.uVortex.value.copy(O);
       fx.U.uVortexK.value = 0.6 + suck * 1.8;
-      this.acc.mote += dt * (film ? 70 : 110) * beam * (0.4 + suck);
+      this.acc.mote += dt * 70 * beam * (0.4 + suck);
       while (this.acc.mote >= 1) {
         this.acc.mote -= 1;
         const h = r.range(0.2, 2.2) * (0.4 + 0.6 * beam), a = r.next() * 6.283, rr = r.range(0.2, 1.0) * (0.3 + h * 0.4);
-        fx.pools.motes.emit(O.x + Math.cos(a) * rr, O.y + h, O.z + Math.sin(a) * rr, 0, 0, 0, r.range(0.8, 1.8), r.range(0.012, 0.03), r.next(), 1, 0, -1e3, 1, film ? 2 : 0, 0);
+        fx.pools.motes.emit(O.x + Math.cos(a) * rr, O.y + h, O.z + Math.sin(a) * rr, 0, 0, 0, r.range(0.8, 1.8), r.range(0.012, 0.03), r.next(), 1, 0, -1e3, 1, 2, 0);
       }
     }
     const F = fx.flares, s = this.flare;
     const lc = L.light;
     if (beam > 0.01 || this.flash > 0.01 || open > 0.05) {
       const I = beam * 0.55 + this.flash * 1.6 + open * 0.2;
-      F.set(s, O.x, O.y + 0.03, O.z, film ? 0.55 : 0.45, lc[0], lc[1], lc[2], I, film ? 1 : 0, tq * 0.5, Math.floor(tq * 12) * 0.13, 0.25, 1);
+      F.set(s, O.x, O.y + 0.03, O.z, 0.55, lc[0], lc[1], lc[2], I, 1, tq * 0.5, Math.floor(tq * 12) * 0.13, 0.25, 1);
       F.set(s + 1, O.x, O.y + 0.03, O.z, 0.22, 1, 1, 1, I * 1.4, 0, 0, 0, 0.25, 1);
-      if (film) F.set(s + 2, O.x, O.y + 0.05, O.z, 0.2, 0.35, 0.5, 1.0, I * 1.2, 2, 0, 0, 0.3, 9); else F.off(s + 2);
-      fx.lightPool.request(this.v[1].copy(O).setY(O.y + 0.35), lc[0], lc[1], lc[2], (film ? 12 : 10) * beam + 40 * this.flash + 3 * open, 5, 12);
+      F.set(s + 2, O.x, O.y + 0.05, O.z, 0.2, 0.35, 0.5, 1.0, I * 1.2, 2, 0, 0, 0.3, 9);
+      fx.lightPool.request(this.v[1].copy(O).setY(O.y + 0.35), lc[0], lc[1], lc[2], 12 * beam + 40 * this.flash + 3 * open, 5, 12);
     } else { F.off(s); F.off(s + 1); F.off(s + 2); }
     F.off(s + 3);
 
@@ -305,39 +282,39 @@ export class TrapFX {
   }
 
   closeBurst() {
-    const fx = this.fx, r = fx.rng, O = this.v[0], film = this.style === 'film';
+    const fx = this.fx, r = fx.rng, O = this.v[0];
     this.holder.getWorldPosition(O);
     for (let i = 0; i < 70; i++) {
       const a = r.next() * 6.283, sp = r.range(0.6, 2.8);
-      fx.pools.motes.emit(O.x, O.y + 0.05, O.z, Math.cos(a) * sp * 0.5, r.range(0.8, 3.0), Math.sin(a) * sp * 0.5, r.range(0.5, 1.4), r.range(0.012, 0.03), r.next(), 1.6, 0.25, fx.groundY, 0, film ? 2 : 0, 0);
+      fx.pools.motes.emit(O.x, O.y + 0.05, O.z, Math.cos(a) * sp * 0.5, r.range(0.8, 3.0), Math.sin(a) * sp * 0.5, r.range(0.5, 1.4), r.range(0.012, 0.03), r.next(), 1.6, 0.25, fx.groundY, 0, 2, 0);
     }
     for (let i = 0; i < 30; i++) {
       const sp = r.range(1.5, 5);
-      fx.pools.sparks.emit(O.x, O.y + 0.04, O.z, r.signed() * sp * 0.6, r.range(0.5, 1) * sp, r.signed() * sp * 0.6, r.range(0.3, 0.8), r.range(0.004, 0.008), r.next(), 1.5, 0.8, fx.groundY, 0, film ? 0.2 : 1, 0);
+      fx.pools.sparks.emit(O.x, O.y + 0.04, O.z, r.signed() * sp * 0.6, r.range(0.5, 1) * sp, r.signed() * sp * 0.6, r.range(0.3, 0.8), r.range(0.004, 0.008), r.next(), 1.5, 0.8, fx.groundY, 0, 0.2, 0);
     }
   }
 
   updateArcs(dt, beam, open) {
-    const fx = this.fx, B = fx.bolts, r = fx.rng, A = this.arcs, film = this.style === 'film';
+    const fx = this.fx, B = fx.bolts, r = fx.rng, A = this.arcs;
     const active = beam > 0.02 || this.closeTime < 0.9;
     const c = this.look.arc;
     for (let i = 0; i < 6; i++) {
       const o = i * 8;
       A[o + 7] -= dt;
-      if (!active || (!film && i > 2)) { B.off(this.bolt + i); continue; }
+      if (!active) { B.off(this.bolt + i); continue; }
       if (A[o + 7] <= 0) {
         A[o + 7] = r.range(0.06, 0.18);
         A[o + 6] = r.chance(0.7) ? 1 : 0;
         const P = this.v[2], Q = this.v[3];
         this.surfacePoint(P);
-        if (i === 5 && film) { Q.copy(P).add(this.v[1].set(r.signed() * 0.6, -P.y + fx.groundY + 0.01, r.signed() * 0.6)); }
+        if (i === 5) { Q.copy(P).add(this.v[1].set(r.signed() * 0.6, -P.y + fx.groundY + 0.01, r.signed() * 0.6)); }
         else { this.surfacePoint(Q); }
         A[o] = P.x; A[o + 1] = P.y; A[o + 2] = P.z; A[o + 3] = Q.x; A[o + 4] = Q.y; A[o + 5] = Q.z;
         A[o + 6] *= 1 + r.next() * 50;
       }
       if (A[o + 6] < 0.5) { B.off(this.bolt + i); continue; }
-      const I = (film ? 6 : 4) * Math.max(beam, this.closeTime < 0.9 ? 1 - this.closeTime / 0.9 : 0);
-      B.set(this.bolt + i, A[o], A[o + 1], A[o + 2], A[o + 3], A[o + 4], A[o + 5], film ? 0.0035 : 0.0028, I * 0.6, A[o + 6], film ? 0.16 : 0.12, 14, c[0], c[1], c[2]);
+      const I = 6 * Math.max(beam, this.closeTime < 0.9 ? 1 - this.closeTime / 0.9 : 0);
+      B.set(this.bolt + i, A[o], A[o + 1], A[o + 2], A[o + 3], A[o + 4], A[o + 5], 0.0035, I * 0.6, A[o + 6], 0.16, 14, c[0], c[1], c[2]);
     }
   }
 }

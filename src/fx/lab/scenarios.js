@@ -1,4 +1,4 @@
-// FX lab scenarios: deterministic timelines (blast, ghost hit, capture, slam, trap, slime, moods, overheat) driving one FX instance.
+// FX lab scenarios: deterministic timelines (blast, ghost hit, capture, slam, trap, slime, moods, overheat) for any ghost type, plus a live behaviour run.
 import * as THREE from 'three';
 
 const V = () => new THREE.Vector3();
@@ -8,10 +8,10 @@ const cl = (x, a = 0, b = 1) => Math.max(a, Math.min(b, x));
 export const CAMS = {
   shoulder: { pos: [1.2, 1.95, 4.3], look: [-0.35, 1.55, -5], fov: 50 },
   trap: { pos: [1.75, 1.45, 1.35], look: [0.15, 1.05, -2.6], fov: 50 },
-  face: { pos: [0.05, 1.62, 2.95], look: [0.0, 1.58, 0.6], fov: 42 },
   side: { pos: [5.2, 1.7, -0.4], look: [-0.6, 1.6, -3.4], fov: 50 },
   close: { pos: [2.1, 1.55, 0.2], look: [-0.4, 1.55, -3.2], fov: 40 },
   player: { pos: [0.95, 1.8, 4.4], look: [0.0, 1.55, -9], fov: 55 },
+  wide: { pos: [0.6, 3.4, 7.5], look: [-0.4, 1.0, -3.5], fov: 55 },
 };
 
 export const MOOD_LIST = ['idle', 'eat', 'taunt', 'angry', 'flee', 'hurt', 'wrangled', 'sucked'];
@@ -23,31 +23,57 @@ export const SCENARIOS = {
   slam: { label: 'Slam', key: '4', len: 5, cam: 'shoulder' },
   trap: { label: 'Trap: open, suck, close', key: '5', len: 7, cam: 'trap' },
   slime: { label: 'Slime swoop', key: '6', len: 4.5, cam: 'shoulder' },
-  moods: { label: 'Ghost moods', key: '7', len: 12.8, cam: 'face' },
+  moods: { label: 'All moods', key: '7', len: 12.8, cam: 'face' },
   heat: { label: 'Overheat', key: '8', len: 6, cam: 'shoulder' },
-  side: { label: 'Side view', key: '9', len: 8, cam: 'side' },
+  behave: { label: 'Behaviour (live AI)', key: '9', len: 1e9, cam: 'wide' },
+  turn: { label: 'Turntable', key: '0', len: 8, cam: 'face' },
 };
 for (const m of MOOD_LIST) SCENARIOS['mood-' + m] = { label: m, len: 6, cam: 'face', mood: m, hidden: true };
 
+const LAB_DEFAULT = { y: 1.62, dist: 2.35, lift: 0.04, fov: 42, look: -0.04 };
+
 export class Director {
-  constructor(set, fx, camera) {
+  constructor(set, fx, camera, type = 'onionhead') {
     this.set = set; this.fx = fx; this.camera = camera;
     this.stream = fx.createStream();
-    this.ghost = fx.createGhost();
+    this.type = type;
+    this.ghost = fx.createGhost(type);
     this.trapFX = fx.createTrapFX(set.trap);
     this.ray = new THREE.Raycaster();
     this.tip = set.wand.getObjectByName('Tip') || set.wand;
     this.v = { o: V(), d: V(), e: V(), n: V(), g: V(), gp: V(), gv: V(), t: V(), a: V(), b: V(), c: V(), sv: V(), cam: V() };
     this.sp = { on: false, mode: 'blast', origin: this.v.o, dir: this.v.d, end: this.v.e, endNormal: this.v.n, endKind: 'surface', heat: 0, tension: 0, ghostPos: this.v.g };
-    this.gp = { vel: this.v.gv, mood: 'idle', hurt: 0, struggle: this.v.sv, suck: 0, trapPos: V(), mouth: 0 };
+    this.gp = { vel: this.v.gv, mood: 'idle', hurt: 0, struggle: this.v.sv, suck: 0, trapPos: V(), mouth: 0, x: null };
     this.tp = { open: 0, beam: 0, suck: 0, closed: false, smoking: false };
     this.prevT = -1;
     this.manual = null;
+    this.behaviour = null;
     this.doors = [set.trap.getObjectByName('DoorL'), set.trap.getObjectByName('DoorR')];
     this.sphere = new THREE.Sphere(V(), 0.55);
+    this.yaw = 0;
+    this.xp = { fling: 0, at: V(), cab: 0, count: 5 };
+  }
+
+  get lab() { return this.ghost.lab || LAB_DEFAULT; }
+
+  setType(type) {
+    if (type === this.type) return;
+    this.dropSim();
+    this.fx.releaseGhost(this.ghost);
+    this.type = type;
+    this.ghost = this.fx.createGhost(type);
+    this.behaviour = null;
   }
 
   setCam(name) {
+    if (name === 'face') {
+      const L = this.lab;
+      this.camera.position.set(0.05, L.y + L.lift, 0.6 + L.dist);
+      this.camera.fov = L.fov;
+      this.camera.updateProjectionMatrix();
+      this.camera.lookAt(this.v.cam.set(0, L.y + (L.look === undefined ? -0.04 : L.look), 0.6));
+      return;
+    }
     const c = CAMS[name] || CAMS.shoulder;
     this.camera.position.set(...c.pos);
     this.camera.fov = c.fov;
@@ -73,7 +99,7 @@ export class Director {
     if (hits.length) { best = hits[0].distance; e.copy(hits[0].point); n.copy(hits[0].face.normal).transformDirection(hits[0].object.matrixWorld); kind = 'surface'; }
     if (withGhost && this.ghost.object3D.visible) {
       this.sphere.center.copy(this.ghost.object3D.position);
-      this.sphere.radius = 0.5;
+      this.sphere.radius = this.ghost.radius * 0.86;
       const hp = this.v.c;
       if (this.ray.ray.intersectSphere(this.sphere, hp)) {
         const dist = hp.distanceTo(o);
@@ -83,17 +109,20 @@ export class Director {
     return kind;
   }
 
-  ghostAt(pos, dt, face = true) {
-    const g = this.ghost.object3D, { gp, gv, cam } = this.v;
+  ghostAt(pos, dt, face = true, grounded = false) {
+    const g = this.ghost.object3D, { gv, cam } = this.v;
+    if (grounded && this.lab.grounded) pos.y = this.lab.y;
     gv.copy(pos).sub(g.position).multiplyScalar(dt > 0 ? 1 / dt : 0);
     if (gv.lengthSq() > 900) gv.setLength(30);
     g.position.copy(pos);
     if (face) {
       this.camera.getWorldPosition(cam);
-      const yaw = Math.atan2(cam.x - pos.x, cam.z - pos.z);
-      g.rotation.set(0, yaw, 0);
+      let yaw = Math.atan2(cam.x - pos.x, cam.z - pos.z);
+      if (this.lab.side && gv.lengthSq() > 0.5) yaw = Math.atan2(gv.x, gv.z);
+      this.yaw = yaw;
+      g.rotation.set(0, yaw + (this.lab.yaw || 0), 0);
       const lean = Math.max(-0.35, Math.min(0.35, -gv.x * 0.05));
-      g.rotateZ(lean * Math.cos(yaw));
+      g.rotateZ(lean * Math.cos(yaw) * (this.lab.lean === undefined ? 1 : this.lab.lean));
     }
   }
 
@@ -105,9 +134,9 @@ export class Director {
     const S = SCENARIOS[name] || SCENARIOS['blast-wall'];
     const fx = this.fx, sp = this.sp, gp = this.gp, tp = this.tp, v = this.v;
     if (t < this.prevT) this.prevT = -1;
-    this.setCam(this.camOverride || S.cam);
+    if (name !== 'behave' || this.prevT < 0 || this.camOverride) this.setCam(this.camOverride || S.cam);
     sp.on = false; sp.mode = 'blast'; sp.heat = 0; sp.tension = 0; sp.endKind = 'surface';
-    gp.mood = 'idle'; gp.hurt = 0; gp.suck = 0; gp.mouth = 0; v.sv.set(0, 0, 0);
+    gp.mood = 'idle'; gp.hurt = 0; gp.suck = 0; gp.mouth = 0; gp.x = null; v.sv.set(0, 0, 0);
     tp.open = 0; tp.beam = 0; tp.suck = 0; tp.closed = false; tp.smoking = false;
     let ghostVisible = true;
     let trapOn = false;
@@ -127,7 +156,7 @@ export class Director {
       return;
     }
     switch (S.mood ? 'mood' : name) {
-      case 'blast-wall': case 'side': {
+      case 'blast-wall': {
         ghostVisible = false;
         T.set(-1.0 + 2.6 * Math.sin(t * 0.55), 1.7 + 0.55 * Math.sin(t * 1.13), -9);
         sp.endKind = this.aimAt(T, false);
@@ -145,7 +174,7 @@ export class Director {
       }
       case 'blast-ghost': {
         gpos.set(-0.4 + 0.9 * Math.sin(t * 1.3), 2.1 + 0.35 * Math.sin(t * 2.1), -4.2 + 0.4 * Math.sin(t * 0.7));
-        this.ghostAt(gpos, dt);
+        this.ghostAt(gpos, dt, true, true);
         T.copy(gpos).add(v.a.set(0.12 * Math.sin(t * 3.0), 0.08 * Math.cos(t * 2.3), 0));
         sp.endKind = this.aimAt(T, true);
         sp.on = t > 0.3;
@@ -170,7 +199,7 @@ export class Director {
         break;
       }
       case 'slam': {
-        const base = v.c.set(0.1, 0.62, -3.6);
+        const base = v.c.set(0.1, Math.max(0.62, this.ghost.radius * 1.05), -3.6);
         if (t < 1.4) { this.capturePos(t, gpos); gpos.lerp(v.a.set(0.1, 3.3, -3.6), ease(cl(t / 1.4))); }
         else if (t < 1.68) { const k = (t - 1.4) / 0.28; gpos.set(0.1, 3.3 + (base.y - 3.3) * k * k, -3.6); }
         else if (t < 2.6) { gpos.copy(base); gpos.y += Math.max(0, Math.sin((t - 1.68) * 9) * 0.06 * (2.6 - t)); }
@@ -195,7 +224,7 @@ export class Director {
         tp.suck = suck;
         tp.closed = t >= 3.4;
         tp.smoking = t >= 3.5;
-        gpos.set(tr.x + 0.25 * Math.sin(t * 2.3) * (1 - suck), 2.15 + 0.12 * Math.sin(t * 3.1), tr.z + 0.15 * Math.sin(t * 1.7));
+        gpos.set(tr.x + 0.25 * Math.sin(t * 2.3) * (1 - suck), 1.55 + this.ghost.radius + 0.12 * Math.sin(t * 3.1), tr.z + 0.15 * Math.sin(t * 1.7));
         this.ghostAt(gpos, dt);
         gp.mood = t < 1.6 ? 'wrangled' : 'sucked';
         gp.suck = suck;
@@ -212,7 +241,7 @@ export class Director {
         const k = cl(t / 1.45);
         this.camera.getWorldPosition(v.cam);
         gpos.set(-1.6 + 2.0 * ease(k), 2.5 - 0.7 * ease(k), -7.5);
-        gpos.lerp(v.a.copy(v.cam).add(v.b.set(-0.25, -0.15, -0.9)), Math.pow(k, 2.2));
+        gpos.lerp(v.a.copy(v.cam).add(v.b.set(-0.25, -0.15, -0.9 - this.ghost.radius)), Math.pow(k, 2.2));
         if (t > 1.45) gpos.copy(v.cam).add(v.b.set(-0.25 - (t - 1.45) * 4, -0.15 + (t - 1.45) * 2.5, -0.9 + (t - 1.45) * 2));
         this.ghostAt(gpos, dt);
         gp.mood = t < 0.9 ? 'angry' : 'taunt';
@@ -231,30 +260,81 @@ export class Director {
       case 'moods': {
         const idx = Math.min(MOOD_LIST.length - 1, Math.floor(t / 1.6));
         this.moodPose(t, MOOD_LIST[idx], dt);
-        ghostVisible = true;
         break;
       }
       case 'mood': {
         this.moodPose(t, S.mood, dt);
         break;
       }
+      case 'turn': {
+        const L = this.lab;
+        gpos.set(0, L.y, 0.6);
+        this.ghostAt(gpos, dt, false);
+        this.ghost.object3D.rotation.set(0, t * 0.785, 0);
+        v.gv.set(0, 0, 0);
+        this.aimAt(T.set(-0.2, 1.4, -9), false);
+        break;
+      }
+      case 'behave': {
+        ghostVisible = this.behave(t, dt);
+        this.aimAt(T.set(-0.2, 1.4, -9), false);
+        break;
+      }
       default: break;
     }
     if (!trapOn) { tp.open = 0; tp.beam = 0; }
+    if (name !== 'behave') this.labX(name, t, dt);
     this.finish(t, dt, ghostVisible, trapOn);
+  }
+
+  labX(name, t, dt) {
+    const x = this.xp, m = this.gp.mood;
+    x.at.copy(this.camera.position);
+    x.at.y -= 0.3;
+    if (this.type === 'library' && (m === 'angry' || m === 'hurt') && Math.floor(t / 0.6) !== Math.floor((t - dt) / 0.6)) x.fling++;
+    x.cab = this.type === 'taxi' && (m === 'angry' || name === 'slime' || name === 'blast-ghost') ? 1 : 0;
+    this.gp.x = x;
+  }
+
+  dropSim() {
+    if (this.sim && this.sim.dispose) this.sim.dispose();
+    this.sim = null;
+  }
+
+  behave(t, dt) {
+    if (!this.sim || this.sim.type !== this.type) {
+      this.dropSim();
+      if (!this.makeSim) return true;
+      this.sim = this.makeSim(this.type, this);
+    }
+    if (!this.sim) return true;
+    this.sim.step(dt, this.gp);
+    const g = this.ghost.object3D;
+    const sp = this.sim.ghost.pos, cam = this.camera, c = this.v.cam;
+    c.set(0.6, 2.3, 4.6);
+    cam.position.lerp(c.addScaledVector(this.v.a.set(sp.x - 0.6, 0, sp.z - 4.6).normalize(), -0.5), 1 - Math.exp(-dt * 3));
+    if (!this.lookAt) this.lookAt = sp.clone();
+    this.lookAt.lerp(sp, 1 - Math.exp(-dt * 6));
+    cam.fov = 50; cam.updateProjectionMatrix();
+    cam.lookAt(this.lookAt);
+    this.v.gv.copy(this.sim.ghost.vel);
+    g.position.copy(this.sim.ghost.pos);
+    g.rotation.set(0, this.sim.ghost.yaw, 0);
+    return true;
   }
 
   moodPose(t, mood, dt) {
     const { gp: gpos } = this.v;
-    gpos.set(0.0 + 0.05 * Math.sin(t * 0.7), 1.62 + 0.04 * Math.sin(t * 1.1), 0.6);
+    const L = this.lab;
+    gpos.set(0.0 + 0.05 * Math.sin(t * 0.7), L.y + (L.grounded ? 0 : 0.04 * Math.sin(t * 1.1)), 0.6);
     if (mood === 'flee') gpos.x += Math.sin(t * 2.5) * 0.12;
     if (mood === 'wrangled') gpos.x += Math.sin(t * 7.0) * 0.05;
     this.ghostAt(gpos, dt);
-    this.gp.mood = mood === 'sucked' ? 'sucked' : mood;
+    this.gp.mood = mood;
     this.gp.hurt = mood === 'hurt' ? cl(0.5 + 0.5 * Math.sin(t * 9)) : 0;
     if (mood === 'wrangled') this.v.sv.set(Math.sin(t * 5), 0.3, 0).multiplyScalar(0.7);
-    const T = this.v.t.set(-0.2, 1.4, -9);
-    this.aimAt(T, false);
+    if (mood === 'sucked') { this.gp.suck = 0.2 + 0.15 * Math.sin(t * 2); this.gp.trapPos.set(0.25, 0.15, 0.6); }
+    this.aimAt(this.v.t.set(-0.2, 1.4, -9), false);
   }
 
   capturePos(t, out) {
@@ -263,11 +343,10 @@ export class Director {
 
   ghostIdle(t, dt) {
     const p = this.v.gp.set(-0.4 + 0.8 * Math.sin(t * 0.4), 2.0 + 0.2 * Math.sin(t * 0.9), -4.4);
-    this.ghostAt(p, dt);
+    this.ghostAt(p, dt, true, true);
   }
 
   finish(t, dt, ghostVisible, trapOn) {
-    const fx = this.fx;
     if (this.doors[0] && this.doors[1]) {
       const a = this.tp.open * 1.3;
       if (this.trapFX.longZ) { this.doors[0].rotation.z = -a; this.doors[1].rotation.z = a; }

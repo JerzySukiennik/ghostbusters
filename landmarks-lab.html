@@ -1,0 +1,257 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Landmarks lab</title>
+<style>
+html,body{margin:0;height:100%;background:#000;overflow:hidden;font:12px/1.4 -apple-system,system-ui,sans-serif;color:#cfd3d6}
+#view{position:fixed;inset:0}
+#view canvas{width:100%;height:100%;display:block}
+#hud{position:fixed;left:10px;top:8px;white-space:pre;pointer-events:none;text-shadow:0 1px 2px #000;opacity:.85}
+#help{position:fixed;left:10px;bottom:8px;pointer-events:none;opacity:.6}
+.hide{display:none}
+</style>
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/",
+  "rapier": "https://cdn.jsdelivr.net/npm/@dimforge/rapier3d-compat@0.19.3/rapier.mjs" } }
+</script>
+</head>
+<body>
+<div id="view"></div>
+<div id="hud"></div>
+<div id="help">drag orbit · right-drag pan · wheel zoom · WASD fly, R/F up/down · 1-9 0 cameras · O doors · P walk (mouse look, WASD, Space jump, Esc) · E ECU sequence · I interiors on/off</div>
+<script type="module">
+import * as THREE from 'three';
+import RAPIER from 'rapier';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { Renderer } from './src/engine/renderer.js';
+import { createPlate } from './src/world/plate.js';
+import { patchMaterial } from './src/world/materials.js';
+import { loadLandmark, bakeUniforms } from './src/landmarks/index.js';
+
+const P = new URLSearchParams(location.search);
+const id = P.get('id') || 'firehouse';
+const quality = P.get('q') || 'medium';
+if (P.get('hud') === '0') { document.getElementById('hud').classList.add('hide'); document.getElementById('help').classList.add('hide'); }
+if (P.get('gain')) bakeUniforms.uLmGain.value = +P.get('gain');
+await RAPIER.init();
+const world = new RAPIER.World({ x: 0, y: -9.81, z: 0 });
+world.timestep = 1 / 60;
+const R = new Renderer(document.getElementById('view'));
+R.setPreset(quality);
+const renderer = R.renderer;
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(62, innerWidth / innerHeight, 0.05, 900);
+R.build(scene, camera);
+
+const plate = await createPlate({ THREE, RAPIER, world, scene, renderer, camera, quality });
+const lm = await loadLandmark(id, { renderer, lamps: plate.lights.uniforms, patchMaterial });
+lm.place(null);
+scene.add(lm.scene);
+lm.scene.updateMatrixWorld(true);
+const fp = lm.json.footprint;
+const lotBox = new THREE.Box3();
+for (const [x, z] of fp) lotBox.expandByPoint(new THREE.Vector3(x, 0, z).applyMatrix4(lm.root.matrixWorld));
+lotBox.min.y = 0.3; lotBox.max.y = 400;
+lotBox.min.x += 0.05; lotBox.max.x += 1.6; lotBox.max.z += 1.6;
+carveLot(plate.root, lotBox);
+for (const b of [...plate.props]) {
+  const p = b.object3D.position;
+  if (p.x > lotBox.min.x - 0.2 && p.x < lotBox.max.x + 0.2 && p.z > lotBox.min.z && p.z < lotBox.max.z + 0.3 && b.body) { world.removeRigidBody(b.body); b.object3D.visible = false; }
+}
+lm.buildColliders({ RAPIER, world });
+
+const ecto = P.get('ecto') === '0' ? null : await new GLTFLoader().loadAsync('./assets/ecto1/ecto1.glb').then((g) => g.scene).catch(() => null);
+if (ecto) {
+  const bay = lm.empty('EctoBay');
+  ecto.position.copy(bay.pos); ecto.quaternion.copy(bay.quaternion);
+  ecto.traverse((o) => { if (o.isMesh && /^Collider/.test(o.name)) o.visible = false; });
+  scene.add(ecto);
+}
+
+function carveLot(root, box) {
+  const v = new THREE.Vector3(), c = new THREE.Vector3();
+  root.updateMatrixWorld(true);
+  root.traverse((o) => {
+    if (!o.isMesh || o.isInstancedMesh || o.isPoints) return;
+    const g = o.geometry, pos = g.getAttribute('position');
+    if (!pos || g.isInstancedBufferGeometry) return;
+    if (!g.boundingBox) g.computeBoundingBox();
+    const wb = g.boundingBox.clone().applyMatrix4(o.matrixWorld);
+    if (!wb.intersectsBox(box)) return;
+    const idx = g.index ? g.index.array : null;
+    const n = idx ? idx.length : pos.count;
+    const keep = [];
+    for (let i = 0; i < n; i += 3) {
+      c.set(0, 0, 0);
+      for (let k = 0; k < 3; k++) { v.fromBufferAttribute(pos, idx ? idx[i + k] : i + k).applyMatrix4(o.matrixWorld); c.add(v); }
+      c.multiplyScalar(1 / 3);
+      if (!box.containsPoint(c)) keep.push(idx ? idx[i] : i, idx ? idx[i + 1] : i + 1, idx ? idx[i + 2] : i + 2);
+    }
+    if (keep.length !== n) g.setIndex(keep);
+  });
+}
+
+const A = lm.json.anchor?.pos || [0, 0, 0];
+const W = (x, y, z) => [A[0] + x, A[1] + y, A[2] + z];
+const CAMS = {
+  street: [W(2.5, 1.7, 21), W(3.4, 7.5, 0)],
+  film: [W(22, 9, 26), W(1.5, 7, -8)],
+  corner: [W(17, 1.7, 13), W(4, 6, -6)],
+  doors: [W(3.7, 1.6, 7.5), W(3.7, 2.2, -6)],
+  garage: [W(6.8, 1.65, -2.2), W(1.6, 1.4, -12)],
+  janine: [W(2.4, 1.5, -6.2), W(0.0, 1.0, -3.4)],
+  rear: [W(4.8, 1.7, -22), W(2.5, 1.6, -5)],
+  upper: [W(6.6, 7.6, -1.6), W(1.5, 6.6, -9.5)],
+  office: [W(1.8, 7.6, -12.0), W(6.3, 6.8, -16.5)],
+  lab: [W(1.5, 7.6, -27.5), W(7.4, 6.9, -20.5)],
+  basement: [W(4.6, -2.0, -21), W(3.2, -2.4, -12.8)],
+  top: [W(3, 70, 30), W(3, 0, -15)],
+};
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+controls.dampingFactor = 0.12;
+controls.maxDistance = 400;
+const setCam = (name) => {
+  const c = CAMS[name] || CAMS.street;
+  camera.position.set(...c[0]);
+  controls.target.set(...c[1]);
+  controls.update();
+};
+setCam(P.get('cam') || 'street');
+if (P.get('pos')) { const v = P.get('pos').split(',').map(Number); camera.position.set(v[0], v[1], v[2]); }
+if (P.get('look')) { const v = P.get('look').split(',').map(Number); controls.target.set(v[0], v[1], v[2]); controls.update(); }
+if (P.get('fov')) { camera.fov = +P.get('fov'); camera.updateProjectionMatrix(); }
+if (P.get('doors') === '1') lm.setDoorsNow(1);
+let interiorsForced = P.get('int') === '1';
+
+const cc = world.createCharacterController(0.02);
+cc.setMaxSlopeClimbAngle(THREE.MathUtils.degToRad(50));
+cc.setMinSlopeSlideAngle(THREE.MathUtils.degToRad(60));
+cc.enableAutostep(0.25, 0.2, true);
+cc.enableSnapToGround(0.3);
+const walker = { on: false, body: null, col: null, yaw: 0, pitch: 0, vy: 0 };
+function startWalk() {
+  if (!walker.body) {
+    walker.body = world.createRigidBody(RAPIER.RigidBodyDesc.kinematicPositionBased());
+    walker.col = world.createCollider(RAPIER.ColliderDesc.capsule(0.55, 0.28).setCollisionGroups(((0x0004 << 16) | 0xffff) >>> 0), walker.body);
+  }
+  const sp = lm.empty('PlayerSpawn');
+  const p = camera.position.distanceTo(sp.pos) < 30 ? camera.position.clone().setY(Math.max(camera.position.y - 0.8, 1.0)) : sp.pos.clone().setY(sp.pos.y + 0.9);
+  walker.body.setTranslation(p, true);
+  walker.yaw = Math.atan2(-(controls.target.x - camera.position.x), -(controls.target.z - camera.position.z));
+  walker.pitch = 0;
+  walker.on = true;
+  controls.enabled = false;
+  renderer.domElement.requestPointerLock?.();
+}
+function stopWalk() { walker.on = false; controls.enabled = true; document.exitPointerLock?.(); }
+addEventListener('mousemove', (e) => {
+  if (!walker.on || document.pointerLockElement !== renderer.domElement) return;
+  walker.yaw -= e.movementX * 0.0022; walker.pitch = THREE.MathUtils.clamp(walker.pitch - e.movementY * 0.0022, -1.4, 1.4);
+});
+document.addEventListener('pointerlockchange', () => { if (!document.pointerLockElement && walker.on) stopWalk(); });
+
+let ecuT = -1;
+const keys = new Set();
+addEventListener('keydown', (e) => {
+  keys.add(e.code);
+  if (e.code === 'KeyO') lm.setDoors(lm.doorOpen < 0.5);
+  if (e.code === 'KeyP') walker.on ? stopWalk() : startWalk();
+  if (e.code === 'KeyE') ecuT = 0;
+  if (e.code === 'KeyI') interiorsForced = !interiorsForced;
+  if (e.code === 'Space' && walker.on && walker.grounded) walker.vy = 4.2;
+  const names = Object.keys(CAMS);
+  const n = e.key === '0' ? 9 : parseInt(e.key, 10) - 1;
+  if (n >= 0 && n < names.length && !walker.on) setCam(names[n]);
+});
+addEventListener('keyup', (e) => keys.delete(e.code));
+
+const ECU = lm.json.ECU || {};
+const SEQ = { slot_door_open: [0, 0.5], slot_door_close: [1.3, 1.7], lever_pull: [1.8, 2.4], red_to_green: 2.6, door_glow: [1.7, 2.8], ...ECU.sequence_s };
+const LEVER = [ECU.ECU_Lever?.rest_deg ?? -12, ECU.ECU_Lever?.pulled_deg ?? 115];
+const FLAP = ECU.ECU_SlotDoor?.open_deg ?? 95;
+function ecuStep(dt) {
+  if (ecuT < 0) return;
+  ecuT += dt;
+  const t = ecuT;
+  const k = (r) => THREE.MathUtils.clamp((t - r[0]) / (r[1] - r[0]), 0, 1);
+  const sealed = t >= SEQ.red_to_green;
+  lm.ecu.set({
+    slotDoor: FLAP * (k(SEQ.slot_door_open) - k(SEQ.slot_door_close)),
+    lever: LEVER[0] + (LEVER[1] - LEVER[0]) * (k(SEQ.lever_pull) - k([4.5, 5.2])),
+    red: sealed ? 0 : Math.sin(t * 18) > 0 ? 1 : 0.15,
+    green: sealed ? 1 : 0,
+    amber: t > SEQ.lever_pull[0] && !sealed ? 1 : 0.3,
+    glow: 4 * Math.sin(Math.PI * k(SEQ.door_glow)),
+  });
+  if (t > 6) { ecuT = -1; lm.ecu.set({ red: 1, green: 0, amber: 0.6, glow: 0 }); }
+}
+
+window.__lab = { THREE, scene, camera, renderer, R, world, plate, lm, setCam, controls, bakeUniforms, info: () => info(), CAMS, ecu: (t) => { ecuT = t; ecuStep(0); } };
+function info() {
+  renderer.info.reset();
+  renderer.render(scene, camera);
+  const r = renderer.info.render;
+  return { calls: r.calls, tris: r.triangles, landmark: lm.stats(), programs: renderer.info.programs.length, textures: renderer.info.memory.textures, inside: lm.cameraInside(camera.position).inside };
+}
+const hud = document.getElementById('hud');
+let last = performance.now(), frames = 0, acc = 0, fps = 0, simT = 0, readyFrames = 0;
+const fwd = new THREE.Vector3(), right = new THREE.Vector3(), mv = new THREE.Vector3();
+function frame(now) {
+  const dt = Math.min(0.05, (now - last) / 1000);
+  last = now;
+  simT += dt;
+  if (walker.on) {
+    fwd.set(-Math.sin(walker.yaw), 0, -Math.cos(walker.yaw)); right.set(-fwd.z, 0, fwd.x);
+    mv.set(0, 0, 0);
+    if (keys.has('KeyW')) mv.add(fwd); if (keys.has('KeyS')) mv.sub(fwd);
+    if (keys.has('KeyD')) mv.add(right); if (keys.has('KeyA')) mv.sub(right);
+    if (mv.lengthSq()) mv.normalize().multiplyScalar((keys.has('ShiftLeft') ? 6 : 3) * dt);
+    walker.vy -= 9.81 * dt;
+    mv.y = walker.vy * dt;
+    cc.computeColliderMovement(walker.col, mv);
+    const m = cc.computedMovement();
+    walker.grounded = cc.computedGrounded();
+    if (walker.grounded && walker.vy < 0) walker.vy = 0;
+    const t = walker.body.translation();
+    walker.body.setNextKinematicTranslation({ x: t.x + m.x, y: t.y + m.y, z: t.z + m.z });
+    camera.position.set(t.x + m.x, t.y + m.y + 0.72, t.z + m.z);
+    camera.rotation.set(walker.pitch, walker.yaw, 0, 'YXZ');
+  } else {
+    if (keys.size) {
+      camera.getWorldDirection(fwd); right.crossVectors(fwd, camera.up).normalize();
+      const sp = (keys.has('ShiftLeft') ? 24 : 6) * dt;
+      mv.set(0, 0, 0);
+      if (keys.has('KeyW')) mv.add(fwd); if (keys.has('KeyS')) mv.sub(fwd);
+      if (keys.has('KeyD')) mv.add(right); if (keys.has('KeyA')) mv.sub(right);
+      if (keys.has('KeyR')) mv.y += 1; if (keys.has('KeyF')) mv.y -= 1;
+      mv.multiplyScalar(sp); camera.position.add(mv); controls.target.add(mv);
+    }
+    controls.update();
+  }
+  world.step();
+  ecuStep(dt);
+  lm.update(dt, { camera });
+  if (interiorsForced) lm.setInterior({ garage: true, upper: true, basement: true });
+  plate.update(dt);
+  R.render(simT, dt);
+  if (!window.__ready && ++readyFrames >= 6) window.__ready = true;
+  frames++; acc += dt;
+  if (acc > 0.5) {
+    fps = frames / acc; frames = 0; acc = 0;
+    const g = lm.groups;
+    hud.textContent = `landmarks lab · ${id} · ${quality} · ${fps.toFixed(0)} fps · calls ${renderer.info.render.calls} · tris ${(renderer.info.render.triangles / 1000).toFixed(0)}k\n` +
+      `inside ${lm.cameraInside(camera.position).inside ? 'yes' : 'no'} · garage ${g.garage?.visible ? 1 : 0} upper ${g.upper?.visible ? 1 : 0} basement ${g.basement?.visible ? 1 : 0} · doors ${lm.doorOpen.toFixed(2)}${walker.on ? ' · walking' : ''}\n` +
+      `cam ${camera.position.toArray().map((v) => v.toFixed(1)).join(',')}`;
+  }
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame((n) => { last = n; requestAnimationFrame(frame); });
+</script>
+</body>
+</html>

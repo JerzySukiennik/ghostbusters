@@ -144,7 +144,8 @@ export function buildBuildings(ctx) {
     B.signs.quad(f.P(s0, y0, d), f.P(s1, y0, d), f.P(s1, y1, d), f.P(s0, y1, d), f.n3, uvs);
   };
 
-  for (const b of BUILDINGS) {
+  const LIST = ctx.buildings || BUILDINGS;
+  for (const b of LIST) {
     const r = rng(b.id.split('').reduce((a, c) => a * 31 + c.charCodeAt(0), 7));
     const floors = b.floors;
     const roofY = GROUND_FLOOR + (floors - 1) * FLOOR + 0.35;
@@ -185,7 +186,7 @@ export function buildBuildings(ctx) {
         addWindowGlass(f, o.s0, o.s1, o.y0, o.y1, -o.depth + 0.02, 0, lit, ROOM_LIGHT[(r() * ROOM_LIGHT.length) | 0], r(), 3.5);
       }
       if (b.ad === sd.dir) {
-        const nb = BUILDINGS.find((o) => o !== b && o.box[0] < x1 && o.box[2] > x0 && Math.abs(o.box[1] - z1) < 0.5);
+        const nb = LIST.find((o) => o !== b && o.box[0] < x1 && o.box[2] > x0 && Math.abs(o.box[1] - z1) < 0.5);
         const lowH = nb ? GROUND_FLOOR + (nb.floors - 1) * FLOOR + 1.6 : H - 8;
         const y0 = lowH + 0.4, y1 = Math.min(H - 0.6, y0 + 7.5);
         const w = (y1 - y0) * 2;

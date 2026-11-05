@@ -1,53 +1,12 @@
-// FX composer passes (linear HDR, after bloom, before the final grade): heat haze, lens slime, 1984 film grade.
+// FX composer passes (linear HDR, after bloom, before the final grade): lens slime and the 1984 film grade.
 import * as THREE from 'three';
 import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 import { NOISE, FULLSCREEN_VERT } from './glsl.js';
 
-const HAZE = {
-  uniforms: {
-    tDiffuse: { value: null }, uNoise: { value: null }, uTime: { value: 0 }, uAspect: { value: 1.78 },
-    uSeg: { value: new Float32Array(16 * 4) }, uRad: { value: new Float32Array(16 * 2) }, uCount: { value: 0 }, uAmt: { value: 1 },
-  },
-  vertexShader: FULLSCREEN_VERT,
-  fragmentShader: /* glsl */`
-    uniform sampler2D tDiffuse;
-    uniform sampler2D uNoise;
-    uniform float uTime;
-    uniform float uAspect;
-    uniform vec4 uSeg[16];
-    uniform vec2 uRad[16];
-    uniform int uCount;
-    uniform float uAmt;
-    varying vec2 vUv;
-    void main() {
-      vec2 p = vec2(vUv.x * uAspect, vUv.y);
-      float m = 0.0;
-      for (int i = 0; i < 16; i++) {
-        if (i >= uCount) break;
-        vec4 s = uSeg[i];
-        vec2 a = vec2(s.x * uAspect, s.y), b = vec2(s.z * uAspect, s.w);
-        vec2 ab = b - a;
-        float t = clamp(dot(p - a, ab) / max(dot(ab, ab), 1e-8), 0.0, 1.0);
-        float d = length(p - a - ab * t);
-        float r = uRad[i].x;
-        m = max(m, uRad[i].y * smoothstep(r, r * 0.15, d));
-      }
-      vec2 uv = vUv;
-      if (m > 0.001) {
-        vec2 q = vec2(vUv.x * uAspect * 7.0, vUv.y * 7.0 - uTime * 1.6);
-        vec2 n = vec2(texture2D(uNoise, q * 0.11).r, texture2D(uNoise, q * 0.11 + 0.37).g) - 0.5;
-        vec2 n2 = vec2(texture2D(uNoise, q * 0.31 + vec2(0.0, -uTime * 0.2)).b, texture2D(uNoise, q * 0.29 + 0.61).a) - 0.5;
-        uv += (n * 0.006 + n2 * 0.003) * m * uAmt;
-      }
-      gl_FragColor = texture2D(tDiffuse, uv);
-    }
-  `,
-};
-
 const SLIME = {
   uniforms: {
     tDiffuse: { value: null }, uLens: { value: null }, uAmt: { value: 0 }, uAge: { value: 0 }, uOff: { value: new THREE.Vector2() },
-    uRot: { value: 0 }, uAspect: { value: 1.78 }, uFilm: { value: 0 }, uScale: { value: 1 },
+    uRot: { value: 0 }, uAspect: { value: 1.78 }, uScale: { value: 1 },
   },
   vertexShader: FULLSCREEN_VERT,
   fragmentShader: /* glsl */`
@@ -58,7 +17,6 @@ const SLIME = {
     uniform vec2 uOff;
     uniform float uRot;
     uniform float uAspect;
-    uniform float uFilm;
     uniform float uScale;
     varying vec2 vUv;
     vec4 lens(vec2 uv) {
@@ -80,11 +38,11 @@ const SLIME = {
       vec2 refr = vec2(hx, hy) * 3.0 + (L.g - 0.5) * 0.02;
       vec3 bg = texture2D(tDiffuse, vUv - refr).rgb;
       vec3 bl = texture2D(tDiffuse, vUv - refr * 1.6 + vec2(0.003, -0.002)).rgb;
-      vec3 tint = mix(vec3(0.42, 0.95, 0.25), vec3(0.6, 1.0, 0.3), uFilm);
+      vec3 tint = vec3(0.6, 1.0, 0.3);
       vec3 goo = mix(bg, bl, 0.5) * tint * (0.75 + 0.25 * L.b);
       float th = L.g;
       goo = mix(goo, vec3(0.06, 0.32, 0.03), th * 0.55);
-      goo += tint * (0.035 + 0.05 * uFilm) * th;
+      goo += tint * 0.085 * th;
       vec3 nrm = normalize(vec3(-hx * 60.0, -hy * 60.0, 1.0));
       float spec = pow(max(dot(nrm, normalize(vec3(-0.35, 0.55, 0.75))), 0.0), 40.0);
       goo += vec3(0.9, 1.0, 0.85) * spec * 1.4;
@@ -146,27 +104,14 @@ const FILM = {
 export class PostFX {
   constructor(fx) {
     this.fx = fx;
-    this.haze = new ShaderPass(HAZE);
-    this.haze.uniforms.uNoise.value = fx.tex.noise;
-    this.haze.uniforms.uSeg.value = new Float32Array(16 * 4);
-    this.haze.uniforms.uRad.value = new Float32Array(16 * 2);
     this.slime = new ShaderPass(SLIME);
     this.slime.uniforms.uLens.value = fx.tex.lens;
+    this.slime.enabled = false;
     this.film = new ShaderPass(FILM);
-    this.list = [{ name: 'fxHaze', pass: this.haze }, { name: 'fxSlime', pass: this.slime }, { name: 'fxFilm', pass: this.film }];
+    this.list = [{ name: 'fxSlime', pass: this.slime }, { name: 'fxFilm', pass: this.film }];
     this.slimeAmt = 0;
     this.slimeAge = 0;
     this.size = new THREE.Vector2(1920, 1080);
-    this.tmp = [new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3()];
-    this.setStyle(fx.style);
-  }
-
-  setStyle(style) {
-    this.style = style;
-    const film = style === 'film';
-    this.film.enabled = film;
-    this.slime.uniforms.uFilm.value = film ? 1 : 0;
-    this.haze.uniforms.uAmt.value = film ? 0.0 : 1.0;
   }
 
   splat(amount) {
@@ -180,7 +125,7 @@ export class PostFX {
     this.slimeAmt = Math.min(1.25, this.slimeAmt + amount);
   }
 
-  update(dt, streams) {
+  update(dt) {
     const fx = this.fx, r = fx.renderer;
     r.getDrawingBufferSize(this.size);
     const aspect = this.size.x / Math.max(1, this.size.y);
@@ -191,47 +136,6 @@ export class PostFX {
     su.uAge.value = this.slimeAge;
     su.uAspect.value = aspect;
     this.slime.enabled = this.slimeAmt > 0.002;
-
-    const hu = this.haze.uniforms;
-    hu.uTime.value = fx.time;
-    hu.uAspect.value = aspect;
-    let n = 0;
-    const cam = fx.camera, A = this.tmp[0], B = this.tmp[1], C = this.tmp[2];
-    if (this.style !== 'film' && fx.quality.haze && cam) {
-      const fovK = 1 / (2 * Math.tan(THREE.MathUtils.degToRad(cam.fov || 55) * 0.5));
-      cam.getWorldPosition(C);
-      for (let si = 0; si < streams.length; si++) {
-        const s = streams[si];
-        if (!s.groups.modern.visible || s.U.uIntensity.value < 0.05) continue;
-        let prevOk = false;
-        for (let i = 0; i <= 8 && n < 15; i++) {
-          s.pathPoint(i / 8, B);
-          const depth = B.distanceTo(C);
-          A.copy(B).project(cam);
-          const ok = A.z < 1 && A.z > -1;
-          if (ok && prevOk) {
-            hu.uSeg.value[n * 4 + 2] = A.x * 0.5 + 0.5; hu.uSeg.value[n * 4 + 3] = A.y * 0.5 + 0.5;
-            hu.uRad.value[n * 2] = Math.min(0.25, 0.16 * fovK / Math.max(depth, 0.3)); hu.uRad.value[n * 2 + 1] = 0.9 * s.U.uIntensity.value;
-            n++;
-          }
-          if (ok && n < 15) { hu.uSeg.value[n * 4] = A.x * 0.5 + 0.5; hu.uSeg.value[n * 4 + 1] = A.y * 0.5 + 0.5; }
-          prevOk = ok;
-        }
-        if (s.kind === 1 && s.head >= 1 && n < 16) {
-          B.copy(s.end).addScaledVector(s.endN, 0.25);
-          A.copy(B).project(cam);
-          if (A.z < 1 && A.z > -1) {
-            const x = A.x * 0.5 + 0.5, y = A.y * 0.5 + 0.5;
-            const depth = B.distanceTo(C);
-            hu.uSeg.value[n * 4] = x; hu.uSeg.value[n * 4 + 1] = y; hu.uSeg.value[n * 4 + 2] = x; hu.uSeg.value[n * 4 + 3] = y + Math.min(0.3, 0.9 * fovK / Math.max(depth, 0.5));
-            hu.uRad.value[n * 2] = Math.min(0.3, 0.45 * fovK / Math.max(depth, 0.5)); hu.uRad.value[n * 2 + 1] = 1.2 * s.U.uIntensity.value;
-            n++;
-          }
-        }
-      }
-    }
-    hu.uCount.value = n;
-    this.haze.enabled = n > 0;
 
     const fu = this.film.uniforms;
     const frame = Math.floor(fx.time * 24);

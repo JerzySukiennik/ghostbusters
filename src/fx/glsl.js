@@ -1,4 +1,4 @@
-// Shared GLSL chunks: hashes, value noise (smooth and jagged), fbm, Catmull-Rom beam path.
+// Shared GLSL chunks: hashes, value noise (smooth and jagged), fbm, fullscreen vertex.
 export const NOISE = /* glsl */`
 float h11(float p) { p = fract(p * 0.1031); p *= p + 33.33; p *= p + p; return fract(p); }
 float h21(vec2 p) { vec3 p3 = fract(vec3(p.xyx) * 0.1031); p3 += dot(p3, p3.yzx + 33.33); return fract((p3.x + p3.y) * p3.z); }
@@ -20,30 +20,6 @@ float sn3(vec3 p) {
 float fbm2(vec2 p) { return sn2(p) * 0.5 + sn2(p * 2.03 + 7.1) * 0.25 + sn2(p * 4.01 + 3.3) * 0.125; }
 float fbm3(vec3 p) { return sn3(p) * 0.5 + sn3(p * 2.03 + 7.1) * 0.25 + sn3(p * 4.01 + 3.3) * 0.125; }
 float jag(float x, float seed) { return jn1(x + seed * 17.13) * 0.62 + jn1(x * 2.7 + seed * 5.7) * 0.27 + jn1(x * 7.3 + seed * 3.1) * 0.11; }
-`;
-
-export const PATH = /* glsl */`
-uniform vec3 uPath[16];
-vec3 beamAt(float t, out vec3 tg) {
-  float f = clamp(t, 0.0, 1.0) * 15.0;
-  float fi = min(floor(f), 14.0);
-  int i = int(fi);
-  float u = f - fi;
-  vec3 p0 = uPath[max(i - 1, 0)];
-  vec3 p1 = uPath[i];
-  vec3 p2 = uPath[i + 1];
-  vec3 p3 = uPath[min(i + 2, 15)];
-  vec3 c1 = 0.5 * (p2 - p0);
-  vec3 c2 = p0 - 2.5 * p1 + 2.0 * p2 - 0.5 * p3;
-  vec3 c3 = -0.5 * p0 + 1.5 * p1 - 1.5 * p2 + 0.5 * p3;
-  tg = c1 + (2.0 * c2 + 3.0 * c3 * u) * u;
-  return p1 + (c1 + (c2 + c3 * u) * u) * u;
-}
-void beamFrame(vec3 T, out vec3 N, out vec3 B) {
-  vec3 R = abs(T.y) < 0.92 ? vec3(0.0, 1.0, 0.0) : vec3(1.0, 0.0, 0.0);
-  N = normalize(cross(R, T));
-  B = cross(T, N);
-}
 `;
 
 export const FULLSCREEN_VERT = /* glsl */`

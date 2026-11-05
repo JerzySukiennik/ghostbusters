@@ -34,6 +34,52 @@ function clean(g) {
   return ng;
 }
 
+export function treeKit(T, lamps, seed = 3141, cardsPer = 30) {
+  const R = rng(seed);
+  const wood = [], leaves = [];
+  const up = new T.Vector3(0, 1, 0);
+  const limb = (a, b, r0, r1) => {
+    const d = new T.Vector3().subVectors(b, a), L = d.length();
+    const g = new T.CylinderGeometry(r1, r0, L, 6, 1, true);
+    g.translate(0, L / 2, 0);
+    g.applyQuaternion(new T.Quaternion().setFromUnitVectors(up, d.normalize()));
+    g.translate(a.x, a.y, a.z);
+    wood.push(clean(g));
+  };
+  const base = new T.Vector3(0, 0, 0), h = 3.0 + R() * 0.8;
+  const top = base.clone().add(new T.Vector3((R() - 0.5) * 0.4, h, (R() - 0.5) * 0.4));
+  limb(base, top, 0.19, 0.13);
+  const crown = top.clone().add(new T.Vector3(0, 2.6, 0));
+  const nb = 4 + ((R() * 2) | 0);
+  for (let i = 0; i < nb; i++) {
+    const a = (i / nb) * Math.PI * 2 + R() * 0.6;
+    const end = top.clone().add(new T.Vector3(Math.cos(a) * (1.8 + R()), 2.2 + R() * 1.6, Math.sin(a) * (1.8 + R())));
+    limb(top, end, 0.11, 0.05);
+  }
+  for (let i = 0; i < cardsPer; i++) {
+    const u = R() * Math.PI * 2, v = Math.acos(2 * R() - 1), rr = Math.cbrt(R());
+    const off = new T.Vector3(Math.sin(v) * Math.cos(u) * 3.4 * rr, Math.cos(v) * 2.3 * rr, Math.sin(v) * Math.sin(u) * 3.4 * rr);
+    const p = crown.clone().add(off);
+    const s = 1.5 + R() * 0.8;
+    const g = new T.PlaneGeometry(s, s);
+    g.applyQuaternion(new T.Quaternion().setFromEuler(new T.Euler(R() * Math.PI, R() * Math.PI, R() * Math.PI)));
+    g.translate(p.x, p.y, p.z);
+    const n = g.attributes.normal, dir = off.clone().normalize();
+    for (let k = 0; k < n.count; k++) n.setXYZ(k, dir.x * 0.75, dir.y * 0.75 + 0.25, dir.z * 0.75);
+    leaves.push(clean(g));
+  }
+  return { wood: mergeGeometries(wood), leaves: mergeGeometries(leaves), height: h };
+}
+
+export function treeMaterials(T, lamps) {
+  const bark = patchMaterial(new T.MeshLambertMaterial({ color: 0x4a443c }), {
+    lamps, key: 'bark',
+    frag: [['color_fragment', 'diffuseColor.rgb *= 0.7 + 0.5 * step( 0.5, fract( sin( dot( floor( vPlateWorld.xz * 7.0 + vPlateWorld.y * 3.0 ), vec2( 12.9, 78.2 ) ) ) * 437.5 ) );']],
+  });
+  const leaf = patchMaterial(new T.MeshLambertMaterial({ map: leafTexture(T), alphaTest: 0.5, side: T.DoubleSide }), { lamps, key: 'leaf', frag: [['color_fragment', 'diffuseColor.rgb *= 0.9;']] });
+  return { bark, leaf };
+}
+
 export function buildTrees(ctx) {
   const { THREE: T, root, lamps, world, RAPIER, bodies, quality } = ctx;
   const R = rng(3141);

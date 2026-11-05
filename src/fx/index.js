@@ -1,4 +1,4 @@
-// FX entry: proton streams, Onionhead, trap FX, impacts, slime, film grade; two live-switchable looks (modern, film).
+// FX entry, 1984 film look only: proton streams, five ghost types, trap FX, impacts, slime, flung books, film grade.
 import * as THREE from 'three';
 import { Rng, QUALITY, clamp } from './util.js';
 import { createTextures } from './textures.js';
@@ -7,29 +7,30 @@ import { createPools } from './particles.js';
 import { DecalPool } from './decals.js';
 import { FlarePool, BoltPool } from './sprites.js';
 import { Stream } from './stream.js';
-import { Ghost, loadOnionhead, setOnionhead } from './ghost.js';
 import { TrapFX } from './trap.js';
 import { PostFX } from './post.js';
+import { loadGhostMesh, meshToGeometry } from './ghostkit.js';
+import { GHOST_TYPES, GHOST_TYPE_LIST } from './ghosts/index.js';
 
 const PREBUILT_STREAMS = 4;
 const TRANSIENTS = 8;
 const IMPACT_KINDS = ['spark', 'scorch', 'slime', 'ghostHit', 'slam', 'debris'];
+const POOL = { onionhead: 2, library: 2, taxi: 2, terror_dog: 2, swarm: 6 };
+const ALIAS = { library: 'library', librarian: 'library', taxi: 'taxi', cabbie: 'taxi', terror_dog: 'terror_dog', terrordog: 'terror_dog', dog: 'terror_dog', swarm: 'swarm', onionhead: 'onionhead', slimer: 'onionhead' };
 
 export class FX {
-  constructor({ renderer, scene, camera, quality = 'medium', style = 'film' } = {}) {
+  constructor({ renderer, scene, camera, quality = 'medium', ghostTypes } = {}) {
     this.renderer = renderer;
     this.scene = scene;
     this.camera = camera;
     this.quality = QUALITY[quality] || QUALITY.medium;
-    this.style = style === 'film' ? 'film' : 'modern';
+    this.style = 'film';
     this.root = new THREE.Group();
     this.root.name = 'FX';
     scene.add(this.root);
     this.time = 0;
     this.rng = new Rng(1984);
     this.groundY = 0;
-    this._ghostRadius = 0.58;
-    this._struggle = 0;
     this._size = new THREE.Vector2(1, 1);
     this._v = [new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3()];
     this.tex = createTextures();
@@ -44,7 +45,7 @@ export class FX {
     this.pools = createPools(this, this.quality);
     this._poolList = Object.values(this.pools);
     this.decals = new DecalPool(this, this.quality.decals);
-    this.flares = new FlarePool(this, 64);
+    this.flares = new FlarePool(this, 96);
     this.bolts = new BoltPool(this, 48);
     this.trSlot = this.flares.alloc(TRANSIENTS);
     this.tr = new Float32Array(TRANSIENTS * 12);
@@ -52,60 +53,99 @@ export class FX {
     this._trLight = new Float32Array(TRANSIENTS * 3);
     this._lastImpact = new Float32Array(IMPACT_KINDS.length * 4).fill(-1e4);
     this._impactAcc = new Float32Array(IMPACT_KINDS.length);
-    this.ghostGeometry = new THREE.BufferGeometry();
-    this.stats = { ghostLoadMs: 0, ghostTris: 0, ghostVerts: 0 };
+    this.stats = { ghostLoadMs: 0, ghosts: {} };
     this._streams = [];
     for (let i = 0; i < PREBUILT_STREAMS; i++) this._streams.push(new Stream(this, i));
     this._streamsUsed = 0;
-    this._ghosts = [new Ghost(this, this.ghostGeometry)];
-    this._ghostsUsed = 0;
-    this.root.add(this._ghosts[0].object3D);
+    this.ghostTypes = (ghostTypes || GHOST_TYPE_LIST).filter((t) => GHOST_TYPES[t]);
+    if (!this.ghostTypes.includes('onionhead')) this.ghostTypes.unshift('onionhead');
+    this.ghostGeo = {};
+    this._free = {};
+    this._ghosts = [];
+    this.shared = {};
+    for (const type of this.ghostTypes) {
+      const T = GHOST_TYPES[type];
+      this.ghostGeo[type] = new THREE.BufferGeometry();
+      if (T.shared) this.shared[type] = new T.shared(this, this.ghostGeo[type]);
+      this._free[type] = [];
+      for (let i = 0; i < (POOL[type] || 1); i++) {
+        const g = new T.Class(this, this.ghostGeo[type]);
+        g.object3D.visible = false;
+        this.root.add(g.object3D);
+        this._free[type].push(g);
+      }
+      this._free[type].reverse();
+    }
     this._traps = [new TrapFX(this)];
     this._trapsUsed = 0;
     this.post = new PostFX(this);
-    this.setStyle(this.style);
     this.ready = this._compile();
   }
 
   async _compile() {
     const r = this.renderer;
     const tg0 = performance.now();
-    const mesh = await loadOnionhead(this.quality.ghostRes);
-    setOnionhead(this.ghostGeometry, mesh);
-    this.stats = { ghostLoadMs: Math.round(performance.now() - tg0), ghostTris: mesh.index.length / 3, ghostVerts: mesh.position.length / 3 };
-    const proxies = new THREE.Group();
+    const res = this.quality.ghostRes;
+    const meshes = await Promise.all(this.ghostTypes.map((type) => {
+      const S = GHOST_TYPES[type].spec;
+      return loadGhostMesh(type, res, S.build, S.LAYOUT);
+    }));
+    this.ghostTypes.forEach((type, i) => {
+      const m = meshes[i], geo = this.ghostGeo[type], src = meshToGeometry(m, GHOST_TYPES[type].spec.bound);
+      for (const k of Object.keys(src.attributes)) geo.setAttribute(k, src.attributes[k]);
+      geo.setIndex(src.index);
+      for (const gr of src.groups) geo.addGroup(gr.start, gr.count, gr.materialIndex);
+      geo.boundingSphere = src.boundingSphere;
+      this.stats.ghosts[type] = { tris: m.index.length / 3, verts: m.nv };
+    });
+    this.stats.ghostLoadMs = Math.round(performance.now() - tg0);
     const prev = r.getRenderTarget();
     const rt = new THREE.WebGLRenderTarget(8, 8, { type: THREE.HalfFloatType });
     const a = new THREE.WebGLRenderTarget(8, 8, { type: THREE.HalfFloatType });
     const b = new THREE.WebGLRenderTarget(8, 8, { type: THREE.HalfFloatType });
     try {
       r.setRenderTarget(rt);
+      const parent = this.root.parent;
+      if (parent) parent.remove(this.root);
       const p = r.compileAsync(this.root, this.camera, this.scene);
+      if (parent) parent.add(this.root);
       r.setRenderTarget(prev);
       await p;
+      this._pin(this.root);
       for (const t of Object.values(this.tex)) r.initTexture(t);
       for (const { pass } of this.post.list) pass.render(r, a, b, 0, false);
       for (const { pass } of this.post.list) if (pass.uniforms && pass.uniforms.tDiffuse) pass.uniforms.tDiffuse.value = null;
     } finally {
       r.setRenderTarget(prev);
-      this.root.remove(proxies);
       rt.dispose(); a.dispose(); b.dispose();
     }
-    if (this._ghostsUsed === 0) this._ghosts[0].object3D.visible = false;
     this.isReady = true;
     return this;
   }
 
-  setStyle(style) {
-    const s = style === 'film' ? 'film' : 'modern';
-    this.style = s;
-    for (const st of this._streams) st.setStyle(s);
-    for (const g of this._ghosts) g.setStyle(s);
-    for (const t of this._traps) t.setStyle(s);
-    for (const p of Object.values(this.pools)) p.setStyle(s);
-    this.decals.setStyle(s);
-    this.post.setStyle(s);
+  _pin(obj) {
+    const P = this.renderer.properties;
+    if (!P) return;
+    obj.traverse((o) => {
+      const M = o.material;
+      if (!M) return;
+      for (const m of Array.isArray(M) ? M : [M]) { const mp = P.get(m); if (mp.currentProgram && mp.__version === undefined) mp.__version = m.version; }
+    });
   }
+
+  _prepare(obj) {
+    const r = this.renderer, prev = r.getRenderTarget();
+    const rt = this._prepRT || (this._prepRT = new THREE.WebGLRenderTarget(8, 8, { type: THREE.HalfFloatType }));
+    const parent = obj.parent;
+    if (parent) parent.remove(obj);
+    r.setRenderTarget(rt);
+    r.compile(obj, this.camera, this.scene);
+    r.setRenderTarget(prev);
+    if (parent) parent.add(obj);
+    this._pin(obj);
+  }
+
+  setStyle() { this.style = 'film'; }
 
   setLighting({ keyDir, keyColor, ambient } = {}) {
     if (keyDir) this.U.uKeyDir.value.copy(keyDir).normalize();
@@ -116,26 +156,51 @@ export class FX {
   createStream() {
     if (this._streamsUsed < this._streams.length) return this._streams[this._streamsUsed++];
     const s = new Stream(this, this._streams.length);
-    s.setStyle(this.style);
     this._streams.push(s);
+    if (this.isReady) this._prepare(this.root);
     this._streamsUsed++;
     return s;
   }
 
-  createGhost() {
-    let g;
-    if (this._ghostsUsed < this._ghosts.length) g = this._ghosts[this._ghostsUsed];
-    else { g = new Ghost(this, this.ghostGeometry); g.setStyle(this.style); this._ghosts.push(g); }
-    this._ghostsUsed++;
+  createGhost(type = 'onionhead') {
+    const key = ALIAS[type] || type;
+    const T = GHOST_TYPES[key] && this.ghostGeo[key] ? key : 'onionhead';
+    const free = this._free[T];
+    let g = free.pop();
+    if (!g) { g = new GHOST_TYPES[T].Class(this, this.ghostGeo[T]); if (this.isReady) this._prepare(g.object3D); }
     g.object3D.visible = true;
     this.scene.add(g.object3D);
+    this._ghosts.push(g);
     return g;
+  }
+
+  releaseGhost(g) {
+    const i = this._ghosts.indexOf(g);
+    if (i < 0) return;
+    this._ghosts.splice(i, 1);
+    g.object3D.visible = false;
+    if (g.release) g.release();
+    this.root.add(g.object3D);
+    const key = Object.keys(GHOST_TYPES).find((k) => g instanceof GHOST_TYPES[k].Class);
+    if (key) this._free[key].push(g);
+  }
+
+  ghostNear(p) {
+    let best = null, bd = Infinity;
+    const G = this._ghosts;
+    for (let i = 0; i < G.length; i++) {
+      const g = G[i];
+      if (!g.object3D.visible) continue;
+      const d = g.object3D.position.distanceToSquared(p);
+      if (d < bd) { bd = d; best = g; }
+    }
+    return best;
   }
 
   createTrapFX(trapObject3D) {
     let t;
     if (this._trapsUsed < this._traps.length) t = this._traps[this._trapsUsed];
-    else { t = new TrapFX(this); t.setStyle(this.style); this._traps.push(t); }
+    else { t = new TrapFX(this); this._traps.push(t); if (this.isReady) this._prepare(this.root); }
     this._trapsUsed++;
     if (trapObject3D) t.attach(trapObject3D);
     return t;
@@ -175,11 +240,10 @@ export class FX {
     const amt = this._throttle(kind, position, kind === 'slam' ? 0.25 : 0.3, kind === 'slam' ? 0.5 : 0.8);
     if (amt <= 0) return;
     const x = position.x, y = position.y, z = position.z, gy = this.groundY;
-    const film = this.style === 'film';
     switch (kind) {
       case 'spark':
-        this._spray(position, n, Math.round(46 * amt), 2, 10, 0.3, 1.0, film ? 0.3 : r.next());
-        if (amt > 0.9) this.transient(position, film ? 0.8 : 0.6, 1.0, 0.75, 0.45, 2.2, film ? 3 : 5, 0.18, 30, 1.0, 0.6, 0.3);
+        this._spray(position, n, Math.round(46 * amt), 2, 10, 0.3, 1.0, 0.3);
+        if (amt > 0.9) this.transient(position, 0.8, 1.0, 0.75, 0.45, 2.2, 3, 0.18, 30, 1.0, 0.6, 0.3);
         break;
       case 'scorch':
         this.decals.add(position, n, r.range(0.35, 0.55), 0, 50, r.next());
@@ -247,13 +311,14 @@ export class FX {
 
   reset(seed = 1984) {
     this.rng.seed(seed);
-    for (const p of Object.values(this.pools)) p.clear();
+    for (const p of this._poolList) p.clear();
     this.decals.clear();
     this.flares.clear();
     this.bolts.clear();
     this.tr.fill(0);
     this.post.slimeAmt = 0;
     for (const s of this._streams) s.reset();
+    for (const k in this.shared) if (this.shared[k].clear) this.shared[k].clear();
   }
 
   update(dt, time) {
@@ -267,17 +332,9 @@ export class FX {
     const fov = cam && cam.isPerspectiveCamera ? cam.fov : 55;
     U.uPx.value = 2 * Math.tan(THREE.MathUtils.degToRad(fov) * 0.5) / Math.max(1, this._size.y) / (cam && cam.zoom ? cam.zoom : 1);
 
-    const g0 = this._ghostsUsed > 0 ? this._ghosts[0] : null;
-    if (g0) {
-      this._ghostRadius = g0.radius;
-      for (let i = 0; i < this._streams.length; i++) {
-        const s = this._streams[i];
-        if (s.kind === 2 && s.capture < 0.5 && s.head >= 1 && s.lit > 0.5) {
-          const lp = this._v[1].copy(s.end);
-          g0.body.worldToLocal(lp);
-          g0.hit(lp, dt * 4);
-        }
-      }
+    for (let i = 0; i < this._streams.length; i++) {
+      const s = this._streams[i];
+      if (s.target && s.kind === 2 && s.capture < 0.5 && s.head >= 1 && s.lit > 0.5) s.target.hitWorld(s.end, dt * 4);
     }
 
     const T = this.tr, F = this.flares;
@@ -299,20 +356,16 @@ export class FX {
 
     this.lightPool.flush();
     const Ls = this.lightPool.lights, LP = U.uLPos.value, LC = U.uLCol.value;
-    let best = 0;
     const sl = U.uSmokeLight.value;
     sl.setRGB(0.05, 0.05, 0.06);
     for (let i = 0; i < 4; i++) {
       const l = Ls[i];
       LP[i * 3] = l.position.x; LP[i * 3 + 1] = l.position.y; LP[i * 3 + 2] = l.position.z;
       LC[i * 3] = l.color.r * l.intensity; LC[i * 3 + 1] = l.color.g * l.intensity; LC[i * 3 + 2] = l.color.b * l.intensity;
-      if (l.intensity > best) { best = l.intensity; }
-    }
-    for (let i = 0; i < 4; i++) {
-      const l = Ls[i];
       if (l.intensity > 0) { const w = Math.min(1, l.intensity / 40) * 0.6; sl.r += l.color.r * w; sl.g += l.color.g * w; sl.b += l.color.b * w; }
     }
-    this.post.update(dt, this._streams);
+    this.post.update(dt);
+    for (const k in this.shared) this.shared[k].flush(dt);
     for (let i = 0; i < this._poolList.length; i++) this._poolList[i].flush();
     this.decals.flush();
     this.flares.flush();

@@ -10,9 +10,29 @@ function proj(px, pz, ax, az, bx, bz) {
   return { k, x, z, d: Math.hypot(px - x, pz - z) };
 }
 
+function laneOff(l, dir) {
+  const [f, b] = l.lanes || [1, 1], w = l.laneW || 3.3, d = (b - f) * w / 2;
+  return (dir > 0 ? d : -d) + w / 2;
+}
+
+function shift(pts, o) {
+  if (!o || pts.length < 2) return pts;
+  const n = (i) => { const a = pts[i], b = pts[i + 1], L = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1; return [-(b[1] - a[1]) / L, (b[0] - a[0]) / L]; };
+  const segs = [];
+  for (let i = 0; i < pts.length - 1; i++) segs.push(n(i));
+  return pts.map((p, i) => {
+    const a = segs[Math.max(0, i - 1)], b = segs[Math.min(segs.length - 1, i)];
+    let nx = a[0] + b[0], nz = a[1] + b[1];
+    const L = Math.hypot(nx, nz) || 1; nx /= L; nz /= L;
+    const k = o / Math.max(0.5, nx * b[0] + nz * b[1]);
+    return [p[0] + nx * k, p[1] + nz * k];
+  });
+}
+
 export class GPS {
   constructor(roads, o = {}) {
     this.side = o.side || 0;
+    this.lanes = !!o.lanes;
     this.nodes = new Map(); this.edges = []; this.grid = new Map();
     this.pts = null; this.cum = null; this.man = []; this.s = 0; this.total = 0; this.goal = null;
     this.off = 0; this.back = 0; this.cool = 0; this.idx = 0; this.said = new Set(); this.events = [];
@@ -23,8 +43,9 @@ export class GPS {
       let pts = (l.pts || []).map((p) => [p[0], p[1]]);
       if (!pts.length || Math.hypot(pts[0][0] - a.x, pts[0][1] - a.z) > 0.5) pts.unshift([a.x, a.z]);
       if (Math.hypot(pts[pts.length - 1][0] - b.x, pts[pts.length - 1][1] - b.z) > 0.5) pts.push([b.x, b.z]);
-      this.add(a, b, pts, l, 1);
-      if (!l.oneWay) this.add(b, a, pts.slice().reverse(), l, 1);
+      const two = o.lanes && !l.oneWay;
+      this.add(a, b, two ? shift(pts, laneOff(l, 1)) : pts, l, 1);
+      if (!l.oneWay) this.add(b, a, two ? shift(pts.slice().reverse(), laneOff(l, -1)) : pts.slice().reverse(), l, 1);
       else this.add(b, a, pts.slice().reverse(), l, 4);
     }
   }
@@ -78,6 +99,10 @@ export class GPS {
       if (path[path.length - 1] !== g.e) { man.push({ at: pts.length - 1, prev: path[path.length - 1], next: g.e }); this.walk(g.e, 0, g.t, push); }
     }
     push([g.x, g.z]);
+    if (this.lanes && pts.length > 2 && Math.hypot(pts[1][0] - pts[0][0], pts[1][1] - pts[0][1]) < 12) {
+      pts.splice(1, 1);
+      for (const m of man) m.at = Math.max(0, m.at - 1);
+    }
     if (this.side && pts.length > 2) {
       pts.shift();
       for (const m of man) m.at = Math.max(0, m.at - 1);

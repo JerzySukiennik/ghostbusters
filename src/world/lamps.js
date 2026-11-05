@@ -172,7 +172,7 @@ export function buildLamps(ctx, allDefs) {
   return { defs, spots, halo, cones, update, signals, poles, lenses, writeUniforms };
 }
 
-function makeHalos(THREE, defs) {
+export function makeHalos(THREE, defs) {
   const geo = new THREE.PlaneGeometry(1, 1);
   const n = defs.length * 2;
   const mat = new THREE.ShaderMaterial({

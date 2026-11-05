@@ -1,4 +1,4 @@
-// Proton stream: rope-simulated path with capture coil, layered ribbons per style, muzzle and impact sprites, peel-off arcs, lights.
+// Proton stream (1984 film look): rope-simulated path with capture coil, layered optical ribbons on twos, muzzle and impact sprites, peel-off arcs, lights.
 import * as THREE from 'three';
 import { NOISE } from './glsl.js';
 import { clamp, lerp, smooth } from './util.js';
@@ -173,22 +173,11 @@ void main() {
   col = mix(col, uColC, nearM * 0.25);
   col *= prof;
 #elif defined(STRAND)
-#ifdef FILM
   float prof = smoothstep(1.0, 0.4, y);
   float spot = step(0.55, h11(floor(s * 2.3 + vK * 13.0) + uBoil * 7.13));
   col = mix(uColB, uColA, smoothstep(0.9, 0.0, y)) * prof * (0.6 + 0.5 * spot);
   col *= 0.7 + 0.3 * step(0.0, vFront);
-#else
-  float prof = exp(-y * y * 2.6);
-  float n1 = texture2D(uNoiseTex, vec2(s * 0.55 - uTime * uFlow, vK * 0.29 + vUv.y * 0.09)).r;
-  float n2 = texture2D(uNoiseTex, vec2(s * 1.9 - uTime * uFlow * 1.7, vK * 0.53 + vUv.y * 0.21 + 0.5)).b;
-  float T = prof * (0.35 + 1.1 * n1 * (0.6 + 0.8 * n2));
-  T *= 0.82 + 0.3 * clamp(vFront, -1.0, 1.0);
-  col = mix(uColB, uColA, smoothstep(0.25, 0.85, T)) * T;
-  col += uColC * smoothstep(0.95, 1.35, T) * 1.5;
-#endif
 #elif defined(CORE)
-#ifdef FILM
   float prof = smoothstep(1.0, 0.05, y);
   float hot = smoothstep(0.55, 0.0, y);
   col = mix(uColB, uColA, hot) * pow(prof, 0.9);
@@ -196,11 +185,6 @@ void main() {
   col = mix(col, uColC * 1.2, spot * hot * 0.8);
   col = mix(col, vec3(1.5, 1.35, 1.7) * prof, nearM * smoothstep(0.7, 0.0, y));
   col *= 0.88 + 0.24 * h11(floor(s * 4.0) + uBoil * 3.7);
-#else
-  float prof = exp(-y * y * 3.5);
-  float n = texture2D(uNoiseTex, vec2(s * 1.3 - uTime * uFlow * 1.3, 0.25 + vUv.y * 0.05)).a;
-  col = mix(uColB, uColA, smoothstep(0.45, 0.0, y)) * prof * (0.8 + 0.4 * n);
-#endif
 #elif defined(FIL)
   float on = step(0.0, sn1(s * 0.55 + vK * 5.3 + uFilSeed * 0.73) + 0.15 + uTension * 0.3);
   float core = smoothstep(1.0, 0.1, y);
@@ -241,29 +225,16 @@ function ribbonGeometry(seg, strands) {
 
 const C3 = (r, g, b) => new THREE.Color(r, g, b);
 
-export const STREAM_LOOKS = {
-  modern: {
-    meander: 0.11, meanderK: 0.55, meanderSpeed: 1.6, boilRate: 0,
-    flicker: 0.12, light: [1.0, 0.5, 0.28], lightEnd: [1.0, 0.55, 0.3], muzzleLight: 7, endLight: 34,
-    sparkRate: 340, emberRate: 5, smokeRate: 7, arcColor: [0.62, 0.74, 1.0], arcRate: 22, filRate: 24,
-    layers: [
-      { def: 'GLOW', strands: 1, width: 0.28, minPx: 3.0, radius: 0, twist: 0, spin: 0, wob: 0.015, gain: 0.8, flow: 9, colA: C3(0.52, 0.11, 0.07), colB: C3(0.62, 0.21, 0.04), colC: C3(1.0, 0.55, 0.35), ro: 41 },
-      { def: 'STRAND', strands: 3, width: 0.032, minPx: 1.5, radius: 0.046, twist: 8.5, spin: 14, wob: 0.008, gain: 1.0, flow: 3.2, colA: C3(1.75, 0.66, 0.2), colB: C3(1.0, 0.18, 0.06), colC: C3(2.2, 1.9, 1.5), ro: 50 },
-      { def: 'CORE', strands: 1, width: 0.012, minPx: 1.2, radius: 0.005, twist: 16, spin: 30, wob: 0.004, gain: 1.0, flow: 4, colA: C3(6.6, 6.1, 5.3), colB: C3(2.4, 0.95, 0.45), colC: C3(1, 1, 1), ro: 52 },
-      { def: 'FIL', strands: 2, width: 0.0034, minPx: 1.0, radius: 0.07, twist: 3.0, spin: 6, wob: 0.0, gain: 1.0, flow: 0, jag: 0.075, jagFreq: 5.0, crawl: 9, colA: C3(0.75, 0.95, 2.7), colB: C3(1.3, 0.72, 2.6), colC: C3(1, 1, 1), ro: 53 },
-    ],
-  },
-  film: {
-    meander: 0.2, meanderK: 0.42, meanderSpeed: 0.9, boilRate: 12,
-    flicker: 0.18, light: [1.0, 0.42, 0.3], lightEnd: [1.0, 0.6, 0.45], muzzleLight: 8, endLight: 30,
-    sparkRate: 230, emberRate: 2, smokeRate: 4, arcColor: [0.42, 0.34, 1.0], arcRate: 12, filRate: 12,
-    layers: [
-      { def: 'GLOW FILM', strands: 1, width: 0.38, minPx: 4.0, radius: 0.0, twist: 0, spin: 0, wob: 0.015, gain: 1.15, flow: 2, colA: C3(0.5, 0.035, 0.09), colB: C3(0.52, 0.11, 0.025), colC: C3(0.45, 0.25, 0.75), ro: 41 },
-      { def: 'STRAND FILM', strands: 1, width: 0.026, minPx: 1.3, radius: 0.04, twist: 11, spin: 0, wob: 0.012, gain: 1.0, flow: 0, colA: C3(0.95, 0.32, 0.03), colB: C3(0.65, 0.05, 0.02), colC: C3(1, 1, 1), ro: 50 },
-      { def: 'CORE FILM', strands: 1, width: 0.066, minPx: 2.4, radius: 0.012, twist: 10, spin: 0, wob: 0.01, gain: 1.0, flow: 0, colA: C3(1.3, 0.88, 0.02), colB: C3(0.72, 0.14, 0.03), colC: C3(0.75, 0.4, 1.3), ro: 52 },
-      { def: 'FIL FILM', strands: 2, width: 0.006, minPx: 1.3, radius: 0.12, twist: 1.4, spin: 0, wob: 0.04, gain: 1.0, flow: 0, jag: 0.11, jagFreq: 2.4, crawl: 0, colA: C3(0.22, 0.24, 1.4), colB: C3(0.55, 0.18, 1.4), colC: C3(1, 1, 1), ro: 53 },
-    ],
-  },
+export const STREAM_LOOK = {
+  meander: 0.2, meanderK: 0.42, meanderSpeed: 0.9, boilRate: 12,
+  flicker: 0.18, light: [1.0, 0.42, 0.3], lightEnd: [1.0, 0.6, 0.45], muzzleLight: 8, endLight: 30,
+  sparkRate: 230, emberRate: 2, smokeRate: 4, arcColor: [0.42, 0.34, 1.0], arcRate: 12, filRate: 12,
+  layers: [
+    { def: 'GLOW', strands: 1, width: 0.38, minPx: 4.0, radius: 0.0, twist: 0, spin: 0, wob: 0.015, gain: 1.15, flow: 2, colA: C3(0.5, 0.035, 0.09), colB: C3(0.52, 0.11, 0.025), colC: C3(0.45, 0.25, 0.75), ro: 41 },
+    { def: 'STRAND', strands: 1, width: 0.026, minPx: 1.3, radius: 0.04, twist: 11, spin: 0, wob: 0.012, gain: 1.0, flow: 0, colA: C3(0.95, 0.32, 0.03), colB: C3(0.65, 0.05, 0.02), colC: C3(1, 1, 1), ro: 50 },
+    { def: 'CORE', strands: 1, width: 0.066, minPx: 2.4, radius: 0.012, twist: 10, spin: 0, wob: 0.01, gain: 1.0, flow: 0, colA: C3(1.3, 0.88, 0.02), colB: C3(0.72, 0.14, 0.03), colC: C3(0.75, 0.4, 1.3), ro: 52 },
+    { def: 'FIL', strands: 2, width: 0.006, minPx: 1.3, radius: 0.12, twist: 1.4, spin: 0, wob: 0.04, gain: 1.0, flow: 0, jag: 0.11, jagFreq: 2.4, crawl: 0, colA: C3(0.22, 0.24, 1.4), colB: C3(0.55, 0.18, 1.4), colC: C3(1, 1, 1), ro: 53 },
+  ],
 };
 
 function h(n) { const x = Math.sin(n * 127.1 + 311.7) * 43758.5453; return x - Math.floor(x); }
@@ -286,44 +257,36 @@ export class Stream {
       uBoil: { value: 0 }, uIntensity: { value: 0 }, uHeat: { value: 0 }, uTension: { value: 0 }, uCapture: { value: 0 },
       uSeed: { value: this.seed }, uFilSeed: { value: 0 }, uEndKind: { value: 1 }, uCoilT: { value: (NT - 1) / (NP - 1) },
     };
-    this.Uf = { uBoil: { value: 0 }, uFilSeed: { value: 0 } };
-    this.groups = { modern: new THREE.Group(), film: new THREE.Group() };
+    this.look = STREAM_LOOK;
+    this.group = new THREE.Group();
+    this.group.name = `fx-stream${index}`;
     this.mats = [];
-    for (const style of ['modern', 'film']) {
-      const look = STREAM_LOOKS[style];
-      const g = this.groups[style];
-      g.name = `fx-stream${index}-${style}`;
-      for (const L of look.layers) {
-        const defines = {};
-        for (const d of L.def.split(' ')) defines[d] = '';
-        const film = style === 'film';
-        const u = {
-          ...this.U,
-          uBoil: film ? this.Uf.uBoil : this.U.uBoil,
-          uFilSeed: film ? this.Uf.uFilSeed : this.U.uFilSeed,
-          uTime: film ? fx.U.uTimeQ : fx.U.uTime,
-          uPx: fx.U.uPx,
-          uNoiseTex: { value: fx.tex.noise },
-          uWidth: { value: L.width }, uMinPx: { value: L.minPx }, uRadius: { value: L.radius }, uTwist: { value: L.twist },
-          uSpin: { value: L.spin }, uStrands: { value: L.strands }, uLayerSeed: { value: index * 1.7 + L.strands * 0.37 },
-          uJag: { value: L.jag || 0 }, uJagFreq: { value: L.jagFreq || 1 }, uCrawl: { value: L.crawl || 0 }, uWob: { value: L.wob },
-          uColA: { value: L.colA }, uColB: { value: L.colB }, uColC: { value: L.colC }, uGain: { value: L.gain }, uFlow: { value: L.flow },
-          uSeg: { value: 1 }, uTaper: { value: L.def.startsWith('GLOW') ? 1.3 : 0.25 },
-        };
-        const m = new THREE.ShaderMaterial({
-          vertexShader: RIBBON_VS, fragmentShader: RIBBON_FS, uniforms: u, defines,
-          transparent: true, depthWrite: false, depthTest: true, blending: THREE.AdditiveBlending, side: THREE.DoubleSide, toneMapped: false, fog: false,
-        });
-        const seg = L.def.startsWith('GLOW') ? Math.round(Q.seg * 0.4) : Q.seg;
-        u.uSeg.value = seg;
-        const mesh = new THREE.Mesh(ribbonGeometry(seg, L.strands), m);
-        mesh.frustumCulled = false;
-        mesh.renderOrder = L.ro;
-        g.add(mesh);
-        this.mats.push(m);
-      }
-      fx.root.add(g);
+    for (const L of STREAM_LOOK.layers) {
+      const u = {
+        ...this.U,
+        uTime: fx.U.uTimeQ,
+        uPx: fx.U.uPx,
+        uNoiseTex: { value: fx.tex.noise },
+        uWidth: { value: L.width }, uMinPx: { value: L.minPx }, uRadius: { value: L.radius }, uTwist: { value: L.twist },
+        uSpin: { value: L.spin }, uStrands: { value: L.strands }, uLayerSeed: { value: index * 1.7 + L.strands * 0.37 },
+        uJag: { value: L.jag || 0 }, uJagFreq: { value: L.jagFreq || 1 }, uCrawl: { value: L.crawl || 0 }, uWob: { value: L.wob },
+        uColA: { value: L.colA }, uColB: { value: L.colB }, uColC: { value: L.colC }, uGain: { value: L.gain }, uFlow: { value: L.flow },
+        uSeg: { value: 1 }, uTaper: { value: L.def === 'GLOW' ? 1.3 : 0.25 },
+      };
+      const m = new THREE.ShaderMaterial({
+        vertexShader: RIBBON_VS, fragmentShader: RIBBON_FS, uniforms: u, defines: { [L.def]: '' },
+        transparent: true, depthWrite: false, depthTest: true, blending: THREE.AdditiveBlending, side: THREE.DoubleSide, toneMapped: false, fog: false,
+      });
+      const seg = L.def === 'GLOW' ? Math.round(Q.seg * 0.4) : Q.seg;
+      u.uSeg.value = seg;
+      const mesh = new THREE.Mesh(ribbonGeometry(seg, L.strands), m);
+      mesh.frustumCulled = false;
+      mesh.renderOrder = L.ro;
+      this.group.add(mesh);
+      this.mats.push(m);
     }
+    this.group.visible = false;
+    fx.root.add(this.group);
     this.flare = fx.flares.alloc(8);
     this.bolt = fx.bolts.alloc(5);
     this.on = false;
@@ -347,15 +310,8 @@ export class Stream {
     this.tension = 0;
     this.capture = 0;
     this.v = [new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3()];
-    this.style = fx.style;
-    this.setStyle(fx.style);
-  }
-
-  setStyle(style) {
-    this.style = style;
-    this.look = STREAM_LOOKS[style];
-    this.groups.modern.visible = style === 'modern';
-    this.groups.film.visible = style === 'film';
+    this.target = null;
+    this.ghostRadius = 0.58;
   }
 
   reset() {
@@ -386,7 +342,7 @@ export class Stream {
     let nT = NP;
     if (cap > 0.001) {
       nT = NT;
-      const R = this.fx._ghostRadius * (1.08 - 0.22 * this.tension);
+      const R = this.ghostRadius * (1.08 - 0.22 * this.tension);
       G.copy(this.ghost);
       tmp.copy(o).sub(G).normalize();
       E.copy(G).addScaledVector(tmp, R * 0.75);
@@ -432,7 +388,7 @@ export class Stream {
     const cap = this.capture, ten = this.tension;
     const steps = Math.max(1, Math.min(8, Math.ceil(dt / (1 / 240))));
     const h = dt / steps;
-    const struggle = this.fx._struggle;
+    const struggle = this.target ? this.target.struggleAmt : 0;
     const tt = this.fx.time;
     for (let st = 0; st < steps; st++) {
       for (let i = 2; i < NP; i++) {
@@ -469,7 +425,7 @@ export class Stream {
     const P = this.pos, O = this.out, look = this.look;
     O.set(P);
     const Tg = this.v[0], N = this.v[1], B = this.v[2];
-    const tq = this.style === 'film' ? Math.floor(this.fx.time * 12) / 12 : this.fx.time;
+    const tq = Math.floor(this.fx.time * 12) / 12;
     let L = 0;
     for (let i = 1; i < nT; i++) L += Math.hypot(P[i * 3] - P[i * 3 - 3], P[i * 3 + 1] - P[i * 3 - 2], P[i * 3 + 2] - P[i * 3 - 1]);
     const amp = look.meander * clamp(L / 5, 0.25, 1) * (1 + this.heat * 0.5) * (1 - 0.5 * this.tension * this.capture) * (1 + this.capture * 0.6);
@@ -501,7 +457,6 @@ export class Stream {
   update(dt, p) {
     const fx = this.fx;
     const look = this.look;
-    const film = this.style === 'film';
     const on = !!(p && p.on);
     dt = Math.min(Math.max(dt, 0), 0.1);
     if (p && p.origin) this.origin.copy(p.origin);
@@ -517,6 +472,8 @@ export class Stream {
     this.tension = clamp((p && p.tension) || 0, 0, 1);
     this.capture = capMode ? Math.min(1, this.capture + dt * 6) : Math.max(0, this.capture - dt * 8);
     if (capMode) this.kind = 2;
+    this.target = this.kind === 2 || this.capture > 0 ? fx.ghostNear(this.ghost) : null;
+    this.ghostRadius = this.target ? this.target.radius : 0.58;
 
     if (on && !this.prevOn) { this.head = 0; this.tail = 0; this.onTime = 0; this.fireBurst(); }
     this.onTime = (this.onTime || 0) + dt;
@@ -525,9 +482,7 @@ export class Stream {
     if (on) { this.head = Math.min(1, this.head + dt / 0.075); this.tail = 0; this.lit = Math.min(1, this.lit + dt * 30); }
     else { this.offTime += dt; this.tail = Math.min(1, this.tail + dt / 0.11); this.lit = Math.max(0, 1 - this.offTime / 0.14); }
     const visible = this.lit > 0.001 && this.head > 0;
-    const g = this.groups[this.style];
-    g.visible = visible;
-    this.groups[film ? 'modern' : 'film'].visible = false;
+    this.group.visible = visible;
     if (!visible) { this.sprites(false); this.arcsOff(); this.inited = false; return; }
 
     const nT = this.targets(dt);
@@ -535,16 +490,13 @@ export class Stream {
     this.meander(nT);
 
     const tq = fx.time;
-    const boil = film ? Math.floor(tq * look.boilRate) : tq * 1.3;
-    this.Uf.uBoil.value = boil;
-    this.U.uBoil.value = boil;
+    this.U.uBoil.value = Math.floor(tq * look.boilRate);
     this.acc.fil += dt * look.filRate;
     if (this.acc.fil >= 1) {
       this.acc.fil %= 1;
-      const ns = fx.rng.next() * 97;
-      if (film) this.Uf.uFilSeed.value = ns; else this.U.uFilSeed.value = ns;
+      this.U.uFilSeed.value = fx.rng.next() * 97;
     }
-    let flick = 1 + (film ? (sn(Math.floor(tq * 12) * 3.7 + this.seed) * look.flicker) : (sn(tq * 31 + this.seed) * 0.6 + sn(tq * 73) * 0.4) * look.flicker);
+    const flick = 1 + sn(Math.floor(tq * 12) * 3.7 + this.seed) * look.flicker;
     let sputter = 1;
     if (this.heat > 0.7) {
       const sp = sn(tq * 9 + this.seed * 3);
@@ -568,12 +520,11 @@ export class Stream {
 
   fireBurst() {
     const fx = this.fx, r = fx.rng, o = this.origin, d = this.dir;
-    const film = this.style === 'film';
     for (let i = 0; i < 26; i++) {
       const sp = r.range(2, 7);
       fx.pools.sparks.emit(o.x + d.x * 0.05, o.y + d.y * 0.05, o.z + d.z * 0.05,
         (d.x * 0.6 + r.signed() * 0.7) * sp, (d.y * 0.6 + r.signed() * 0.7 + 0.25) * sp, (d.z * 0.6 + r.signed() * 0.7) * sp,
-        r.range(0.15, 0.45), r.range(0.004, 0.009), r.next(), 2.5, 0.6, fx.groundY, 0, film ? 0.3 : 1, 0);
+        r.range(0.15, 0.45), r.range(0.004, 0.009), r.next(), 2.5, 0.6, fx.groundY, 0, 0.3, 0);
     }
   }
 
@@ -592,18 +543,12 @@ export class Stream {
   sprites(show, I = 0, dt = 0) {
     const F = this.fx.flares, s = this.flare;
     if (!show) { for (let i = 0; i < 8; i++) F.off(s + i); return; }
-    const film = this.style === 'film';
     const o = this.origin, d = this.dir, tq = this.fx.time;
     const mx = o.x + d.x * 0.03, my = o.y + d.y * 0.03, mz = o.z + d.z * 0.03;
-    const fk = film ? Math.floor(tq * 12) : tq * 24;
-    const jit = 0.85 + 0.3 * h(Math.floor(fk) + this.seed);
-    if (film) {
-      F.set(s, mx, my, mz, 0.22 * jit, 1.0, 0.92, 1.0, 0.9 * I, 1, 0, h(Math.floor(fk)), 0.05, 1);
-      F.set(s + 1, mx, my, mz, 0.08, 0.45, 0.55, 1.0, 0.5 * I, 2, 0, 0, 0.05, 5);
-    } else {
-      F.set(s, mx, my, mz, 0.18 * jit, 1.0, 0.9, 0.82, 1.1 * I, 1, tq * 0.7, h(Math.floor(tq * 20)), 0.05, 1);
-      F.set(s + 1, mx, my, mz, 0.045, 0.5, 0.62, 1.0, 0.25 * I, 2, 0, 0, 0.05, 6);
-    }
+    const fk = Math.floor(tq * 12);
+    const jit = 0.85 + 0.3 * h(fk + this.seed);
+    F.set(s, mx, my, mz, 0.22 * jit, 1.0, 0.92, 1.0, 0.9 * I, 1, 0, h(fk), 0.05, 1);
+    F.set(s + 1, mx, my, mz, 0.08, 0.45, 0.55, 1.0, 0.5 * I, 2, 0, 0, 0.05, 5);
     const P = this.v[7];
     if (this.head < 1) {
       this.pathPoint(this.head, P);
@@ -613,15 +558,10 @@ export class Stream {
     if (this.head >= 1 && this.capture < 0.5) {
       const ex = e.x + this.endN.x * 0.02, ey = e.y + this.endN.y * 0.02, ez = e.z + this.endN.z * 0.02;
       if (this.kind === 1) {
-        if (film) {
-          F.set(s + 3, ex, ey, ez, 0.6 * jit, 0.85, 0.95, 1.0, 0.9 * I, 3, h(fk * 1.3) * 6.28, h(fk * 0.7 + 3), 0.6, 1);
-          F.set(s + 4, ex, ey, ez, 0.25, 1.0, 0.75, 0.5, 0.8 * I, 0, 0, 0, 0.5, 1);
-        } else {
-          F.set(s + 3, ex, ey, ez, 0.45 * jit, 1.0, 0.62, 0.32, 0.7 * I, 5, tq * 2.0, h(Math.floor(tq * 15)), 0.6, 1);
-          F.set(s + 4, ex, ey, ez, 0.16, 1.0, 0.92, 0.85, 1.6 * I, 0, 0, 0, 0.5, 1);
-        }
+        F.set(s + 3, ex, ey, ez, 0.6 * jit, 0.85, 0.95, 1.0, 0.9 * I, 3, h(fk * 1.3) * 6.28, h(fk * 0.7 + 3), 0.6, 1);
+        F.set(s + 4, ex, ey, ez, 0.25, 1.0, 0.75, 0.5, 0.8 * I, 0, 0, 0, 0.5, 1);
       } else if (this.kind === 2) {
-        F.set(s + 3, ex, ey, ez, (film ? 0.4 : 0.34) * jit, 0.6, 1.0, 0.45, 0.45 * I, 6, tq * 1.5, h(Math.floor(fk)), 0.7, 1);
+        F.set(s + 3, ex, ey, ez, 0.4 * jit, 0.6, 1.0, 0.45, 0.45 * I, 6, tq * 1.5, h(Math.floor(fk)), 0.7, 1);
         F.set(s + 4, ex, ey, ez, 0.12, 1.0, 1.0, 0.85, 0.9 * I, 0, 0, 0, 0.6, 1);
       } else {
         F.set(s + 3, ex, ey, ez, 0.22, 1.0, 0.6, 0.35, 0.8 * I, 0, 0, 0, 0.1, 1);
@@ -630,10 +570,10 @@ export class Stream {
     } else { F.off(s + 3); F.off(s + 4); }
     if (this.capture > 0.3) {
       const G = this.ghost;
-      F.set(s + 5, G.x, G.y, G.z, (film ? 1.05 : 0.9) * (0.9 + 0.2 * h(Math.floor(fk))), 1.0, film ? 0.3 : 0.42, film ? 0.4 : 0.18, 0.06 * I * this.capture, 0, 0, 0, 0.9, 1);
+      F.set(s + 5, G.x, G.y, G.z, 1.05 * (this.ghostRadius / 0.58) * (0.9 + 0.2 * h(fk)), 1.0, 0.3, 0.4, 0.06 * I * this.capture, 0, 0, 0, 0.9, 1);
     } else F.off(s + 5);
     const cam = this.fx.camera;
-    if (film && cam) {
+    if (cam) {
       const Q = this.v[6], C = this.v[5];
       Q.set(mx, my, mz).project(cam);
       if (Q.z > -1 && Q.z < 1 && Math.abs(Q.x) < 1.2 && Math.abs(Q.y) < 1.2) {
@@ -652,7 +592,7 @@ export class Stream {
   }
 
   impactFx(dt, I) {
-    const fx = this.fx, r = fx.rng, look = this.look, film = this.style === 'film';
+    const fx = this.fx, r = fx.rng, look = this.look;
     const e = this.end, n = this.endN, d = this.dir;
     const P = fx.pools;
     if (this.kind === 1 && this.capture < 0.5) {
@@ -723,26 +663,26 @@ export class Stream {
       while (this.acc.ember >= 1) {
         this.acc.ember -= 1;
         const a = r.next() * 6.283, b = r.signed();
-        const R = fx._ghostRadius * 1.05;
+        const R = this.ghostRadius * 1.05;
         const cx = Math.cos(a) * Math.sqrt(1 - b * b), cz = Math.sin(a) * Math.sqrt(1 - b * b);
         P.embers.emit(G.x + cx * R, G.y + b * R, G.z + cz * R, cx * 0.8, b * 0.8 + 0.2, cz * 0.8,
-          r.range(0.3, 0.8), r.range(0.006, 0.012), r.next(), 2, 0, fx.groundY, 0, film ? 0 : 1, 0);
+          r.range(0.3, 0.8), r.range(0.006, 0.012), r.next(), 2, 0, fx.groundY, 0, 0, 0);
       }
     }
   }
 
   updateArcs(dt, active, I) {
-    const fx = this.fx, B = fx.bolts, r = fx.rng, A = this.arcs, film = this.style === 'film';
+    const fx = this.fx, B = fx.bolts, r = fx.rng, A = this.arcs;
     const look = this.look;
     const P = this.v[6], Q = this.v[5];
-    const e = this.end, n = this.endN, G = this.ghost, R = fx._ghostRadius;
+    const e = this.end, n = this.endN, G = this.ghost, R = this.ghostRadius;
     for (let i = 0; i < 5; i++) {
       const o = i * 8;
       A[o + 7] -= dt;
       const want = active && (i < 3 || (i === 3 && (this.kind === 1 || this.capture > 0.5)) || (i === 4 && this.heat > 0.4));
       if (!want) { B.off(this.bolt + i); A[o + 6] = 0; continue; }
       if (A[o + 7] <= 0) {
-        A[o + 7] = r.range(0.05, 0.16) * (film ? 1.4 : 1);
+        A[o + 7] = r.range(0.05, 0.16) * 1.4;
         A[o + 6] = r.chance(i === 4 ? 0.5 * this.heat : 0.68) ? 1 : 0;
         A[o + 4] = r.next() * 50;
         A[o + 5] = r.range(0.7, 1.2);
@@ -789,8 +729,7 @@ export class Stream {
       }
       const c = look.arcColor;
       const len = Math.hypot(bx - P.x, by - P.y, bz - P.z);
-      B.set(this.bolt + i, P.x, P.y, P.z, bx, by, bz, film ? 0.0045 : 0.0035, (film ? 2.2 : 3.0) * I * A[o + 5],
-        A[o + 4], film ? 0.12 : 0.1, 6 + len * 14, c[0], c[1], c[2]);
+      B.set(this.bolt + i, P.x, P.y, P.z, bx, by, bz, 0.0045, 2.2 * I * A[o + 5], A[o + 4], 0.12, 6 + len * 14, c[0], c[1], c[2]);
     }
   }
 

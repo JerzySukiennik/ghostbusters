@@ -1,4 +1,4 @@
-// FX helpers: seeded RNG, small math, style constants.
+// FX helpers: seeded RNG, small math, quality presets.
 export class Rng {
   constructor(seed = 1) { this.s = seed | 0; }
   seed(s) { this.s = s | 0; }
@@ -21,9 +21,7 @@ export const smooth = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); r
 export const damp = (a, b, k, dt) => b + (a - b) * Math.exp(-k * dt);
 
 export const QUALITY = {
-  low: { name: 'low', seg: 380, sparks: 768, embers: 256, smoke: 160, chips: 128, slime: 192, motes: 256, decals: 64, ghostRes: 64, haze: false, arcs: 6 },
-  medium: { name: 'medium', seg: 640, sparks: 1536, embers: 512, smoke: 256, chips: 192, slime: 320, motes: 512, decals: 96, ghostRes: 84, haze: true, arcs: 8 },
-  high: { name: 'high', seg: 900, sparks: 3072, embers: 1024, smoke: 384, chips: 256, slime: 512, motes: 768, decals: 128, ghostRes: 100, haze: true, arcs: 10 },
+  low: { name: 'low', seg: 380, sparks: 768, embers: 256, smoke: 160, chips: 128, slime: 192, motes: 256, decals: 64, books: 24, ghostRes: 'lo' },
+  medium: { name: 'medium', seg: 640, sparks: 1536, embers: 512, smoke: 256, chips: 192, slime: 320, motes: 512, decals: 96, books: 32, ghostRes: 'md' },
+  high: { name: 'high', seg: 900, sparks: 3072, embers: 1024, smoke: 384, chips: 256, slime: 512, motes: 768, decals: 128, books: 48, ghostRes: 'hi' },
 };
-
-export const RO = { ghost: 20, decal: 5, smoke: 30, glow: 40, add: 50, flare: 60 };

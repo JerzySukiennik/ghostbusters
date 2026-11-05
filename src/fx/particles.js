@@ -1,4 +1,4 @@
-// GPU particle pools: analytic motion (drag, gravity, ground bounce, vortex, drift), ring-buffer spawns, one draw per pool.
+// GPU particle pools (1984 film look): analytic motion (drag, gravity, ground bounce, vortex, drift), ring-buffer spawns, one draw per pool.
 import * as THREE from 'three';
 import { NOISE } from './glsl.js';
 
@@ -107,23 +107,7 @@ void main() {
 }
 `;
 
-const FS_SPARK_MODERN = /* glsl */`
-varying vec2 vUv; varying float vAge; varying float vSeed; varying float vFade; varying float vCol;
-uniform float uGain;
-void main() {
-  float across = exp(-vUv.x * vUv.x * 3.5);
-  float along = smoothstep(-1.0, -0.2, vUv.y) * (0.55 + 0.45 * smoothstep(0.2, 1.0, vUv.y));
-  float a = across * along * vFade;
-  float T = clamp(1.0 - vAge * (1.2 - min(vCol, 1.0) * 0.5), 0.0, 1.0);
-  vec3 hot = mix(vec3(1.0, 0.18, 0.02), vec3(1.0, 0.62, 0.22), smoothstep(0.0, 0.5, T));
-  hot = mix(hot, vec3(1.0, 0.95, 0.8), smoothstep(0.55, 1.0, T));
-  hot = mix(hot, mix(vec3(0.3, 1.0, 0.2), vec3(0.85, 1.0, 0.75), T), step(1.5, vCol));
-  float I = uGain * (0.6 + 14.0 * T * T) * (1.0 - smoothstep(0.85, 1.0, vAge));
-  gl_FragColor = vec4(hot * I * a, 1.0);
-}
-`;
-
-const FS_SPARK_FILM = /* glsl */`
+const FS_SPARK = /* glsl */`
 varying vec2 vUv; varying float vAge; varying float vSeed; varying float vFade; varying float vCol;
 uniform float uGain;
 void main() {
@@ -142,7 +126,6 @@ void main() {
 const FS_EMBER = /* glsl */`
 varying vec2 vUv; varying float vAge; varying float vSeed; varying float vFade; varying float vCol;
 uniform float uGain;
-uniform float uFilm;
 void main() {
   float r = length(vUv);
   float core = exp(-r * r * 9.0);
@@ -178,16 +161,15 @@ void main() {
 const FS_SLIME = /* glsl */`
 varying vec2 vUv; varying float vAge; varying float vSeed; varying float vFade; varying float vCol;
 uniform float uGain;
-uniform float uFilm;
 void main() {
-  vec2 q = vUv * vec2(1.0, 1.0);
+  vec2 q = vUv;
   float r = length(q);
   if (r > 1.0) discard;
   float a = smoothstep(1.0, 0.75, r) * vFade;
   vec3 nrm = normalize(vec3(q * 0.9, 0.6));
   float spec = pow(max(dot(nrm, normalize(vec3(-0.4, 0.6, 0.7))), 0.0), 24.0);
   vec3 c = mix(vec3(0.12, 0.55, 0.06), vec3(0.4, 0.95, 0.2), 0.5 + 0.5 * nrm.y);
-  c = c * uGain * (1.0 + uFilm * 1.5) + spec * vec3(1.6, 1.8, 1.3);
+  c = c * uGain * 2.5 + spec * vec3(1.6, 1.8, 1.3);
   float fade = 1.0 - smoothstep(0.85, 1.0, vAge);
   gl_FragColor = vec4(c * a * fade, a * fade * 0.92);
 }
@@ -211,12 +193,11 @@ void main() {
 const FS_MOTE = /* glsl */`
 varying vec2 vUv; varying float vAge; varying float vSeed; varying float vFade; varying float vCol;
 uniform float uGain;
-uniform float uFilm;
 uniform vec3 uTint;
 void main() {
   float r = length(vUv);
   float core = exp(-r * r * 12.0);
-  float star = (exp(-abs(vUv.x) * 18.0) * exp(-abs(vUv.y) * 2.5) + exp(-abs(vUv.y) * 18.0) * exp(-abs(vUv.x) * 2.5)) * uFilm;
+  float star = (exp(-abs(vUv.x) * 18.0) * exp(-abs(vUv.y) * 2.5) + exp(-abs(vUv.y) * 18.0) * exp(-abs(vUv.x) * 2.5));
   float tw = 0.55 + 0.45 * sin(vAge * 30.0 + vSeed * 80.0);
   float env = smoothstep(0.0, 0.1, vAge) * (1.0 - smoothstep(0.7, 1.0, vAge));
   vec3 c = mix(uTint, vec3(1.0), 0.35 * core);
@@ -235,7 +216,7 @@ function quad() {
 }
 
 export class ParticlePool {
-  constructor(fx, name, capacity, mats, renderOrder) {
+  constructor(fx, name, capacity, material, renderOrder) {
     this.fx = fx;
     this.name = name;
     this.cap = capacity;
@@ -252,8 +233,8 @@ export class ParticlePool {
     g.setAttribute('iC', new THREE.InterleavedBufferAttribute(buf, 4, 8));
     g.setAttribute('iD', new THREE.InterleavedBufferAttribute(buf, 4, 12));
     g.instanceCount = capacity;
-    this.mats = mats;
-    this.mesh = new THREE.Mesh(g, mats.modern);
+    this.material = material;
+    this.mesh = new THREE.Mesh(g, material);
     this.mesh.frustumCulled = false;
     this.mesh.renderOrder = renderOrder;
     this.mesh.name = 'fx-' + name;
@@ -271,8 +252,6 @@ export class ParticlePool {
   }
 
   clear() { for (let i = 0; i < this.cap; i++) this.data[i * 16 + 7] = -1; this.dirty = true; }
-
-  setStyle(style) { this.mesh.material = this.mats[style] || this.mats.modern; }
 
   flush() { if (this.dirty) { this.buf.needsUpdate = true; this.dirty = false; } }
 }
@@ -293,32 +272,13 @@ function mat(vs, fs, uniforms, blend) {
 
 export function createPools(fx, Q) {
   const U = fx.U;
-  const base = (timeKey) => ({ uT: U[timeKey], uPx: U.uPx, uVortex: U.uVortex, uVortexK: U.uVortexK });
+  const base = () => ({ uT: U.uTimeQ, uPx: U.uPx, uVortex: U.uVortex, uVortexK: U.uVortexK });
   const pools = {};
-  pools.sparks = new ParticlePool(fx, 'sparks', Q.sparks, {
-    modern: mat(VS_STREAK, FS_SPARK_MODERN, { ...base('uTime'), uStreak: { value: 0.022 }, uMinPx: { value: 1.3 }, uGain: { value: 1.0 } }, 'add'),
-    film: mat(VS_STREAK, FS_SPARK_FILM, { ...base('uTimeQ'), uStreak: { value: 0.05 }, uMinPx: { value: 1.6 }, uGain: { value: 1.0 } }, 'add'),
-  }, 52);
-  pools.embers = new ParticlePool(fx, 'embers', Q.embers, {
-    modern: mat(VS_BILL, FS_EMBER, { ...base('uTime'), uGrow: { value: -0.4 }, uMinPx: { value: 1.2 }, uGain: { value: 1.0 }, uFilm: { value: 0 } }, 'add'),
-    film: mat(VS_BILL, FS_EMBER, { ...base('uTimeQ'), uGrow: { value: -0.4 }, uMinPx: { value: 1.5 }, uGain: { value: 1.3 }, uFilm: { value: 1 } }, 'add'),
-  }, 51);
-  pools.smoke = new ParticlePool(fx, 'smoke', Q.smoke, {
-    modern: mat(VS_BILL, FS_SMOKE, { ...base('uTime'), uGrow: { value: 2.2 }, uMinPx: { value: 0 }, uTex: { value: fx.tex.smoke }, uLightCol: U.uSmokeLight, uAmb: U.uAmb, uDensity: { value: 0.75 } }, 'pre'),
-    film: mat(VS_BILL, FS_SMOKE, { ...base('uTimeQ'), uGrow: { value: 2.0 }, uMinPx: { value: 0 }, uTex: { value: fx.tex.smoke }, uLightCol: U.uSmokeLight, uAmb: U.uAmb, uDensity: { value: 0.85 } }, 'pre'),
-  }, 30);
-  pools.slime = new ParticlePool(fx, 'slime', Q.slime, {
-    modern: mat(VS_STREAK, FS_SLIME, { ...base('uTime'), uStreak: { value: 0.03 }, uMinPx: { value: 1.0 }, uGain: { value: 0.9 }, uFilm: { value: 0 } }, 'pre'),
-    film: mat(VS_STREAK, FS_SLIME, { ...base('uTimeQ'), uStreak: { value: 0.04 }, uMinPx: { value: 1.0 }, uGain: { value: 1.0 }, uFilm: { value: 1 } }, 'pre'),
-  }, 31);
-  pools.chips = new ParticlePool(fx, 'chips', Q.chips, {
-    modern: mat(VS_BILL, FS_CHIP, { ...base('uTime'), uGrow: { value: 0 }, uMinPx: { value: 0.8 }, uAmb: U.uAmb, uLightCol: U.uSmokeLight }, 'normal'),
-    film: mat(VS_BILL, FS_CHIP, { ...base('uTimeQ'), uGrow: { value: 0 }, uMinPx: { value: 0.8 }, uAmb: U.uAmb, uLightCol: U.uSmokeLight }, 'normal'),
-  }, 29);
-  pools.motes = new ParticlePool(fx, 'motes', Q.motes, {
-    modern: mat(VS_BILL, FS_MOTE, { ...base('uTime'), uGrow: { value: -0.3 }, uMinPx: { value: 1.2 }, uGain: { value: 1.0 }, uFilm: { value: 0 }, uTint: { value: new THREE.Color(1.0, 0.92, 0.75) } }, 'add'),
-    film: mat(VS_BILL, FS_MOTE, { ...base('uTimeQ'), uGrow: { value: -0.3 }, uMinPx: { value: 1.5 }, uGain: { value: 1.4 }, uFilm: { value: 1 }, uTint: { value: new THREE.Color(0.8, 0.85, 1.0) } }, 'add'),
-  }, 53);
-  pools.chips.mats.modern.transparent = true;
+  pools.sparks = new ParticlePool(fx, 'sparks', Q.sparks, mat(VS_STREAK, FS_SPARK, { ...base(), uStreak: { value: 0.05 }, uMinPx: { value: 1.6 }, uGain: { value: 1.0 } }, 'add'), 52);
+  pools.embers = new ParticlePool(fx, 'embers', Q.embers, mat(VS_BILL, FS_EMBER, { ...base(), uGrow: { value: -0.4 }, uMinPx: { value: 1.5 }, uGain: { value: 1.3 } }, 'add'), 51);
+  pools.smoke = new ParticlePool(fx, 'smoke', Q.smoke, mat(VS_BILL, FS_SMOKE, { ...base(), uGrow: { value: 2.0 }, uMinPx: { value: 0 }, uTex: { value: fx.tex.smoke }, uLightCol: U.uSmokeLight, uAmb: U.uAmb, uDensity: { value: 0.85 } }, 'pre'), 30);
+  pools.slime = new ParticlePool(fx, 'slime', Q.slime, mat(VS_STREAK, FS_SLIME, { ...base(), uStreak: { value: 0.04 }, uMinPx: { value: 1.0 }, uGain: { value: 1.0 } }, 'pre'), 31);
+  pools.chips = new ParticlePool(fx, 'chips', Q.chips, mat(VS_BILL, FS_CHIP, { ...base(), uGrow: { value: 0 }, uMinPx: { value: 0.8 }, uAmb: U.uAmb, uLightCol: U.uSmokeLight }, 'normal'), 29);
+  pools.motes = new ParticlePool(fx, 'motes', Q.motes, mat(VS_BILL, FS_MOTE, { ...base(), uGrow: { value: -0.3 }, uMinPx: { value: 1.5 }, uGain: { value: 1.4 }, uTint: { value: new THREE.Color(0.8, 0.85, 1.0) } }, 'add'), 53);
   return pools;
 }
