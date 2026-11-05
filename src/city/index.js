@@ -342,7 +342,7 @@ export async function createCity({ THREE, RAPIER, world, scene, renderer, camera
     return out;
   };
 
-  let instDirty = true, maskDirty = true, loadedLamps = [], shopDefs = [], steamSpots = [];
+  let instDirty = true, maskDirty = true, loadedLamps = [], shopDefs = [], steamSpots = [], parkedOff = false;
   const flying = new Set();
   const request = (ch, tier) => {
     ch.busy[tier] = true;
@@ -383,7 +383,7 @@ export async function createCity({ THREE, RAPIER, world, scene, renderer, camera
     for (const p of sigByChunk.get(ch.key) || []) world.createCollider(RAPIER.ColliderDesc.cylinder(2.3, 0.12).setTranslation(p[0], SW + 2.3, p[1]).setCollisionGroups(GROUP_STATIC), body);
     const I = ch.B?.inst, IA = ch.A?.inst;
     if (I) for (let k = 0; k < I.trees.length; k += 5) world.createCollider(RAPIER.ColliderDesc.cylinder(1.6, 0.2).setTranslation(I.trees[k], I.trees[k + 1] + 1.6, I.trees[k + 2]).setCollisionGroups(GROUP_STATIC), body);
-    if (IA) for (let k = 0; k < IA.cars.length; k += 4) world.createCollider(RAPIER.ColliderDesc.cuboid(0.95, 0.7, 2.55).setTranslation(IA.cars[k], 0.7, IA.cars[k + 1]).setRotation(quatY(IA.cars[k + 2])).setCollisionGroups(GROUP_STATIC), body);
+    if (IA && !parkedOff) for (let k = 0; k < IA.cars.length; k += 4) world.createCollider(RAPIER.ColliderDesc.cuboid(0.95, 0.7, 2.55).setTranslation(IA.cars[k], 0.7, IA.cars[k + 1]).setRotation(quatY(IA.cars[k + 2])).setCollisionGroups(GROUP_STATIC), body);
   };
 
   const m4 = new THREE.Matrix4(), qy = new THREE.Quaternion(), pv = V3(), sv = V3(), UP = V3(0, 1, 0), col = new THREE.Color();
@@ -401,7 +401,7 @@ export async function createCity({ THREE, RAPIER, world, scene, renderer, camera
       }
       if (A) {
         for (const d of lampByChunk.get(ch.key) || []) poleLamps.push(d);
-        for (let k = 0; k < A.cars.length; k += 4) if (!inV1(A.cars[k], A.cars[k + 1])) cars.push(A.cars[k], A.cars[k + 1], A.cars[k + 2], A.cars[k + 3]);
+        if (!parkedOff) for (let k = 0; k < A.cars.length; k += 4) if (!inV1(A.cars[k], A.cars[k + 1])) cars.push(A.cars[k], A.cars[k + 1], A.cars[k + 2], A.cars[k + 3]);
         for (let k = 0; k < A.manholes.length; k += 4) {
           if (inV1(A.manholes[k], A.manholes[k + 1])) continue;
           holes.push(A.manholes[k], A.manholes[k + 1], A.manholes[k + 2]);
@@ -635,6 +635,8 @@ export async function createCity({ THREE, RAPIER, world, scene, renderer, camera
       landmarks: map.landmarks.map((l) => ({ id: l.id, name: l.name, p: centroid(l.footprint) })),
     },
     landmarks: { firehouse: fhL },
+    get time() { return time; },
+    useTrafficParking() { parkedOff = true; instDirty = true; for (const ch of chunks.values()) dropBody(ch); },
     landmark(id) { const l = map.landmarks.find((x) => x.id === id); return l ? { pos: V3(...l.anchor.pos), yaw: l.anchor.yaw || 0, footprint: l.footprint } : null; },
     signalState(id, t = time) {
       const tt = (((t + (sigOffset.get(id) || 0)) % 36) + 36) % 36;

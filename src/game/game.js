@@ -637,6 +637,7 @@ export class Game {
     gear.update(dt, { firing: proton.on, mode: proton.mode, style: this.style });
     this.net?.update(dt, this.time);
     this.plate.update(dt, { focus: [this.player.feet, this.ecto.root.position] });
+    this.traffic?.update(dt, { focus: [this.player.feet, this.ecto.root.position], time: this.time, ecto: this.ecto, ghosts: this.ghosts, camera: this.camera });
     fx.update(dt, this.time);
     this.updateObjective();
     const gh = this.ghost;

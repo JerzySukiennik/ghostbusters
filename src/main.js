@@ -129,6 +129,14 @@ async function boot() {
     }
   }
   const tpl = { pack: packG.scene.clone(true), wand: wandG.scene.clone(true), packJson: packG.json, trap: trapG.scene.clone(true) };
+  let traffic = null;
+  if (plate.roads && !force.includes('traffic')) {
+    try {
+      const m = await import('./traffic/index.js');
+      traffic = await m.createTraffic({ THREE, RAPIER: phys.RAPIER, world: phys.world, scene, city: plate, audio, quality });
+      plate.useTrafficParking?.();
+    } catch (e) { console.warn('[traffic] off:', e?.message || e); }
+  }
   const sp = plate.spawns;
   const ecto = new Ecto({ gltf: ectoG, phys, audio, scene, spawn: sp.ecto });
   const gear = new Gear({ packGltf: packG, wandGltf: wandG, scene, audio });
@@ -143,7 +151,7 @@ async function boot() {
   const remoteTraps = [0, 1, 2].map(() => new Trap({ gltf: { scene: tpl.trap.clone(true), json: trapG.json }, scene, phys, audio, fx, renderer: R, hud, remote: true }));
   const gps = new GPS(plate.roads || plateRoads(), { side: plate.roads ? 0 : 4, lanes: !!plate.roads });
   const routeLine = new RouteLine(scene, plate.heightAt ? (x, z) => plate.heightAt(x, z) : null);
-  const game = new Game({ renderer: R, scene, camera, phys, input, audio, hud, fx, plate, ecto, gear, avatar, player, rig, ghosts, trap, proton, style, assets, radio, gps, routeLine });
+  const game = new Game({ renderer: R, scene, camera, phys, input, audio, hud, fx, plate, ecto, gear, avatar, player, rig, ghosts, trap, proton, style, assets, radio, gps, routeLine, traffic });
   game.setup();
   hud.setMap(plate.minimap || plateMap());
   const applyPasses = () => R.setExtraPasses(typeof fx.postPasses === 'function' ? fx.postPasses() : []);
@@ -332,6 +340,7 @@ async function boot() {
       game.avatar.update({ speed: 0, grounded: true, vy: 0 }, dt, {});
       gear.update(dt, { firing: false, mode: 'blast', style: game.style });
       plate.update(dt);
+      traffic?.update(dt, { focus: [player.feet, ecto.root.position], time: t, ecto, camera });
       fx.update(dt, t);
     }
     audio.update(camera);
