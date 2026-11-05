@@ -349,11 +349,13 @@ export async function createCity({ THREE, RAPIER, world, scene, renderer, camera
     const p = build(ch.key, tier).then((res) => {
       ch.busy[tier] = false;
       if (!ch.want?.[tier]) return;
+      const pt = performance.now();
       const meshes = meshesOf(res);
       for (const m of meshes) root.add(m);
       ch[tier] = { meshes, inst: res.inst };
       instDirty = true;
       if (tier === 'B') maskDirty = true;
+      prof('mesh' + tier, pt);
     }).catch((e) => { ch.busy[tier] = false; console.warn('[city] chunk', ch.key, tier, e?.message || e); }).finally(() => flying.delete(p));
     flying.add(p);
     return p;
@@ -460,10 +462,33 @@ export async function createCity({ THREE, RAPIER, world, scene, renderer, camera
       put(st, 'cobraLens', lampKit.cobraLens, lensMat, true);
       put(pk, 'globe', lampKit.globe, poleMat, false);
       put(pk, 'globeLens', lampKit.globeLens, lensMat, true);
-      if (inst.halos) { root.remove(inst.halos); inst.halos.geometry.dispose(); inst.halos.material.dispose(); inst.halos = null; }
-      if (loadedLamps.length) { inst.halos = makeHalos(THREE, loadedLamps).mesh; root.add(inst.halos); }
+      putHalos(loadedLamps);
     }
     lampT = 0;
+  }
+
+  function putHalos(list) {
+    if (!list.length) { if (inst.halos) inst.halos.count = 0; return; }
+    if (!inst.halos || inst.halos.instanceMatrix.count < list.length * 2) {
+      if (inst.halos) { root.remove(inst.halos); inst.halos.geometry.dispose(); inst.halos.material.dispose(); }
+      const cap = Math.ceil(list.length * 1.4);
+      inst.halos = makeHalos(THREE, Array.from({ length: cap }, (_, i) => list[i % list.length])).mesh;
+      inst.halos.name = 'CityLampHalos';
+      root.add(inst.halos);
+    }
+    const h = inst.halos, A = h.geometry.attributes.aHalo, a = A.array;
+    for (let i = 0; i < list.length; i++) {
+      const d = list[i];
+      for (let k = 0; k < 2; k++) {
+        const j = i * 2 + k, big = k === 1;
+        h.setMatrixAt(j, m4.makeTranslation(d.head.x, d.head.y - (d.park ? 0 : 0.12), d.head.z));
+        const sz = d.park ? (big ? 2.2 : 0.9) : (big ? 3.4 : 1.25), I = d.park ? (big ? 0.035 : 0.8) : (big ? 0.035 : 1.15);
+        a[j * 4] = d.color.r * I; a[j * 4 + 1] = d.color.g * I; a[j * 4 + 2] = d.color.b * I; a[j * 4 + 3] = sz;
+      }
+    }
+    h.count = list.length * 2;
+    h.instanceMatrix.needsUpdate = true;
+    A.needsUpdate = true;
   }
 
   function updateMask() {
@@ -508,7 +533,9 @@ export async function createCity({ THREE, RAPIER, world, scene, renderer, camera
 
   const focusPts = [];
   const camPos = V3();
-  let streamT = 0;
+  let streamT = 0, instT = 0;
+  const PROF = {};
+  const prof = (k, t) => { const d = performance.now() - t; PROF[k] = Math.max(PROF[k] || 0, d); };
   function stream(focus, maxFly = 2, maxBodies = 1) {
     focusPts.length = 0;
     focusPts.push(camPos);
@@ -541,7 +568,7 @@ export async function createCity({ THREE, RAPIER, world, scene, renderer, camera
     for (const ch of chunks.values()) inflight += (ch.busy.A ? 1 : 0) + (ch.busy.B ? 1 : 0);
     let bodiesMade = 0;
     for (const [, ch, t] of order) {
-      if (t === 'col') { if (bodiesMade < maxBodies) { buildBody(ch); bodiesMade++; } continue; }
+      if (t === 'col') { if (bodiesMade < maxBodies) { const pt = performance.now(); buildBody(ch); prof('body', pt); bodiesMade++; } continue; }
       if (inflight >= maxFly) continue;
       request(ch, t);
       inflight++;
@@ -646,7 +673,7 @@ export async function createCity({ THREE, RAPIER, world, scene, renderer, camera
     stats: () => {
       let a = 0, b = 0, cols = 0;
       for (const ch of chunks.values()) { if (ch.A) a++; if (ch.B) b++; if (ch.body) cols++; }
-      return { chunksA: a, chunksB: b, colliders: cols, lamps: loadedLamps.length, shops: shopDefs.length, far: farMesh?.count || 0 };
+      return { chunksA: a, chunksB: b, colliders: cols, lamps: loadedLamps.length, shops: shopDefs.length, far: farMesh?.count || 0, worstMs: PROF };
     },
     warm: (pts) => warm(pts),
     update(dt, o = {}) {
@@ -658,7 +685,8 @@ export async function createCity({ THREE, RAPIER, world, scene, renderer, camera
       sky.sky.position.copy(camPos);
       streamT -= dt;
       if (streamT <= 0) { streamT = 0.2; stream(o.focus); }
-      if (instDirty) rebuildInstances();
+      instT -= dt;
+      if (instDirty && instT <= 0) { instT = 0.35; const pt = performance.now(); rebuildInstances(); prof('inst', pt); }
       if (maskDirty) updateMask();
       if (cart && !cart.dead) { const p = cart.object3D.position, qq = cart.object3D.quaternion; cartLamp.head.set(0.1, 2.1, 0).applyQuaternion(qq).add(p); cartLamp.intensity = cart._hidden.has(1) ? 6 : 14; }
       if (booth) {
