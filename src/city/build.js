@@ -952,7 +952,8 @@ export function createBuilder(map, opts = {}) {
   function build(key, tier) {
     const ch = chunks.get(key);
     const tr = [];
-    const res = { key, tier, layers: {}, inst: {}, maxH: 0 };
+    const E = new Float32Array(0);
+    const res = { key, tier, layers: {}, inst: { towers: E, trees: E, cars: E, manholes: E, shopLights: E, beacons: E }, maxH: 0 };
     if (!ch) return { res, tr };
     const L = {};
     for (const name of TIERS[tier]) L[name] = new Buf(LAYERS[name]);

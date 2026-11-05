@@ -1,5 +1,6 @@
 // Mission director: wires player, Ecto-1, gear, stream, ghosts and traps into the bust, solo or as one of up to four online Ghostbusters, and owns every interaction and sequence.
 import * as THREE from 'three';
+import { Ghost } from './ghost.js';
 
 const V = (x = 0, y = 0, z = 0) => new THREE.Vector3(x, y, z), Q = () => new THREE.Quaternion();
 const _a = V(), _b = V(), _c = V(), _q = Q(), _q2 = Q(), _s = V(), _t = V(), _u = V();
@@ -23,6 +24,8 @@ export class Game {
     this.tipW = V(); this.wandDirW = V(0, 0, 1);
     this.heads = [this.head];
     this.navGoal = null; this.navInCar = null; this.navCar = { x: 0, z: 0, fx: 0, fz: 1, speed: 0 }; this.wrecks = 0;
+    const h = this.plate.heightAt;
+    this.groundAt = h ? (x, z) => Math.max(0, h(x, z)) : null;
   }
 
   get ghost() {
@@ -47,12 +50,8 @@ export class Game {
     this.scene.add(avatar.object);
     this.rig.yaw = player.yaw + 0.25;
     this.hud.objective('Suit up at the back of the Ecto-1');
-    this.ghosts.forEach((g, i) => {
-      g.onWreck = (p) => { this.hud.damage(p); this.wreckCall(p); this.net?.wrecked(p); };
-      g.onKnock = (p, imp) => this.net?.knocked(p, imp);
-      g.onEat = (p) => this.net?.ate(p);
-      if (i > 0) g.deactivate(); else g.start();
-    });
+    for (const g of this.ghosts) { this.wire(g); if (g.grp > 0) g.deactivate(); else g.start(); }
+    this.trap.more = () => this.ghostsLeft() > 0;
     this.proton.onWreck = (p, dir) => { this.wreckCall(p); this.net?.wrecked(p, dir); };
     this.proton.onBoom = (p, n, d) => this.net?.boom(p, n, d);
     this.ambience = this.audio.loop('amb_city_night', { bus: 'amb', gain: 0.8, fadeIn: 2 });
@@ -60,6 +59,20 @@ export class Game {
     this.proton.attachPool(this.scene);
     this.startT = this.time;
     window.__gb = this;
+  }
+
+  wire(g) {
+    g.onWreck = (p) => { this.hud.damage(p); this.wreckCall(p); this.net?.wrecked(p); };
+    g.onKnock = (p, imp) => this.net?.knocked(p, imp);
+    g.onEat = (p) => this.net?.ate(p);
+  }
+
+  addGhost(type) {
+    const i = this.ghosts.length;
+    const g = new Ghost({ fx: this.fx, audio: this.audio, plate: this.plate, phys: this.phys, id: i, type, site: this.job?.siteData, idx: i });
+    this.wire(g);
+    this.ghosts.push(g);
+    return g;
   }
 
   setStyle(s) {
@@ -376,7 +389,7 @@ export class Game {
     if (t.state === 'full' || t.state === 'carried') { this.hud.objective(t.state === 'carried' ? 'Carry the trap back to the Ecto-1' : 'Pick up the trap (E)'); return; }
     if (m === 'wait') { this.hud.objective('Waiting for the team to stow their traps'); return; }
     if (!left) { this.hud.objective(this.net ? 'All ghosts trapped. Stow the traps' : 'Pick up the trap (E)'); return; }
-    if (m === 'find') { this.hud.objective('Find the ghost. Follow the munching.' + tail); return; }
+    if (m === 'find') { this.hud.objective((this.job?.find || 'Find the ghost. Follow the munching.') + tail); return; }
     if (t.state === 'sucking') this.hud.objective("It's going in!");
     else if (this.proton.wrangling) {
       if (t.state === 'belt') this.hud.objective('Got it! Throw the trap under it (Q)');
@@ -481,6 +494,7 @@ export class Game {
     this.done = true; this.mission = 'done';
     this.stats.time = this.time - this.startT;
     this.stats.slams = this.proton.stats.slams; this.stats.darts = this.proton.stats.darts;
+    if (this.job) { this.stats.fee = this.job.fee; this.stats.what = this.job.what; }
     if (team) { this.hud.bill = team.bill ?? this.hud.bill; this.hud.broken = team.broken ?? this.hud.broken; this.stats.team = team.n; }
     if (this.net) this.stats.crew = this.net.room.order.map((p) => String(this.net.room.players[p]?.nick || 'Buster').toUpperCase()).join(', ');
     this.hud.objective('Bust complete');
@@ -517,6 +531,15 @@ export class Game {
       }
       if (!any) trap.progress = Math.max(0, (trap.progress || 0) - dt * 0.5);
     }
+  }
+
+  book(g, at) {
+    const near = at.distanceTo(this.head) < 1.2;
+    this.wait(0.35).then(() => {
+      if (!near || Math.random() > 0.45) return;
+      this.audio.play('hit_wood', { pos: this.head, gain: 0.9 });
+      this.renderer.addTrauma?.(0.25);
+    });
   }
 
   onCaptured(g) {
@@ -631,6 +654,8 @@ export class Game {
       onSlime: (i) => { if (i === 0) this.slime(); else this.net?.slimeHead(i); },
       onSlam: (p, g) => { proton.onSlam(p, g); this.net?.emit('slamfx', { p: [p.x, p.y, p.z] }); },
       onCaptured: (g) => this.onCaptured(g),
+      ghosts: this.ghosts, props: this.plate.props, groundAt: this.groundAt,
+      onBook: (g, at) => this.book(g, at),
     };
     for (const g of this.ghosts) { gctx.trapPull = g.trapPull; gctx.trapNear = g.trapNear; g.update(dt, gctx); }
     trap.update(dt, { steam: gear.steam, near: true });
@@ -650,7 +675,7 @@ export class Game {
     this.updateObjective();
     const gh = this.ghost;
     const fightUI = (this.engaged || this.net?.engaged) && !this.done && gh.alive && gh.active;
-    hud.ghost(fightUI, gh.will, gh.state === 'wrangled' ? (proton.wrangling ? (proton.counter > 0.25 ? 'Holding it' : 'Fight its pull') : 'Wrangled. Help hold it!') : gh.capturable ? 'Weak. Lock the capture stream' : '');
+    hud.ghost(fightUI, gh, gh.state === 'wrangled' ? (proton.wrangling ? (proton.counter > 0.25 ? 'Holding it' : 'Fight its pull') : 'Wrangled. Help hold it!') : gh.capturable ? 'Weak. Lock the capture stream' : '');
     hud.cross(armed && player.mode === 'foot', proton.wrangling ? proton.tension : 0, this.ghosts.some((g) => g.alive && g.active && proton.aim.distanceTo(g.pos) < g.radius * 1.4));
     hud.heat(gear.state === 'worn' && player.mode === 'foot', gear.heat, gear.heat > 0.82, gear.over > 0);
     hud.speed(player.mode === 'car' && this.seat === 0, Math.abs(ecto.fwdSpeed) * 2.237);

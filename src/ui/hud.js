@@ -9,7 +9,7 @@ const _f = new THREE.Vector3();
 
 export class HUD {
   constructor() {
-    this.el = { obj: $('#objective .t'), prompt: $('#prompt'), pk: $('#prompt b'), pt: $('#prompt span'), cross: $('#cross'), tens: $('#tens'), ring: $('#ring'), gb: $('#ghostbar'), gbi: $('#ghostbar .b i'), gbu: $('#ghostbar .b u'), gbs: $('#ghostbar .s'), heat: $('#heat'), heati: $('#heat .b i'), speed: $('#speed'), speedv: $('#speed span'), toast: $('#toast'), done: $('#done'), sub: $('#done .sub'), rows: $('#done .rows'), radio: $('#radio'), rWhen: $('#radio .tm'), rTitle: $('#radio h3'), rText: $('#radio p'), rPay: $('#radio .pay'), map: $('#map') };
+    this.el = { obj: $('#objective .t'), prompt: $('#prompt'), pk: $('#prompt b'), pt: $('#prompt span'), cross: $('#cross'), tens: $('#tens'), ring: $('#ring'), gb: $('#ghostbar'), gbi: $('#ghostbar .b i'), gbu: $('#ghostbar .b u'), gbn: $('#ghostbar .n'), gbc: $('#ghostbar .n small'), gbs: $('#ghostbar .s'), heat: $('#heat'), heati: $('#heat .b i'), speed: $('#speed'), speedv: $('#speed span'), toast: $('#toast'), done: $('#done'), sub: $('#done .sub'), rows: $('#done .rows'), radio: $('#radio'), rWhen: $('#radio .tm'), rTitle: $('#radio h3'), rText: $('#radio p'), rPay: $('#radio .pay'), map: $('#map') };
     this.cur = {}; this.toastT = 0; this.radioT = 0; this.bill = 0; this.broken = 0;
     this.el.gbu.style.left = '35%';
     this.markers = new Markers($('#marks'));
@@ -48,9 +48,13 @@ export class HUD {
     this.set('hot', hot, (v) => this.el.ring.setAttribute('stroke-opacity', v ? 0.6 : 0.2));
   }
 
-  ghost(on, will = 100, status = '') {
+  ghost(on, g, status = '') {
     this.el.gb.classList.toggle('on', on);
-    this.set('will', Math.round(will), (v) => (this.el.gbi.style.width = v + '%'));
+    const max = g.maxWill || 100;
+    this.set('gname', g.name || 'Onionhead', (v) => (this.el.gbn.firstChild.textContent = v));
+    this.set('gcls', g.beh?.cls || 5, (v) => (this.el.gbc.textContent = 'Class ' + v));
+    this.set('gmax', max, (v) => (this.el.gbu.style.left = Math.min(100, 3500 / v).toFixed(1) + '%'));
+    this.set('will', Math.round(g.will / max * 100), (v) => (this.el.gbi.style.width = v + '%'));
     this.set('gbs', status, (v) => (this.el.gbs.textContent = v));
   }
 
@@ -150,15 +154,16 @@ export class HUD {
   report(s) {
     const money = (n) => '$' + Math.round(n).toLocaleString('en-US');
     const m = Math.floor(s.time / 60), sec = Math.floor(s.time % 60);
-    this.el.sub.textContent = `Onionhead is in the trap. ${m}:${String(sec).padStart(2, '0')} on the clock.`;
+    const fee = s.fee ?? 5000;
+    this.el.sub.textContent = `${s.what || 'Onionhead is in the trap.'} ${m}:${String(sec).padStart(2, '0')} on the clock.`;
     const rows = [
       ...(s.crew ? [['Crew', s.crew]] : []),
-      ['Bust fee', money(5000)],
+      ['Bust fee', money(fee)],
       ['Property damage', '-' + money(this.bill)],
       ['Things wrecked', String(this.broken)],
       ['Times slimed', String(s.slimed)],
       ['Slams · boson darts', `${s.slams} · ${s.darts}`],
-      ['Invoice to the city', money(5000 - this.bill), true],
+      ['Invoice to the city', money(fee - this.bill), true],
     ];
     this.el.rows.replaceChildren(...rows.map(([a, b, t]) => {
       const r = document.createElement('div'); r.className = 'row' + (t ? ' tot' : '');

@@ -1,6 +1,7 @@
 // Online co-op glue: sends the local Ghostbuster at 10 Hz, mirrors teammates, runs ghosts and traps on the host (with migration), relays hits, slams, breaks, crossings, seats and the Ecto-1.
 import * as THREE from 'three';
 import { RemotePlayer } from '../game/remote.js';
+import { GHOST_LIST } from '../ghosts/index.js';
 
 const V = (x = 0, y = 0, z = 0) => new THREE.Vector3(x, y, z);
 const _a = V(), _b = V(), _c = V(), _d = V();
@@ -113,8 +114,9 @@ export class Net {
 
   onGhosts(gs) {
     if (this.isHost || !gs) return;
-    const now = performance.now();
-    this.game.ghosts.forEach((g, i) => { if (gs[i]) g.fromNet(gs[i], now); });
+    const now = performance.now(), G = this.game.ghosts;
+    while (gs.length > G.length) { const gh = this.game.addGhost(GHOST_LIST[gs[G.length]?.t]); gh.net = this; gh.puppet = true; gh.onNetCaptured = (x) => this.game.onCaptured(x); }
+    G.forEach((g, i) => { if (gs[i]) g.fromNet(gs[i], now); else if (g.active) g.deactivate(); });
   }
 
   onMission(m) {
@@ -215,10 +217,9 @@ export class Net {
     const g = this.game;
     if (this.won) return;
     const want = this.room.order.length >= 3 ? 2 : 1;
-    for (let i = 0; i < want; i++) {
-      const gh = g.ghosts[i];
-      if (gh && !gh.active && gh.state !== 'captured') { gh.puppet = false; gh.reset(false); gh.start(); g.hud.toast('Another ghost showed up!', 1.6); }
-    }
+    let woke = false;
+    for (const gh of g.ghosts) if (gh.grp < want && !gh.active && gh.state !== 'captured') { gh.puppet = false; gh.reset(false); gh.start(); woke = true; }
+    if (woke) g.hud.toast('Another ghost showed up!', 1.6);
   }
 
   pushMission() {

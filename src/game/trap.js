@@ -97,7 +97,13 @@ export class Trap {
   close(full) {
     this.snd.beam?.stop(0.15); this.snd.beam = null;
     this.audio?.play('trap_close', { pos: this.pos, gain: 1.3 });
-    if (full) {
+    if (full && this.more?.()) {
+      this.held = (this.held || 0) + 1;
+      this.renderer.addFlash(0.4); this.renderer.addTrauma(0.35);
+      this.fx.impact(this.pos.clone().add(V(0, 0.15, 0)), V(0, 1, 0), 'spark');
+      this.smokeT = 2;
+      this.setState('armed');
+    } else if (full) {
       this.setState('full');
       this.renderer.addFlash(0.6); this.renderer.addTrauma(0.5); this.renderer.hitStop(0.14, 0.05);
       this.fx.impact(this.pos.clone().add(V(0, 0.15, 0)), V(0, 1, 0), 'spark');

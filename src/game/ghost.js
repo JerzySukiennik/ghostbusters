@@ -1,50 +1,82 @@
-// Onionhead AI: gorges at the hot-dog cart, roams, pranks props, taunts, swoops to slime players, flees streams, gets wrangled by one or more streams, slammed and sucked into a trap. Runs as the authority (solo or host) or as a network puppet.
+// Ghost body: one ghost of any type (behaviour module from src/ghosts drives its free states), shared flee, stagger, wrangling, slam and trap suck, network authority or puppet.
 import * as THREE from 'three';
+import { behaviour, GHOST_LIST } from '../ghosts/index.js';
+import { voice, MOOD } from '../ghosts/common.js';
 
 const V = (x = 0, y = 0, z = 0) => new THREE.Vector3(x, y, z);
+const v3 = (a) => (a && a.isVector3 ? a.clone() : Array.isArray(a) ? V(a[0], a[1], a[2]) : null);
 const _a = V(), _b = V(), _c = V(), _d = V();
 const rnd = (a, b) => a + Math.random() * (b - a);
 const STATES = ['eat', 'roam', 'prank', 'taunt', 'windup', 'swoop', 'flee', 'stagger', 'wrangled', 'slammed', 'sucked', 'captured', 'off'];
+const FOOD = /food|hot.?dog|bun|sausage|pretzel|soda|mustard|ketchup|cart|fruit|duck|noodle/i;
 const r2 = (v) => Math.round(v * 100) / 100;
 
 export class Ghost {
-  constructor({ fx, audio, plate, phys, id = 0 }) {
+  constructor({ fx, audio, plate, phys, id = 0, type = 'onionhead', site = null, grp = 0, idx = 0 }) {
     this.fx = fx; this.audio = audio; this.plate = plate; this.phys = phys; this.id = id;
-    this.g = fx.createGhost();
-    this.obj = this.g.object3D;
-    this.radius = this.g.radius || 0.6;
-    this.home = plate.spawns.ghost?.pos?.clone() || V(0, 4, 20);
-    this.cart = plate.spawns.hotdogCart?.pos?.clone() || this.home.clone().setY(1.2);
-    this.route = (plate.spawns.ghostRoute || []).map((p) => p.clone());
-    if (!this.route.length) for (let i = 0; i < 8; i++) { const a = i / 8 * Math.PI * 2; this.route.push(V(Math.cos(a) * 12, 3.5, 18 + Math.sin(a) * 9)); }
-    this.food = plate.props.filter((p) => p.food || /food|hot.?dog|bun|sausage|pretzel|soda|mustard|ketchup/i.test(p.kind + ' ' + p.id));
-    if (this.food.length) { const c = this.food[0].object3D.position; if (this.cart.distanceTo(c) > 4) this.cart.set(c.x, Math.max(1, c.y), c.z); }
-    this.vel = V(); this.struggle = V(); this.lookDir = V(0, 0, 1);
+    this.grp = grp; this.idx = idx; this.site = site;
+    const sp = plate.spawns || {};
+    this.home = v3(site?.ghostSpawn) || sp.ghost?.pos?.clone() || V(0, 4, 20);
+    const f = site?.food?.[0];
+    this.cart = f ? v3(f.pos) : site ? v3(site.pos) : sp.hotdogCart?.pos?.clone() || this.home.clone();
+    this.cart.y = Math.max(1, this.cart.y);
+    this.route = site?.ghostRoute?.length ? site.ghostRoute.map(v3) : (sp.ghostRoute || []).map((p) => p.clone());
+    if (!this.route.length) for (let i = 0; i < 8; i++) { const a = i / 8 * Math.PI * 2; this.route.push(V(this.home.x + Math.cos(a) * 12, 3.5, this.home.z + Math.sin(a) * 9)); }
+    this.vel = V(); this.struggle = V(); this.lookDir = V(0, 0, 1); this.trapPos = V();
     this.wranglers = new Map(); this.sDir = V(1, 0, 0); this.sMag = 0; this.sT = 0;
-    this.puppet = false; this.samples = []; this.owner = null;
-    this.reset(id === 0);
-    this.presence = null;
+    this.puppet = false; this.samples = []; this.owner = null; this.presence = null;
+    this.gp = { vel: this.vel, mood: 'idle', hurt: 0, struggle: this.struggle, suck: 0, trapPos: this.trapPos, mouth: 0, x: null };
+    this.setType(type);
+    this.reset(grp === 0);
+  }
+
+  setType(type) {
+    const beh = behaviour(type);
+    if (this.g && this.beh === beh) return;
+    const shown = this.obj ? this.obj.visible : true, loud = !!this.presence;
+    this.presence?.stop(0.1); this.presence = null;
+    if (this.g) this.fx.releaseGhost?.(this.g);
+    this.beh = beh; this.type = beh.type; this.name = beh.name;
+    this.g = this.fx.createGhost(beh.type);
+    this.g.setTint?.(this.idx);
+    this.obj = this.g.object3D;
+    this.obj.visible = shown;
+    if (this.pos) this.obj.position.copy(this.pos);
+    this.radius = beh.radius || this.g.radius || 0.6;
+    this.maxWill = beh.will || 100;
+    this.beh.init?.(this);
+    if (loud) this.start();
+  }
+
+  refreshFood() {
+    const c = this.cart;
+    this.food = this.plate.props.filter((p) => p.object3D && !p.eaten && (p.food || FOOD.test((p.kind || '') + ' ' + (p.id || ''))) && p.object3D.position.distanceToSquared(c) < 100);
   }
 
   reset(eating = true) {
     this.wp = (this.id * 5) % this.route.length;
-    this.pos = eating ? this.cart.clone().add(V(0, 1.1, 0)) : this.route[this.wp].clone();
+    this.pos = eating ? this.cart.clone().add(_a.set(Math.sin(this.idx * 2.4) * this.idx * 0.5, 1.1, Math.cos(this.idx * 2.4) * this.idx * 0.5)) : this.route[this.wp].clone();
     this.vel.set(0, 0, 0);
-    this.state = eating ? 'eat' : 'roam'; this.st = 0; this.will = 100; this.maxWill = 100;
-    this.hurt = 0; this.mouth = 0; this.lastHit = 99; this.anger = 0;
-    this.prankT = rnd(6, 10); this.tauntT = rnd(10, 16); this.swoopCd = 12; this.eatT = 1; this.jinkT = 0; this.jink = V();
-    this.suck = 0; this.trapPos = V(); this.alive = true; this.visible = true; this.active = true;
+    this.state = eating ? 'eat' : 'roam'; this.st = 0; this.will = this.maxWill;
+    this.hurt = 0; this.mouth = 0; this.lastHit = 99; this.anger = 0; this.slimedMask = 0;
+    this.prankT = rnd(6, 10); this.tauntT = rnd(10, 16); this.swoopCd = 12; this.eatT = 1; this.jinkT = 0; this.jink = V(); this.foodT = 0;
+    this.suck = 0; this.alive = true; this.visible = true; this.active = true;
     this.capturable = false; this.slam = null; this.t = 0; this.owner = null;
     this.wranglers.clear();
+    this.refreshFood();
+    this.beh.init?.(this);
     this.obj.visible = true;
     this.obj.position.copy(this.pos);
   }
 
   deactivate() { this.active = false; this.alive = false; this.state = 'off'; this.obj.visible = false; this.presence?.stop(0.2); this.presence = null; }
 
-  start() { if (!this.presence && this.alive) this.presence = this.audio?.loop('ghost_presence', { obj: this.obj, gain: 0.55, ref: 4 }); }
+  start() {
+    if (this.presence || !this.alive || (this.beh.count && this.idx > 0)) return;
+    this.presence = this.audio?.loop(voice(this.beh, 'ghost_presence'), { obj: this.obj, gain: 0.55, ref: 4 });
+  }
 
-  say(name, gain = 1) { this.audio?.play(name, { obj: this.obj, gain, jitter: 0.12, ref: 4 }); }
+  say(name, gain = 1) { this.audio?.play(voice(this.beh, name), { obj: this.obj, gain, jitter: 0.12, ref: 4 }); }
 
   set(s) { if (this.state !== s) { this.state = s; this.st = 0; } }
 
@@ -55,6 +87,7 @@ export class Ghost {
     if (this.puppet) { this.net?.damage(this, amount, dir, kind); return; }
     this.will = Math.max(0, this.will - amount);
     this.anger = Math.min(1, this.anger + amount * 0.01);
+    this.beh.hit?.(this, amount);
     if (kind !== 'stream') { this.vel.addScaledVector(dir, 7); this.say('ghost_hurt'); if (this.state !== 'wrangled') this.set('stagger'); }
     else if (this.state === 'eat' || this.state === 'roam' || this.state === 'taunt' || this.state === 'prank') { this.say(Math.random() < 0.5 ? 'ghost_hurt' : 'ghost_wail'); this.set('flee'); }
     else if (Math.random() < 0.02) this.say('ghost_hurt', 0.8);
@@ -124,7 +157,7 @@ export class Ghost {
   nearest(list, out) {
     let best = null, bd = Infinity;
     for (const p of list) { const d = p.distanceToSquared(this.pos); if (d < bd) { bd = d; best = p; } }
-    return best ? out.copy(best) : out.copy(this.pos).add(V(0, 0, 5));
+    return best ? out.copy(best) : out.copy(this.pos).add(_b.set(0, 0, 5));
   }
 
   wrangledStep(dt, ctx) {
@@ -136,10 +169,10 @@ export class Ghost {
     if (this.sT <= 0) {
       this.sT = 0.7 + Math.random() * 0.7;
       this.sDir.set(Math.random() - 0.5, (Math.random() - 0.35) * 0.7, Math.random() - 0.5);
-      _a.set(0, 0, 0); for (const w of this.wranglers.values()) _a.add(w.desired); _a.divideScalar(n);
       _b.copy(this.pos).sub(this.nearest(ctx.players || [ctx.playerHead], _c)).setY(0).normalize();
       this.sDir.addScaledVector(_b, 0.5);
       if (ctx.trapNear) { _b.copy(this.pos).sub(ctx.trapNear).setY(0).normalize(); this.sDir.addScaledVector(_b, 0.8); }
+      if (this.beh.ground) this.sDir.y *= 0.3;
       this.sDir.normalize();
       this.sMag = (8 + 9 * w01) / (1 + 0.3 * (n - 1));
       this.say('ghost_wail', 0.6);
@@ -167,70 +200,34 @@ export class Ghost {
     this.swoopCd -= dt; this.prankT -= dt; this.tauntT -= dt;
     if (this.lastHit > 4 && this.state !== 'wrangled' && this.state !== 'sucked') this.will = Math.min(this.maxWill, this.will + dt * 2.5);
     this.capturable = this.will <= 35;
+    if (this.state === 'eat' && !this.food.length && (this.foodT -= dt) <= 0) { this.foodT = 3; this.refreshFood(); }
     const target = this.nearest(ctx.players || [ctx.playerHead], _d);
-    const toP = _c.copy(target).sub(this.pos); const dP = toP.length();
+    if (!this.beh.step(this, dt, ctx)) this.common(dt, ctx, target);
+    if (this.state !== 'sucked' && this.alive) {
+      this.pos.addScaledVector(this.vel, dt);
+      const B = this.plate.bounds || { minX: -50, maxX: 50, minZ: -50, maxZ: 50 };
+      const m = 3;
+      if (this.pos.x < B.minX + m) this.vel.x += (B.minX + m - this.pos.x) * dt * 8;
+      if (this.pos.x > B.maxX - m) this.vel.x -= (this.pos.x - B.maxX + m) * dt * 8;
+      if (this.pos.z < B.minZ + m) this.vel.z += (B.minZ + m - this.pos.z) * dt * 8;
+      if (this.pos.z > B.maxZ - m) this.vel.z -= (this.pos.z - B.maxZ + m) * dt * 8;
+      const gy = ctx.groundAt ? ctx.groundAt(this.pos.x, this.pos.z) : 0;
+      const floor = gy + (this.state === 'slammed' ? this.radius * 0.6 : this.beh.floor ?? this.radius + 0.35);
+      if (this.pos.y < floor) { this.pos.y = floor; if (this.vel.y < 0) this.vel.y *= -0.3; }
+      if (this.pos.y > gy + 14) this.vel.y -= (this.pos.y - gy - 14) * dt * 4;
+      if (!this.beh.ground && this.state !== 'wrangled') this.pos.y += Math.sin(this.t * 2.1) * dt * 0.25;
+    }
+    this.visuals(dt, target);
+  }
+
+  common(dt, ctx, target) {
     switch (this.state) {
-      case 'eat': {
-        _a.copy(this.cart).add(_b.set(Math.sin(this.t * 0.8) * 0.4, 1.0 + Math.sin(this.t * 1.7) * 0.15, Math.cos(this.t * 0.6) * 0.3));
-        this.steer(_a, 2, 3, dt);
-        this.eatT -= dt;
-        if (this.eatT <= 0) {
-          this.eatT = rnd(1.1, 2.0); this.mouth = 1; this.say('ghost_eat', 0.9);
-          const f = this.food.find((p) => !p.dead && !p.broken && !p.eaten && p.object3D);
-          if (f) { f.eaten = true; f.dead = true; f.object3D.visible = false; try { f.body?.setEnabled(false); } catch {} this.onEat?.(f); }
-        }
-        if (ctx.engaged && (dP < 10 || this.st > 14)) { this.say('ghost_laugh'); this.set('roam'); }
-        break;
-      }
-      case 'roam': {
-        const w = this.route[this.wp % this.route.length];
-        this.steer(w, 3.6 + this.anger * 2, 1.6, dt);
-        if (this.pos.distanceTo(w) < 1.5) this.wp = (this.wp + 1 + (Math.random() < 0.25 ? 1 : 0)) % this.route.length;
-        if (this.prankT <= 0) { this.set('prank'); this.prankT = rnd(7, 12); const live = this.plate.props.filter((p) => !p.dead && !p.broken && p.body); this.prankTarget = live.length ? live[(Math.random() * live.length) | 0] : null; }
-        else if (this.tauntT <= 0 && ctx.engaged) { this.set('taunt'); this.tauntT = rnd(9, 15); }
-        else if (this.swoopCd <= 0 && ctx.engaged && dP < 16 && this.anger > 0.25) { this.set('windup'); this.swoopCd = rnd(11, 16); this.say('ghost_roar'); }
-        if (this.state === 'roam' && this.st > 1.2 && Math.random() < dt * 0.15) this.say('ghost_laugh', 0.7);
-        break;
-      }
-      case 'prank': {
-        const t = this.prankTarget;
-        if (!t || t.dead || t.broken) { this.set('roam'); break; }
-        const tp = t.object3D ? t.object3D.position : t.body.translation();
-        _a.set(tp.x, tp.y + 0.6, tp.z);
-        this.steer(_a, 7, 3, dt);
-        if (this.pos.distanceTo(_a) < 1.3) { this.knockProps(1.6, 2); this.mouth = 1; this.say('ghost_laugh'); this.vel.y += 4; this.set('roam'); }
-        if (this.st > 5) this.set('roam');
-        break;
-      }
-      case 'taunt': {
-        _a.copy(target).add(_b.set(Math.sin(this.t * 2) * 2.5, 1.2 + Math.sin(this.t * 3) * 0.5, 0)).addScaledVector(toP.normalize(), -4.5);
-        this.steer(_a, 6, 3, dt);
-        if (this.st > 0.6 && this.st < 0.7) { this.say('ghost_laugh', 1.1); this.mouth = 1; }
-        if (this.st > 2.4) this.set('roam');
-        break;
-      }
-      case 'windup': {
-        _a.copy(this.pos).addScaledVector(toP.normalize(), -0.6).setY(Math.max(this.pos.y, target.y + 1.5));
-        this.steer(_a, 2.5, 4, dt);
-        this.mouth = 1; this.hurt = Math.max(this.hurt, 0.3);
-        if (this.st > 0.65) { this.swoopDir = _c.copy(target).sub(this.pos).normalize().clone(); this.set('swoop'); this.say('ghost_whoosh', 1.2); this.slimed = new Set(); }
-        break;
-      }
-      case 'swoop': {
-        this.vel.copy(this.swoopDir).multiplyScalar(15);
-        const heads = ctx.players || [ctx.playerHead];
-        heads.forEach((h, i) => { if (!this.slimed.has(i) && this.pos.distanceTo(h) < 1.25) { this.slimed.add(i); ctx.onSlime?.(i); } });
-        this.knockProps(0.8, 1.2);
-        if (this.st > 1.3) { this.vel.multiplyScalar(0.3); this.set('roam'); }
-        break;
-      }
       case 'flee': {
         this.jinkT -= dt;
         if (this.jinkT <= 0) { this.jinkT = rnd(0.35, 0.8); this.jink.set(rnd(-1, 1), rnd(-0.4, 0.8), rnd(-1, 1)).normalize().multiplyScalar(rnd(4, 7)); }
-        _a.copy(this.pos).sub(target).setY(0).normalize().multiplyScalar(7).add(this.jink);
-        _a.add(this.pos);
-        this.steer(_a, 6.5 - (1 - this.will / 100) * 2.2, 2.8, dt);
-        if (this.lastHit > 2.4) this.set(this.anger > 0.3 && this.swoopCd <= 0 && dP < 14 ? 'windup' : 'roam');
+        _a.copy(this.pos).sub(target).setY(0).normalize().multiplyScalar(7).add(this.jink).add(this.pos);
+        this.steer(_a, 6.5 - (1 - this.will / this.maxWill) * 2.2, 2.8, dt);
+        if (this.lastHit > 2.4) this.set(this.anger > 0.3 && this.swoopCd <= 0 && _c.copy(target).sub(this.pos).length() < 14 ? 'windup' : 'roam');
         break;
       }
       case 'stagger': {
@@ -239,16 +236,14 @@ export class Ghost {
         if (this.st > 0.7) this.set(this.wranglers.size ? 'wrangled' : 'flee');
         break;
       }
-      case 'wrangled': {
-        this.wrangledStep(dt, ctx);
-        break;
-      }
+      case 'wrangled': this.wrangledStep(dt, ctx); break;
       case 'slammed': {
         const s = this.slam;
         this.vel.copy(s.dir).multiplyScalar(s.speed);
         s.speed = Math.min(26, s.speed + dt * 60);
-        if (this.pos.y <= this.radius + 0.15 || this.st > 0.7) {
-          this.pos.y = Math.max(this.pos.y, this.radius + 0.1);
+        const gy = ctx.groundAt ? ctx.groundAt(this.pos.x, this.pos.z) : 0;
+        if (this.pos.y <= gy + this.radius + 0.15 || this.st > 0.7) {
+          this.pos.y = Math.max(this.pos.y, gy + this.radius + 0.1);
           ctx.onSlam?.(this.pos.clone(), this);
           this.knockProps(3.2, 3);
           this.vel.set(0, 3, 0);
@@ -262,24 +257,11 @@ export class Ghost {
         _a.copy(this.trapPos).add(_b.set(Math.cos(ang) * (1 - s) * 0.8, 0.25 + (1 - s) * 2.4, Math.sin(ang) * (1 - s) * 0.8));
         this.pos.lerp(_a, 1 - Math.exp(-dt * 9));
         this.vel.set(0, 0, 0);
-        if (s >= 1) { this.captured(ctx); }
+        if (s >= 1) this.captured(ctx);
         break;
       }
+      default: this.set('roam');
     }
-    if (this.state !== 'sucked' && this.alive) {
-      this.pos.addScaledVector(this.vel, dt);
-      const B = this.plate.bounds || { minX: -50, maxX: 50, minZ: -50, maxZ: 50 };
-      const m = 3;
-      if (this.pos.x < B.minX + m) this.vel.x += (B.minX + m - this.pos.x) * dt * 8;
-      if (this.pos.x > B.maxX - m) this.vel.x -= (this.pos.x - B.maxX + m) * dt * 8;
-      if (this.pos.z < B.minZ + m) this.vel.z += (B.minZ + m - this.pos.z) * dt * 8;
-      if (this.pos.z > B.maxZ - m) this.vel.z -= (this.pos.z - B.maxZ + m) * dt * 8;
-      const floor = this.state === 'slammed' ? this.radius * 0.6 : this.radius + 0.35;
-      if (this.pos.y < floor) { this.pos.y = floor; if (this.vel.y < 0) this.vel.y *= -0.3; }
-      if (this.pos.y > 14) this.vel.y -= (this.pos.y - 14) * dt * 4;
-      if (this.state !== 'wrangled') this.pos.y += Math.sin(this.t * 2.1) * dt * 0.25;
-    }
-    this.visuals(dt, target);
   }
 
   captured(ctx) {
@@ -290,18 +272,25 @@ export class Ghost {
 
   visuals(dt, target) {
     this.obj.position.copy(this.pos);
-    const hv = Math.hypot(this.vel.x, this.vel.z);
-    if (hv > 0.4 && this.state !== 'taunt' && this.state !== 'windup') _a.set(this.vel.x, 0, this.vel.z).normalize();
-    else _a.set(target.x - this.pos.x, 0, target.z - this.pos.z).normalize();
-    if (_a.lengthSq() > 0.5) this.lookDir.lerp(_a, 1 - Math.exp(-dt * 6)).normalize();
+    if (this.beh.face && this.beh.face(this, _a)) { if (_a.lengthSq() > 0.5) this.lookDir.lerp(_a, 1 - Math.exp(-dt * 8)).normalize(); }
+    else {
+      const hv = Math.hypot(this.vel.x, this.vel.z);
+      if (hv > 0.4 && this.state !== 'taunt' && this.state !== 'windup') _a.set(this.vel.x, 0, this.vel.z).normalize();
+      else _a.set(target.x - this.pos.x, 0, target.z - this.pos.z).normalize();
+      if (_a.lengthSq() > 0.5) this.lookDir.lerp(_a, 1 - Math.exp(-dt * 6)).normalize();
+    }
     this.obj.rotation.y = Math.atan2(this.lookDir.x, this.lookDir.z);
-    const mood = { eat: 'eat', roam: 'idle', prank: 'taunt', taunt: 'taunt', windup: 'angry', swoop: 'angry', flee: 'flee', stagger: 'hurt', wrangled: 'wrangled', slammed: 'hurt', sucked: 'sucked' }[this.state] || 'idle';
-    this.g.update(dt, { vel: this.vel, mood, hurt: this.hurt, struggle: this.struggle, suck: this.suck, trapPos: this.trapPos, mouth: this.mouth });
+    const gp = this.gp;
+    gp.mood = this.beh.mood ? this.beh.mood(this) : MOOD[this.state] || 'idle';
+    gp.hurt = this.hurt; gp.suck = this.suck; gp.mouth = this.mouth; gp.x = this.fxx || null;
+    this.g.update(dt, gp);
   }
 
   toNet() {
-    if (!this.active) return { s: 12 };
-    const o = { s: STATES.indexOf(this.state), p: [r2(this.pos.x), r2(this.pos.y), r2(this.pos.z)], v: [r2(this.vel.x), r2(this.vel.y), r2(this.vel.z)], w: Math.round(this.will), h: r2(this.hurt), m: r2(this.mouth) };
+    const t = GHOST_LIST.indexOf(this.type);
+    if (!this.active) return { s: 12, t };
+    const o = { s: STATES.indexOf(this.state), t, p: [r2(this.pos.x), r2(this.pos.y), r2(this.pos.z)], v: [r2(this.vel.x), r2(this.vel.y), r2(this.vel.z)], w: Math.round(this.will), h: r2(this.hurt), m: r2(this.mouth) };
+    if (this.fxx) { const x = {}; for (const k in this.fxx) { const v = this.fxx[k]; x[k] = typeof v === 'number' ? r2(v) : v && v.isVector3 ? [r2(v.x), r2(v.y), r2(v.z)] : v; } o.x = x; }
     if (this.state === 'wrangled') { o.d = [r2(this.sDir.x), r2(this.sDir.y), r2(this.sDir.z)]; o.g = r2(this.sMag); o.n = this.wranglers.size; o.f = {}; for (const [k, w] of this.wranglers) o.f[k] = r2(w.desired.distanceTo(this.pos)); }
     if (this.state === 'sucked' || this.state === 'captured') { o.k = r2(this.suck); o.tp = [r2(this.trapPos.x), r2(this.trapPos.y), r2(this.trapPos.z)]; o.o = this.owner || ''; }
     return o;
@@ -309,6 +298,7 @@ export class Ghost {
 
   fromNet(o, now) {
     if (!o) return;
+    if (GHOST_LIST[o.t] && GHOST_LIST[o.t] !== this.type) this.setType(GHOST_LIST[o.t]);
     const st = STATES[o.s] || 'off';
     if (st === 'off') { if (this.active) this.deactivate(); return; }
     if (!this.active) { this.active = true; this.alive = true; this.obj.visible = true; }
@@ -316,6 +306,7 @@ export class Ghost {
     this.state = st;
     this.will = o.w ?? this.will; this.capturable = this.will <= 35;
     this.hurt = Math.max(this.hurt, o.h || 0); this.mouth = Math.max(this.mouth, o.m || 0);
+    if (o.x && this.fxx) for (const k in o.x) { const v = o.x[k]; if (Array.isArray(v)) this.fxx[k]?.set?.(v[0], v[1], v[2]); else this.fxx[k] = v; }
     if (o.d) { this.sDir.set(o.d[0], o.d[1], o.d[2]); this.sMag = o.g || 0; }
     this.netOff = o.f || null;
     if (o.tp) this.trapPos.set(o.tp[0], o.tp[1], o.tp[2]);

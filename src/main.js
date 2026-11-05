@@ -11,7 +11,7 @@ import { Player } from './game/player.js';
 import { CameraRig } from './game/camera.js';
 import { Ecto } from './game/ecto.js';
 import { Gear } from './game/gear.js';
-import { Ghost } from './game/ghost.js';
+import { pickJob, makeGhosts } from './game/missions.js';
 import { Trap } from './game/trap.js';
 import { Proton } from './game/proton.js';
 import { Game } from './game/game.js';
@@ -155,7 +155,8 @@ async function boot() {
   const player = new Player(phys, avatar, sp.player.pos, sp.player.yaw || 0);
   player.spawn = sp.player.pos.clone();
   const rig = new CameraRig(camera, phys);
-  const ghosts = [new Ghost({ fx, audio, plate, phys, id: 0 }), new Ghost({ fx, audio, plate, phys, id: 1 })];
+  const job = pickJob(plate.sites, params);
+  const ghosts = makeGhosts(job, { fx, audio, plate, phys });
   const trap = new Trap({ gltf: trapG, scene, phys, audio, fx, renderer: R, hud });
   gear.trapRoot = trap.root;
   const proton = new Proton({ fx, gear, phys, ghosts, plate, audio, renderer: R, rig, hud });
@@ -164,6 +165,7 @@ async function boot() {
   const gps = new GPS(plate.roads || plateRoads(), { side: plate.roads ? 0 : 4, lanes: !!plate.roads });
   const routeLine = new RouteLine(scene, plate.heightAt ? (x, z) => plate.heightAt(x, z) : null);
   const game = new Game({ renderer: R, scene, camera, phys, input, audio, hud, fx, plate, ecto, gear, avatar, player, rig, ghosts, trap, proton, style, assets, radio, gps, routeLine, traffic, crowd, janine });
+  game.job = job;
   game.setup();
   hud.setMap(plate.minimap || plateMap());
   const applyPasses = () => R.setExtraPasses(typeof fx.postPasses === 'function' ? fx.postPasses() : []);
@@ -236,7 +238,7 @@ async function boot() {
       net = new Net({ game, room, assets, tpl, streams: remoteStreams, traps: remoteTraps });
       if (room.order.length) net.onPlayers(room.players, room.order);
       window.__net = net;
-      history.replaceState(null, '', `?room=${r.code}${params.get('realm') ? '&realm=' + params.get('realm') : ''}`);
+      history.replaceState(null, '', `?room=${r.code}${params.get('realm') ? '&realm=' + params.get('realm') : ''}${job.site !== 'hotdog_corner' ? '&site=' + job.site : ''}`);
       loadTxt.textContent = '';
       start();
       hud.toast(r.fresh ? `Room ${r.code}. Share the code` : `Joined room ${r.code}`, 2.4);
@@ -264,12 +266,12 @@ async function boot() {
     document.body.classList.add('playing');
     pauseSet.append(setEl); setPanel.classList.remove('on');
     rig.endCine('foot'); rig.yaw = player.yaw + 0.2; rig.pitch = -0.12;
-    game.setGoal(ghosts[0].cart, 'Hot dog stand');
-    setTimeout(() => game.dispatchCall('job_hotdog_corner', { when: '9:42 PM', title: 'Hot dog stand', text: 'N Moore St & Varick St. Something green is eating everything on the cart. Then the cart.', pay: '$5,000 · Class 5' }), 1400);
+    game.setGoal(ghosts[0].cart, job.title);
+    setTimeout(() => game.dispatchCall(job.line, { when: '9:42 PM', title: job.title, text: job.text, pay: job.pay }), 1400);
   };
   go.onclick = async () => { await swapAvatar(); start(); };
   window.__start = start;
-  document.getElementById('again').onclick = () => { const u = new URL(location.href); u.searchParams.delete('room'); location.href = u.toString(); };
+  document.getElementById('again').onclick = () => { const u = new URL(location.href); u.searchParams.delete('room'); u.searchParams.delete('ghost'); u.searchParams.set('site', job.next); location.href = u.toString(); };
   document.getElementById('free').onclick = () => game.freeRoam();
   const segs = [];
   for (const [ids, cur, set] of [[['qSeg'], quality, (v) => { R.setPreset(v); store.set('gb.q', v); }]]) {
