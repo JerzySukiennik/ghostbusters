@@ -638,6 +638,14 @@ export class Game {
     this.net?.update(dt, this.time);
     this.plate.update(dt, { focus: [this.player.feet, this.ecto.root.position] });
     this.traffic?.update(dt, { focus: [this.player.feet, this.ecto.root.position], time: this.time, ecto: this.ecto, ghosts: this.ghosts, camera: this.camera });
+    if (this.crowd) {
+      const cg = this._cg || (this._cg = []), st = this._cs || (this._cs = [{ a: null, b: null }]);
+      cg.length = 0;
+      for (const g of this.ghosts) if (g.alive && g.active) cg.push(g);
+      st[0].a = this.head; st[0].b = proton.end;
+      this.crowd.update(dt, { focus: [this.player.feet, this.ecto.root.position], time: this.time, ghosts: cg, streams: proton.on ? st : null, camera: this.camera });
+    }
+    this.janine?.update(dt);
     fx.update(dt, this.time);
     this.updateObjective();
     const gh = this.ghost;

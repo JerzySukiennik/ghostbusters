@@ -1,0 +1,84 @@
+{
+ "version": 1,
+ "file": "janine.glb",
+ "name": "Janine Melnitz",
+ "scale": 0.955,
+ "nodes": {
+  "root": "Janine",
+  "rig": "JurekRig",
+  "body": "JanineBody",
+  "head": "JanineHead",
+  "lens": "JanineLens",
+  "phone": "JaninePhone",
+  "handset": "JanineHandset"
+ },
+ "anchor": "root = JanineSeat: seat surface centre, +Z toward the desk; her hips sit 5 cm behind it",
+ "seat": {
+  "height": 0.422,
+  "hipsY": 0.095,
+  "knee": 0.058
+ },
+ "desk": {
+  "top": 0.3,
+  "front": 0.27,
+  "keyboard": [
+   0.08,
+   0.318,
+   0.46
+  ],
+  "monitor": [
+   0.42,
+   0.62,
+   0.8
+  ],
+  "monitorYaw": 0.48,
+  "note": "desk top height and front edge above / ahead of JanineSeat; keyboard and monitor centres; the phone is hers (JaninePhone + JanineHandset), leave that desk spot free"
+ },
+ "phone": {
+  "pos": [
+   -0.4,
+   0.3,
+   0.5
+  ],
+  "yaw": 2.5916,
+  "hand": "Right"
+ },
+ "clips": {
+  "desk_idle": {
+   "dur": 6.6668,
+   "loop": true
+  },
+  "type": {
+   "dur": 5.0001,
+   "loop": true
+  },
+  "phone_talk": {
+   "dur": 5.8666,
+   "loop": true
+  },
+  "phone_answer": {
+   "dur": 2.1,
+   "loop": false
+  },
+  "call_out": {
+   "dur": 2.6,
+   "loop": false
+  }
+ },
+ "oneShots": {
+  "phone_answer": "ends in the phone_talk pose with the handset at her ear; continue with phone_talk",
+  "call_out": "starts and ends in the desk_idle pose"
+ },
+ "morphs": [
+  "blink",
+  "smile",
+  "browUp",
+  "funnel"
+ ],
+ "tris": {
+  "character": 26346,
+  "phone": 2700
+ },
+ "bytes": 1990028,
+ "voice": "assets/radio/lines.json (lead lane, Gemini TTS voice Kore)"
+}

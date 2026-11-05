@@ -1,0 +1,143 @@
+{
+ "version": 1,
+ "anim": {
+  "bin": "crowd_anim.bin",
+  "json": "crowd_anim.json"
+ },
+ "lod": [
+  "Ped",
+  "Ped_LOD1"
+ ],
+ "variants": [
+  {
+   "id": "p01",
+   "name": "Harold",
+   "role": "businessman in trench coat",
+   "sex": "m",
+   "file": "ped_p01.glb",
+   "s": 1.02,
+   "tris": [
+    8707,
+    2600
+   ],
+   "bytes": 566804
+  },
+  {
+   "id": "p02",
+   "name": "Linda",
+   "role": "commuter in a red coat",
+   "sex": "f",
+   "file": "ped_p02.glb",
+   "s": 0.965,
+   "tris": [
+    8667,
+    2597
+   ],
+   "bytes": 544792
+  },
+  {
+   "id": "p03",
+   "name": "Dwayne",
+   "role": "young man in a leather jacket",
+   "sex": "m",
+   "file": "ped_p03.glb",
+   "s": 1.03,
+   "tris": [
+    8695,
+    2598
+   ],
+   "bytes": 539112
+  },
+  {
+   "id": "p04",
+   "name": "Officer Brennan",
+   "role": "NYPD patrol officer",
+   "sex": "m",
+   "file": "ped_p04.glb",
+   "s": 1.04,
+   "tris": [
+    8694,
+    2597
+   ],
+   "bytes": 547344
+  },
+  {
+   "id": "p05",
+   "name": "Rose",
+   "role": "elderly woman in a long coat",
+   "sex": "f",
+   "file": "ped_p05.glb",
+   "s": 0.92,
+   "tris": [
+    8697,
+    2598
+   ],
+   "bytes": 565996
+  },
+  {
+   "id": "p06",
+   "name": "Ray",
+   "role": "Con Ed street worker",
+   "sex": "m",
+   "file": "ped_p06.glb",
+   "s": 1.0,
+   "tris": [
+    8694,
+    2597
+   ],
+   "bytes": 569264
+  },
+  {
+   "id": "p07",
+   "name": "Sal",
+   "role": "cabbie in a flat cap",
+   "sex": "m",
+   "file": "ped_p07.glb",
+   "s": 0.985,
+   "tris": [
+    8708,
+    2599
+   ],
+   "bytes": 569776
+  },
+  {
+   "id": "p08",
+   "name": "Kim",
+   "role": "new wave student",
+   "sex": "f",
+   "file": "ped_p08.glb",
+   "s": 0.935,
+   "tris": [
+    8674,
+    2600
+   ],
+   "bytes": 555864
+  },
+  {
+   "id": "p09",
+   "name": "Marcus",
+   "role": "man in a velour tracksuit",
+   "sex": "m",
+   "file": "ped_p09.glb",
+   "s": 1.015,
+   "tris": [
+    8691,
+    2600
+   ],
+   "bytes": 553016
+  },
+  {
+   "id": "p10",
+   "name": "Denise",
+   "role": "businesswoman with sneakers",
+   "sex": "f",
+   "file": "ped_p10.glb",
+   "s": 0.975,
+   "tris": [
+    8680,
+    2600
+   ],
+   "bytes": 570636
+  }
+ ]
+}
