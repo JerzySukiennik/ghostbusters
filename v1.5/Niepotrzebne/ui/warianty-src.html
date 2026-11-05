@@ -1,0 +1,362 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ghostbusters UI</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Barlow+Condensed:wght@500;600;700;800&family=Barlow:wght@400;500;600&family=Caveat:wght@600;700&family=Overpass+Mono:wght@600;700&family=VT323&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#0b0c0e;--ink:#f3f1ec;--mute:rgba(243,241,236,.6);--line:rgba(255,255,255,.12)}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--ink);font:15px/1.45 Barlow,system-ui,sans-serif;padding:0 16px 60px}
+.top{position:sticky;top:0;z-index:20;display:flex;flex-wrap:wrap;align-items:center;gap:12px 18px;padding:14px 0;background:linear-gradient(var(--bg) 75%,transparent)}
+.top h1{font:700 20px/1 'Barlow Condensed',sans-serif;letter-spacing:.04em;text-transform:uppercase;margin-right:auto}
+.tabs{display:flex;gap:6px;flex-wrap:wrap}
+.tabs button{font:600 14px/1 Barlow,sans-serif;color:var(--mute);background:rgba(255,255,255,.06);border:1px solid var(--line);border-radius:999px;padding:9px 14px;cursor:pointer}
+.tabs button b{color:var(--ink);margin-right:6px}
+.tabs button.on{background:var(--ink);color:#111;border-color:var(--ink)}
+.tabs button.on b{color:#111}
+.hint{font-size:13px;color:var(--mute)}
+.v{display:none;max-width:1280px;margin:0 auto}
+.v.on{display:block}
+.vh{display:flex;flex-wrap:wrap;align-items:baseline;gap:6px 14px;margin:14px 0 14px}
+.vh h2{font:800 30px/1 'Barlow Condensed',sans-serif;letter-spacing:.01em;text-transform:uppercase}
+.vh p{color:var(--mute);max-width:760px}
+.cap{font:600 12px/1 Barlow,sans-serif;letter-spacing:.16em;text-transform:uppercase;color:var(--mute);margin:22px 0 8px}
+.frame{position:relative;aspect-ratio:16/9;container-type:inline-size;overflow:hidden;border-radius:10px;background:#000 center/cover no-repeat;box-shadow:0 20px 60px rgba(0,0,0,.5)}
+.frame>*{position:absolute}
+.bg-hero{background-image:url(img/game_hero.jpg)}
+.bg-street{background-image:url(img/game_street.jpg)}
+.bg-rear{background-image:url(img/game_rear.jpg)}
+.portrait{background:#222 center/cover}
+.p-jurek{background-image:url(../../assets/avatar/portrait_jurek.jpg)}
+.p-dez{background-image:url(../../assets/avatar/portrait_crew_1.jpg)}
+.p-walt{background-image:url(../../assets/avatar/portrait_crew_2.jpg)}
+.p-mo{background-image:url(../../assets/avatar/portrait_crew_3.jpg)}
+.anchor{width:.7cqw;height:.7cqw;border-radius:50%;transform:translate(-50%,-50%)}
+@keyframes pulse{0%,100%{transform:translate(-50%,-50%) scale(1)}50%{transform:translate(-50%,-50%) scale(1.12)}}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes blink{50%{opacity:0}}
+@keyframes grain{0%{transform:translate(0,0)}25%{transform:translate(-2%,1%)}50%{transform:translate(1%,-2%)}75%{transform:translate(2%,2%)}100%{transform:translate(0,0)}}
+@keyframes slidein{from{transform:translateX(30%);opacity:0}to{transform:none;opacity:1}}
+@keyframes flick{0%,100%{opacity:1}92%{opacity:1}93%{opacity:.4}95%{opacity:1}97%{opacity:.6}}
+
+/* A: Plakat 1984 */
+.A .grain{inset:-10%;opacity:.13;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E");animation:grain .5s steps(4) infinite;pointer-events:none;mix-blend-mode:overlay}
+.A .lb{left:0;right:0;height:5.2cqw;background:#000}
+.A .lb.t{top:0}.A .lb.b{bottom:0}
+.A .shade{inset:0;background:linear-gradient(90deg,rgba(0,0,0,.92) 0%,rgba(0,0,0,.75) 34%,rgba(0,0,0,.1) 62%,rgba(0,0,0,0) 100%)}
+.A .emb{left:6cqw;top:9cqw;width:8.5cqw}
+.A .title{left:6cqw;top:18.6cqw;font:400 7.4cqw/.86 Anton,sans-serif;letter-spacing:.005em;text-transform:uppercase}
+.A .title small{display:block;font:700 1.2cqw/1 'Barlow Condensed';letter-spacing:.55em;color:rgba(255,255,255,.7);margin-top:1.3cqw}
+.A .menu{left:6cqw;top:29cqw;display:flex;flex-direction:column;gap:.55cqw}
+.A .menu div{font:400 2.5cqw/1.05 Anton,sans-serif;text-transform:uppercase;color:rgba(255,255,255,.45);display:flex;align-items:center;gap:1cqw}
+.A .menu div.on{color:#fff;transform:translateX(1.2cqw)}
+.A .menu div.on::before{content:'';width:1cqw;height:.3cqw;background:#fff;margin-left:-2.2cqw}
+.A .menu .code{font:700 1.4cqw/1 'Barlow Condensed';letter-spacing:.4em;border:1px solid rgba(255,255,255,.35);padding:.35cqw .6cqw;color:#fff}
+.A .crew{right:4cqw;bottom:7cqw;display:flex;gap:.8cqw}
+.A .crew div{width:6.4cqw;height:8.6cqw;filter:grayscale(1) contrast(1.1);opacity:.6;position:relative}
+.A .crew div.on{filter:none;opacity:1;outline:.22cqw solid #fff;outline-offset:.25cqw}
+.A .crew div span{position:absolute;left:0;right:0;bottom:-2cqw;text-align:center;font:400 1.15cqw/1 Anton;letter-spacing:.06em}
+.A .tag{right:4cqw;top:7cqw;font:400 1.4cqw/1 Anton;letter-spacing:.12em;color:rgba(255,255,255,.75);text-transform:uppercase}
+.A .leader{left:50%;top:50%;width:26cqw;height:26cqw;transform:translate(-50%,-50%);border-radius:50%;border:.3cqw solid rgba(255,255,255,.85)}
+.A .sweep{left:50%;top:50%;width:26cqw;height:26cqw;margin:-13cqw 0 0 -13cqw;border-radius:50%;background:conic-gradient(rgba(255,255,255,.28) 0 25%,transparent 25%);animation:spin 1s linear infinite}
+.A .cross1{left:50%;top:8cqw;bottom:8cqw;width:.15cqw;background:rgba(255,255,255,.5)}
+.A .cross2{top:50%;left:14cqw;right:14cqw;height:.15cqw;background:rgba(255,255,255,.5)}
+.A .num{left:50%;top:50%;transform:translate(-50%,-52%);font:400 15cqw/1 Anton}
+.A .ltxt{left:6cqw;bottom:8cqw;font:400 2.2cqw/1 Anton;letter-spacing:.06em;text-transform:uppercase}
+.A .ltxt small{display:block;font:600 1.1cqw/1.4 Barlow;letter-spacing:.02em;text-transform:none;color:var(--mute);margin-top:.6cqw;max-width:40cqw}
+.A .lbar{right:6cqw;bottom:8.6cqw;width:24cqw;height:.3cqw;background:rgba(255,255,255,.2)}
+.A .lbar i{position:absolute;inset:0 38% 0 0;background:#fff}
+.A .obj{left:3.2cqw;top:3cqw;font:400 2.1cqw/1 Anton;text-transform:uppercase;letter-spacing:.02em;text-shadow:0 .2cqw 1cqw rgba(0,0,0,.8)}
+.A .obj small{display:block;font:700 .85cqw/1 'Barlow Condensed';letter-spacing:.45em;color:rgba(255,255,255,.65);margin-bottom:.5cqw}
+.A .mk{transform:translate(-50%,-100%);display:flex;flex-direction:column;align-items:center}
+.A .mk .d{width:3.1cqw;height:3.1cqw;transform:rotate(45deg);border:.22cqw solid #fff;background:rgba(0,0,0,.55);display:grid;place-items:center;animation:none}
+.A .mk .d b{transform:rotate(-45deg);font:400 1.5cqw/1 Anton}
+.A .mk .l{margin-top:.9cqw;font:400 1.2cqw/1 Anton;letter-spacing:.08em;text-transform:uppercase;text-shadow:0 .1cqw .6cqw #000}
+.A .mk .stem{width:.12cqw;height:4.6cqw;background:linear-gradient(#fff,rgba(255,255,255,0))}
+.A .mk.g .d{border-color:#9dff6a;width:2cqw;height:2cqw}
+.A .mk.g .l{color:#9dff6a;font-size:1cqw}
+.A .mk.f{opacity:.45}
+.A .heat{right:3.2cqw;bottom:3cqw;display:flex;align-items:center;gap:.8cqw;font:700 .9cqw/1 'Barlow Condensed';letter-spacing:.35em}
+.A .heat i{display:block;width:12cqw;height:.32cqw;background:rgba(255,255,255,.2);position:relative}
+.A .heat i::after{content:'';position:absolute;inset:0 55% 0 0;background:#fff}
+.A .card{right:3.2cqw;top:3cqw;width:22cqw;background:rgba(0,0,0,.82);border-top:.35cqw solid #fff;padding:1.2cqw 1.3cqw;animation:slidein .6s ease-out both}
+.A .card small{display:block;font:700 .8cqw/1 'Barlow Condensed';letter-spacing:.4em;color:rgba(255,255,255,.6)}
+.A .card h3{font:400 1.9cqw/1 Anton;text-transform:uppercase;margin:.6cqw 0 .3cqw}
+.A .card p{font:500 1cqw/1.35 Barlow;color:var(--mute)}
+.A .card .pay{margin-top:.7cqw;font:400 1.5cqw/1 Anton;color:#fff}
+.A .map{left:3.2cqw;bottom:3cqw;width:13cqw;height:13cqw;border-radius:50%;background:rgba(0,0,0,.6);border:.15cqw solid rgba(255,255,255,.6);overflow:hidden}
+
+/* B: Sprzęt z filmu */
+.B .panel{left:0;top:0;bottom:0;width:38cqw;background:linear-gradient(160deg,#3a3d40,#1d1f21 60%,#151617);box-shadow:inset -.4cqw 0 0 #0c0d0e,.6cqw 0 2cqw rgba(0,0,0,.6)}
+.B .rivet{width:1cqw;height:1cqw;border-radius:50%;background:radial-gradient(circle at 35% 35%,#9aa0a6,#3c4044 60%,#1a1c1e)}
+.B .dymo{background:#111;color:#f4f4f4;font:700 1.35cqw/1 'Overpass Mono',monospace;letter-spacing:.14em;text-transform:uppercase;padding:.45cqw .9cqw .4cqw;border-radius:.25cqw;box-shadow:inset 0 .12cqw 0 rgba(255,255,255,.15),0 .2cqw .4cqw rgba(0,0,0,.6);text-shadow:0 -.08cqw 0 rgba(0,0,0,.9),0 .08cqw 0 rgba(255,255,255,.25)}
+.B .dymo.grn{background:#1d6b2a}
+.B .dymo.big{font-size:2.6cqw;padding:.8cqw 1.3cqw .7cqw}
+.B .ttl{left:4cqw;top:5cqw;transform:rotate(-1.2deg)}
+.B .bar{left:4cqw;top:11.5cqw;display:flex;gap:.35cqw}
+.B .bar i{width:1.3cqw;height:2.6cqw;border-radius:.2cqw;background:#2a2c2e;box-shadow:inset 0 0 .3cqw #000}
+.B .bar i.on{background:linear-gradient(#ffe48a,#ff9f1a);box-shadow:0 0 1cqw rgba(255,170,40,.8)}
+.B .bar i.on.r{background:linear-gradient(#ffe0a0,#ffb21a);box-shadow:0 0 1.4cqw rgba(255,190,40,.95)}
+.B .sw{left:4cqw;display:flex;align-items:center;gap:1.4cqw}
+.B .tg{width:2.6cqw;height:3.8cqw;border-radius:.5cqw;background:linear-gradient(#55595d,#25282a);position:relative;box-shadow:inset 0 0 .3cqw #000}
+.B .tg::after{content:'';position:absolute;left:.75cqw;width:1.1cqw;height:2cqw;border-radius:.5cqw;background:linear-gradient(90deg,#c8ccd0,#8a8f94);top:1.6cqw}
+.B .sw.on .tg::after{top:.2cqw}
+.B .led{width:.9cqw;height:.9cqw;border-radius:50%;background:#16301a}
+.B .sw.on .led{background:#7dff5a;box-shadow:0 0 .9cqw #7dff5a}
+.B .ids{right:3cqw;bottom:3cqw;display:flex;gap:1cqw}
+.B .id{width:9cqw;background:#e9e3d2;color:#222;padding:.5cqw;border-radius:.4cqw;transform:rotate(var(--r));box-shadow:0 .6cqw 1.6cqw rgba(0,0,0,.6)}
+.B .id .portrait{height:9cqw;border-radius:.2cqw}
+.B .id b{display:block;font:700 .9cqw/1.2 'Overpass Mono';margin-top:.4cqw;letter-spacing:.06em}
+.B .id.on{outline:.25cqw solid #7dff5a}
+.B .cyc{left:50%;top:44%;width:22cqw;height:22cqw;transform:translate(-50%,-50%);border-radius:50%;background:radial-gradient(circle,#191a1b 55%,#2b2d2f 56%,#121314 70%);box-shadow:0 0 0 .5cqw #333,0 1cqw 3cqw rgba(0,0,0,.8)}
+.B .cyc .ring{inset:0;position:absolute;animation:spin 1.3s steps(4) infinite}
+.B .cyc .ring i{position:absolute;width:3.6cqw;height:3.6cqw;border-radius:50%;background:radial-gradient(circle,#ffe2b0,#ff8a14 45%,#5a2a05 75%);box-shadow:0 0 2.5cqw #ff8a14}
+.B .cell{left:50%;bottom:9cqw;transform:translateX(-50%);display:flex;gap:.3cqw}
+.B .cell i{width:1.4cqw;height:1.8cqw;border-radius:.2cqw;background:#13202e}
+.B .cell i.on{background:linear-gradient(#bfe6ff,#3b9dff);box-shadow:0 0 1cqw #3b9dff}
+.B .ltag{left:50%;bottom:4cqw;transform:translateX(-50%) rotate(-.8deg)}
+.B .obj{left:3cqw;top:3cqw;transform:rotate(-1deg)}
+.B .mk{transform:translate(-50%,-100%);display:flex;flex-direction:column;align-items:center;gap:.6cqw}
+.B .mk .ring{width:3.6cqw;height:3.6cqw;border-radius:50%;border:.3cqw solid #ff9f1a;box-shadow:0 0 1.2cqw rgba(255,160,30,.7),inset 0 0 .8cqw rgba(255,160,30,.5);display:grid;place-items:center;font:700 1.5cqw/1 'Overpass Mono';background:rgba(0,0,0,.5)}
+.B .mk .stem{width:.15cqw;height:3.6cqw;background:linear-gradient(#ff9f1a,transparent)}
+.B .mk.g .ring{border-color:#7dff5a;box-shadow:0 0 1.2cqw rgba(120,255,90,.7);width:2.6cqw;height:2.6cqw;font-size:1cqw}
+.B .mk.f{opacity:.45}
+.B .wand{right:3cqw;bottom:3cqw;display:flex;flex-direction:column-reverse;gap:.25cqw;padding:.6cqw;background:#1a1b1c;border-radius:.4cqw;box-shadow:0 0 0 .2cqw #3a3c3e}
+.B .wand i{width:3cqw;height:.75cqw;border-radius:.15cqw;background:#1f2a1d}
+.B .wand i.on{background:#7dff5a;box-shadow:0 0 .6cqw #7dff5a}
+.B .wand i.on.y{background:#ffd23a;box-shadow:0 0 .6cqw #ffd23a}
+.B .memo{right:8cqw;top:3cqw;width:20cqw;background:#ffc6d6;color:#3a2228;padding:1cqw 1.2cqw;transform:rotate(2.5deg);box-shadow:0 .8cqw 2cqw rgba(0,0,0,.55);animation:slidein .6s ease-out both}
+.B .memo h4{font:700 1.15cqw/1 'Overpass Mono';letter-spacing:.08em;border-bottom:.12cqw solid #b06378;padding-bottom:.4cqw;margin-bottom:.5cqw}
+.B .memo p{font:700 1.75cqw/1.08 Caveat,cursive}
+.B .memo .f{font:600 .8cqw/1.4 'Overpass Mono';opacity:.75}
+
+/* C: VHS 1984 */
+.C .scan{inset:0;background:repeating-linear-gradient(0deg,rgba(0,0,0,.28) 0 2px,transparent 2px 4px);mix-blend-mode:multiply;pointer-events:none}
+.C .bleed{inset:0;background:inherit;filter:blur(2px) saturate(1.6);opacity:.35;mix-blend-mode:screen;transform:translateX(.4cqw)}
+.C .osd{font:400 2.4cqw/1 VT323,monospace;color:#fff;text-shadow:.15cqw 0 0 rgba(255,0,200,.7),-.15cqw 0 0 rgba(0,200,255,.7)}
+.C .play{left:4cqw;top:4cqw}
+.C .tc{right:4cqw;top:4cqw}
+.C .vt{left:6cqw;top:12cqw;font:400 8.2cqw/.85 Anton,sans-serif;text-transform:uppercase;background:linear-gradient(#fff 0%,#c9e3ff 45%,#2a3c66 50%,#ffd1e6 54%,#fff 100%);-webkit-background-clip:text;background-clip:text;color:transparent;-webkit-text-stroke:.12cqw rgba(255,255,255,.6);filter:drop-shadow(0 .3cqw 0 #ff3fa4) drop-shadow(0 .6cqw 1.2cqw rgba(255,63,164,.6))}
+.C .vsub{left:6.3cqw;top:21.5cqw;font:700 1.4cqw/1 'Barlow Condensed';letter-spacing:.6em;color:#ff6fa8}
+.C .vmenu{left:6cqw;top:27cqw;display:flex;flex-direction:column;gap:.4cqw}
+.C .vmenu div{font:400 3cqw/1 VT323;color:rgba(255,255,255,.55)}
+.C .vmenu div.on{color:#fff;background:#1d3fd1;padding:0 .8cqw;margin-left:-.8cqw}
+.C .vmenu div.on::after{content:'_';animation:blink 1s steps(1) infinite}
+.C .ch{right:4cqw;bottom:6cqw;display:flex;gap:1cqw}
+.C .ch div{width:7cqw;height:5.3cqw;border:.2cqw solid rgba(255,255,255,.5);position:relative;filter:saturate(.6) contrast(1.2)}
+.C .ch div.on{border-color:#fff;box-shadow:0 0 1.5cqw rgba(120,180,255,.7)}
+.C .ch div span{position:absolute;left:.4cqw;top:.2cqw;font:400 1.5cqw/1 VT323;text-shadow:0 0 .4cqw #000}
+.C .blue{inset:0;background:#1238c8}
+.C .noise{left:0;right:0;height:3cqw;background:repeating-linear-gradient(90deg,rgba(255,255,255,.6) 0 .3cqw,rgba(255,255,255,.1) .3cqw .9cqw);opacity:.5;animation:grain 1.2s steps(6) infinite}
+.C .lw{left:8cqw;top:30cqw}
+.C .lw div{font:400 3.4cqw/1.2 VT323;color:#fff}
+.C .obj{left:3cqw;top:3cqw;font:400 2.2cqw/1 VT323;color:#9dff6a;background:rgba(0,0,0,.55);padding:.3cqw .8cqw}
+.C .obj::after{content:'_';animation:blink 1s steps(1) infinite}
+.C .mk{transform:translate(-50%,-100%);display:flex;flex-direction:column;align-items:center}
+.C .mk .bx{font:400 2.2cqw/1 VT323;color:#fff;padding:.2cqw .7cqw;border:.2cqw solid #fff;background:rgba(18,56,200,.75);white-space:nowrap}
+.C .mk .stem{width:.15cqw;height:4cqw;background:#fff;opacity:.7}
+.C .mk.g .bx{background:rgba(0,0,0,.6);border-color:#9dff6a;color:#9dff6a;font-size:1.7cqw}
+.C .mk.f{opacity:.45}
+.C .term{right:3cqw;top:3cqw;width:25cqw;background:rgba(4,20,6,.88);border:.15cqw solid #2f6b2a;padding:1cqw;font:400 1.55cqw/1.15 VT323;color:#9dff6a;text-shadow:0 0 .5cqw rgba(140,255,100,.6);animation:slidein .6s ease-out both}
+.C .heat{right:3cqw;bottom:3cqw;font:400 1.9cqw/1 VT323;color:#fff}
+
+/* D: Czysty AAA */
+.D .shade{inset:0;background:linear-gradient(90deg,rgba(6,8,12,.9) 0%,rgba(6,8,12,.55) 38%,rgba(6,8,12,0) 65%),linear-gradient(0deg,rgba(6,8,12,.85),transparent 40%)}
+.D .t{left:5cqw;top:6cqw;font:800 6cqw/.9 'Barlow Condensed';letter-spacing:-.01em;text-transform:uppercase}
+.D .t small{display:block;font:600 1.1cqw/1 Barlow;letter-spacing:.3em;color:rgba(255,255,255,.65);margin-top:1cqw}
+.D .dm{left:5cqw;top:19cqw;display:flex;flex-direction:column;width:24cqw}
+.D .dm div{font:600 1.6cqw/1 Barlow;color:rgba(255,255,255,.62);padding:1.05cqw 1.2cqw;border-bottom:1px solid rgba(255,255,255,.1);display:flex;justify-content:space-between}
+.D .dm div.on{background:#fff;color:#0d0f12;border-radius:.6cqw;border:0}
+.D .dm div span{font-size:1.1cqw;opacity:.6}
+.D .wallet{right:4cqw;top:4cqw;display:flex;align-items:center;gap:1cqw;font:600 1.3cqw/1 Barlow;background:rgba(10,12,16,.55);backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,.12);border-radius:999px;padding:.7cqw 1.2cqw}
+.D .wallet b{font:700 1.5cqw/1 'Barlow Condensed';letter-spacing:.04em}
+.D .car{right:4cqw;bottom:4cqw;display:flex;gap:1cqw}
+.D .car div{width:8.5cqw;height:11cqw;border-radius:1cqw;position:relative;box-shadow:0 1cqw 2cqw rgba(0,0,0,.5);opacity:.7}
+.D .car div.on{opacity:1;outline:.25cqw solid #fff;outline-offset:.3cqw;transform:translateY(-.6cqw)}
+.D .car div span{position:absolute;left:0;right:0;bottom:0;padding:1.6cqw .6cqw .6cqw;border-radius:0 0 1cqw 1cqw;background:linear-gradient(transparent,rgba(0,0,0,.85));font:700 1.15cqw/1 'Barlow Condensed';letter-spacing:.08em;text-transform:uppercase}
+.D .blur{inset:-2%;background:inherit;filter:blur(1.4cqw) brightness(.55)}
+.D .dist{left:5cqw;bottom:9cqw;font:800 7cqw/.85 'Barlow Condensed';text-transform:uppercase}
+.D .dist small{display:block;font:600 1.1cqw/1 Barlow;letter-spacing:.3em;color:rgba(255,255,255,.6);margin-bottom:.8cqw}
+.D .tip{left:5cqw;bottom:4.5cqw;font:500 1.2cqw/1.4 Barlow;color:rgba(255,255,255,.75);max-width:44cqw}
+.D .ring{right:5cqw;bottom:4.5cqw;width:4.6cqw;height:4.6cqw;border-radius:50%;border:.35cqw solid rgba(255,255,255,.15);border-top-color:#fff;animation:spin .9s linear infinite}
+.D .mini{right:5cqw;top:5cqw;width:22cqw;height:14cqw;border-radius:1cqw;background:rgba(10,12,16,.5);border:1px solid rgba(255,255,255,.15);overflow:hidden}
+.D .obj{left:3cqw;top:3cqw;font:600 1.45cqw/1.25 Barlow;text-shadow:0 .1cqw .8cqw rgba(0,0,0,.7)}
+.D .obj small{display:block;font:700 .85cqw/1 Barlow;letter-spacing:.3em;color:rgba(255,255,255,.6);margin-bottom:.4cqw}
+.D .mk{transform:translate(-50%,-100%);display:flex;flex-direction:column;align-items:center}
+.D .mk .ic{width:2.8cqw;height:2.8cqw;transform:rotate(45deg);background:#fff;border-radius:.45cqw;box-shadow:0 .3cqw 1.2cqw rgba(0,0,0,.5);display:grid;place-items:center;position:static}
+.D .mk .icw{width:4cqw;height:4cqw;position:relative;display:grid;place-items:center;animation:beat 1.6s ease-in-out infinite}
+@keyframes beat{0%,100%{transform:scale(1)}50%{transform:scale(1.12)}}
+.D .mk .ic b{transform:rotate(-45deg);color:#0d0f12;font:800 1.35cqw/1 'Barlow Condensed'}
+.D .mk .l{margin-top:.5cqw;font:700 1.05cqw/1 Barlow;letter-spacing:.06em;text-transform:uppercase;background:rgba(10,12,16,.6);backdrop-filter:blur(8px);padding:.35cqw .7cqw;border-radius:999px;white-space:nowrap}
+.D .mk .l i{font-style:normal;opacity:.6;margin-left:.4cqw}
+.D .mk.g .ic{background:#7dff5a;width:2cqw;height:2cqw}
+.D .mk.f{opacity:.45}
+.D .noti{right:3cqw;top:3cqw;width:24cqw;display:flex;gap:1cqw;background:rgba(14,16,20,.72);backdrop-filter:blur(14px);border:1px solid rgba(255,255,255,.14);border-radius:1.2cqw;padding:1cqw;animation:slidein .6s ease-out both}
+.D .noti .av{width:3.6cqw;height:3.6cqw;border-radius:50%;background:linear-gradient(135deg,#ffd36b,#ff8a1a);color:#1a1206;display:grid;place-items:center;font:800 1.6cqw/1 'Barlow Condensed';flex:none}
+.D .noti small{font:700 .8cqw/1 Barlow;letter-spacing:.25em;color:rgba(255,255,255,.55)}
+.D .noti h4{font:700 1.35cqw/1.15 Barlow;margin:.3cqw 0}
+.D .noti p{font:500 1cqw/1.3 Barlow;color:rgba(255,255,255,.7)}
+.D .noti .acc{margin-top:.6cqw;font:700 .95cqw/1 Barlow;display:flex;gap:.6cqw;align-items:center}
+.D .noti .acc kbd{background:#fff;color:#0d0f12;border-radius:.35cqw;padding:.25cqw .5cqw;font:800 .9cqw/1 'Barlow Condensed'}
+.D .cr{left:50%;top:50%;width:5cqw;height:5cqw;margin:-2.5cqw 0 0 -2.5cqw;border-radius:50%;border:.25cqw solid rgba(255,255,255,.18);border-top-color:#ffd23a;border-right-color:#ffd23a;transform:rotate(-20deg)}
+.D .map{left:3cqw;bottom:3cqw;width:15cqw;height:15cqw;border-radius:1.2cqw;background:rgba(10,12,16,.6);backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,.14);overflow:hidden}
+.note{margin-top:10px;color:var(--mute);font-size:14px}
+</style>
+</head>
+<body>
+<div class="top">
+  <h1>Ghostbusters V2 · UI</h1>
+  <div class="tabs" id="tabs">
+    <button data-v="A" class="on"><b>1</b>Plakat 1984</button>
+    <button data-v="B"><b>2</b>Sprzęt z filmu</button>
+    <button data-v="C"><b>3</b>VHS 1984</button>
+    <button data-v="D"><b>4</b>Czysty AAA</button>
+  </div>
+  <span class="hint">Klawisze 1-4</span>
+</div>
+
+<section class="v A on" data-v="A">
+  <div class="vh"><h2>Plakat 1984</h2><p>Jak napisy i plakat z filmu: ogromne wąskie litery, czerń, biel i jedna czerwień, ziarno taśmy i czarne pasy kinowe. Znaczniki to białe romby z cienką nóżką wbitą w obiekt.</p></div>
+  <div class="cap">Menu</div>
+  <div class="frame bg-hero">
+    <div class="shade"></div>
+    <svg class="emb" viewBox="0 0 100 100"><circle cx="50" cy="50" r="46" fill="#fff"/><path d="M50 22c-11 0-19 8-19 19v4c-5 1-8 5-8 10 0 6 5 10 11 10h1v9c0 3 2 4 4 4s4-2 4-4v-6h2v8c0 3 2 4 4 4s4-2 4-4v-8h2v6c0 3 2 4 4 4s4-2 4-4V65h1c6 0 11-4 11-10 0-5-3-9-8-10v-4c0-11-8-19-19-19z" fill="#fff" stroke="#111" stroke-width="3"/><ellipse cx="43" cy="43" rx="4" ry="6" fill="#111"/><ellipse cx="58" cy="43" rx="4" ry="6" fill="#111"/><ellipse cx="51" cy="56" rx="6" ry="4" fill="#111"/><circle cx="50" cy="50" r="42" fill="none" stroke="#e8262b" stroke-width="8"/><line x1="21" y1="21" x2="79" y2="79" stroke="#e8262b" stroke-width="8"/></svg>
+    <div class="title">Ghostbusters<small>New York · 1984</small></div>
+    <div class="menu"><div class="on">Quick play</div><div>New room</div><div>Join <span class="code">K7QX</span></div><div>Firehouse</div><div>Settings</div></div>
+    <div class="tag">Who you gonna call?</div>
+    <div class="crew"><div class="portrait p-jurek on"><span>JUREK</span></div><div class="portrait p-dez"><span>DEZ</span></div><div class="portrait p-walt"><span>WALT</span></div><div class="portrait p-mo"><span>MO</span></div></div>
+    <div class="lb t"></div><div class="lb b"></div><div class="grain"></div>
+  </div>
+  <div class="cap">Ładowanie</div>
+  <div class="frame bg-street" style="filter:grayscale(.3)">
+    <div style="inset:0;background:rgba(0,0,0,.78)"></div>
+    <div class="cross1"></div><div class="cross2"></div>
+    <div class="sweep"></div><div class="leader"></div>
+    <div class="num">3</div>
+    <div class="ltxt">Tribeca, N Moore St<small>Never cross the streams. Unless the ghost is between them.</small></div>
+    <div class="lbar"><i></i></div>
+    <div class="lb t"></div><div class="lb b"></div><div class="grain"></div>
+  </div>
+  <div class="cap">W grze: znacznik przypięty do bagażnika Ecto-1</div>
+  <div class="frame bg-rear">
+    <div class="obj"><small>Objective</small>Suit up at the Ecto-1</div>
+    <div class="anchor" style="left:48.6%;top:52.9%;background:#fff"></div>
+    <div class="mk" style="left:48.6%;top:52.6%"><div class="d"><b>E</b></div><div class="l">Suit up</div><div class="stem"></div></div>
+    <div class="mk g" style="left:58.2%;top:41.5%"><div class="d"></div><div class="l">Onionhead 38 m</div></div>
+    <div class="mk f" style="left:38.3%;top:47.5%"><div class="d" style="width:2.2cqw;height:2.2cqw"><b style="font-size:1.1cqw">F</b></div><div class="l" style="font-size:.95cqw">Drive</div></div>
+    <div class="card"><small>Dispatch · 9:42 PM</small><h3>Sedgewick Hotel</h3><p>Madison Ave at 43rd. Something green is eating the banquet on the 12th floor.</p><div class="pay">$5,000 · Class 5</div></div>
+    <svg class="map" viewBox="0 0 100 100"><g stroke="rgba(255,255,255,.35)" stroke-width="5"><line x1="40" y1="0" x2="40" y2="100"/><line x1="72" y1="0" x2="72" y2="100"/><line x1="0" y1="55" x2="100" y2="55"/><line x1="0" y1="22" x2="100" y2="22"/></g><polyline points="50,50 40,55 40,22" fill="none" stroke="#9dff6a" stroke-width="3"/><polygon points="50,44 55,56 50,53 45,56" fill="#fff"/></svg>
+    <div class="heat">PACK<i></i></div>
+    <div class="grain"></div>
+  </div>
+</section>
+
+<section class="v B" data-v="B">
+  <div class="vh"><h2>Sprzęt z filmu</h2><p>Interfejs zrobiony ze sprzętu: metalowe panele plecaka, etykiety z drukarki Dymo, przełączniki, diody, wskaźnik ciepła jak bargraf na miotaczu, zlecenie od Janine na różowej karteczce „While You Were Out”.</p></div>
+  <div class="cap">Menu</div>
+  <div class="frame bg-hero">
+    <div class="panel"></div>
+    <div class="rivet" style="left:1.4cqw;top:1.4cqw"></div><div class="rivet" style="left:35.6cqw;top:1.4cqw"></div><div class="rivet" style="left:1.4cqw;bottom:1.4cqw"></div><div class="rivet" style="left:35.6cqw;bottom:1.4cqw"></div>
+    <div class="dymo big ttl">Ghostbusters</div>
+    <div class="bar"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on r"></i><i></i><i></i><i></i><i></i></div>
+    <div class="sw on" style="top:17cqw"><div class="tg"></div><div class="led"></div><div class="dymo">Quick play</div></div>
+    <div class="sw" style="top:22.6cqw"><div class="tg"></div><div class="led"></div><div class="dymo">New room</div></div>
+    <div class="sw" style="top:28.2cqw"><div class="tg"></div><div class="led"></div><div class="dymo">Join · K7QX</div></div>
+    <div class="sw" style="top:33.8cqw"><div class="tg"></div><div class="led"></div><div class="dymo">Firehouse</div></div>
+    <div class="sw" style="top:39.4cqw"><div class="tg"></div><div class="led"></div><div class="dymo">Settings</div></div>
+    <div class="ids"><div class="id on" style="--r:-2deg"><div class="portrait p-jurek"></div><b>JUREK</b></div><div class="id" style="--r:1.5deg"><div class="portrait p-dez"></div><b>DEZ</b></div><div class="id" style="--r:-1deg"><div class="portrait p-walt"></div><b>WALT</b></div><div class="id" style="--r:2deg"><div class="portrait p-mo"></div><b>MO</b></div></div>
+  </div>
+  <div class="cap">Ładowanie</div>
+  <div class="frame" style="background:linear-gradient(160deg,#2c2f32,#111214)">
+    <div class="cyc"><div class="ring"><i style="left:-1.8cqw;top:9.2cqw"></i><i style="right:-1.8cqw;top:9.2cqw;opacity:.25"></i><i style="left:9.2cqw;top:-1.8cqw;opacity:.25"></i><i style="left:9.2cqw;bottom:-1.8cqw;opacity:.25"></i></div></div>
+    <div class="cell"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+    <div class="dymo big ltag">Powering up · Tribeca</div>
+  </div>
+  <div class="cap">W grze: znacznik przypięty do bagażnika Ecto-1</div>
+  <div class="frame bg-rear">
+    <div class="dymo obj">Suit up at the Ecto-1</div>
+    <div class="anchor" style="left:48.6%;top:52.9%;background:#ff9f1a;box-shadow:0 0 .8cqw #ff9f1a"></div>
+    <div class="mk" style="left:48.6%;top:52.6%"><div class="ring">E</div><div class="dymo" style="font-size:1cqw">Suit up</div><div class="stem"></div></div>
+    <div class="mk g" style="left:58.2%;top:41.5%"><div class="ring">38</div><div class="dymo grn" style="font-size:.85cqw">PKE · Class 5</div></div>
+    <div class="mk f" style="left:38.3%;top:47.5%"><div class="ring" style="width:2.6cqw;height:2.6cqw;font-size:1.1cqw">F</div></div>
+    <div class="memo"><h4>WHILE YOU WERE OUT</h4><p>Sedgewick Hotel, 12th floor. Green thing eating the whole banquet!! $5,000</p><div class="f">FROM: JANINE · 9:42 PM · URGENT ✓</div></div>
+    <div class="wand"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on y"></i><i class="on y"></i><i></i><i></i><i></i></div>
+  </div>
+</section>
+
+<section class="v C" data-v="C">
+  <div class="vh"><h2>VHS 1984</h2><p>Jak kaseta z wypożyczalni: menu w napisach z magnetowidu (PLAY ▶, licznik taśmy), chromowany tytuł z lat 80, linie i rozmycie obrazu, Janine pisze do was na zielonym monitorze.</p></div>
+  <div class="cap">Menu</div>
+  <div class="frame bg-hero">
+    <div style="inset:0;background:linear-gradient(90deg,rgba(0,0,10,.85),rgba(0,0,10,.35) 55%,transparent)"></div>
+    <div class="osd play">PLAY ▶</div><div class="osd tc">SP 0:00:42</div>
+    <div class="vt">Ghostbusters</div>
+    <div class="vsub">NEW YORK CITY · 1984</div>
+    <div class="vmenu"><div class="on">QUICK PLAY</div><div>NEW ROOM</div><div>JOIN  K7QX</div><div>FIREHOUSE</div><div>SETTINGS</div></div>
+    <div class="ch"><div class="portrait p-jurek on"><span>CH 1</span></div><div class="portrait p-dez"><span>CH 2</span></div><div class="portrait p-walt"><span>CH 3</span></div><div class="portrait p-mo"><span>CH 4</span></div></div>
+    <div class="scan"></div>
+  </div>
+  <div class="cap">Ładowanie</div>
+  <div class="frame">
+    <div class="blue"></div>
+    <div class="noise" style="top:12cqw"></div><div class="noise" style="top:41cqw;opacity:.25"></div>
+    <div class="osd play">PLAY ▶</div><div class="osd tc">TRACKING</div>
+    <div class="lw"><div>LOADING  TRIBECA</div><div>██████████░░░░░░  62%</div><div style="font-size:2.2cqw;opacity:.8">TIP: CROSS THE STREAMS ONLY IF YOU MEAN IT</div></div>
+    <div class="scan"></div>
+  </div>
+  <div class="cap">W grze: znacznik przypięty do bagażnika Ecto-1</div>
+  <div class="frame bg-rear">
+    <div class="obj">&gt; SUIT UP AT THE ECTO-1</div>
+    <div class="anchor" style="left:48.6%;top:52.9%;background:#fff"></div>
+    <div class="mk" style="left:48.6%;top:52.6%"><div class="bx">[E] SUIT UP</div><div class="stem"></div></div>
+    <div class="mk g" style="left:58.2%;top:41.5%"><div class="bx">◄ ONIONHEAD 038M ►</div></div>
+    <div class="mk f" style="left:38.3%;top:47.5%"><div class="bx" style="font-size:1.5cqw">[F] DRIVE</div></div>
+    <div class="term">INCOMING CALL 21:42<br>&gt; SEDGEWICK HOTEL<br>&gt; MADISON AVE / 43RD ST<br>&gt; CLASS 5 FULL ROAMING VAPOR<br>&gt; FEE $5,000 <span style="animation:blink 1s steps(1) infinite">█</span></div>
+    <div class="heat">PACK ████░░░░</div>
+    <div class="scan"></div>
+  </div>
+</section>
+
+<section class="v D" data-v="D">
+  <div class="vh"><h2>Czysty AAA</h2><p>Jak Spider-Man i nowe gry: dużo powietrza, mleczne szkło, białe romby z odległością wbite w świat, dyskretna mapa z trasą GPS i powiadomienie od Janine jak telefon.</p></div>
+  <div class="cap">Menu</div>
+  <div class="frame bg-hero">
+    <div class="shade"></div>
+    <div class="t">Ghostbusters<small>NEW YORK · 1984</small></div>
+    <div class="dm"><div class="on">Quick play <span>1-4</span></div><div>New room <span>Code</span></div><div>Join <span>K7QX</span></div><div>Firehouse <span>Upgrades</span></div><div>Settings</div></div>
+    <div class="wallet">FIREHOUSE FUND <b>$12,400</b></div>
+    <div class="car"><div class="portrait p-jurek on"><span>Jurek</span></div><div class="portrait p-dez"><span>Dez</span></div><div class="portrait p-walt"><span>Walt</span></div><div class="portrait p-mo"><span>Mo</span></div></div>
+  </div>
+  <div class="cap">Ładowanie</div>
+  <div class="frame bg-street">
+    <div class="blur"></div>
+    <svg class="mini" viewBox="0 0 220 140"><g stroke="rgba(255,255,255,.3)" stroke-width="4"><line x1="60" y1="0" x2="60" y2="140"/><line x1="130" y1="0" x2="130" y2="140"/><line x1="190" y1="0" x2="190" y2="140"/><line x1="0" y1="40" x2="220" y2="40"/><line x1="0" y1="95" x2="220" y2="95"/></g><circle cx="130" cy="95" r="7" fill="#fff"/></svg>
+    <div class="dist"><small>NOW ENTERING</small>Tribeca</div>
+    <div class="tip">A wrangled ghost fights back. Pull the mouse against its tug to hold it, then slam it into the street.</div>
+    <div class="ring"></div>
+  </div>
+  <div class="cap">W grze: znacznik przypięty do bagażnika Ecto-1</div>
+  <div class="frame bg-rear">
+    <div class="obj"><small>OBJECTIVE</small>Suit up at the back of the Ecto-1</div>
+    <div class="anchor" style="left:48.6%;top:52.9%;background:#fff;box-shadow:0 0 .8cqw rgba(0,0,0,.6)"></div>
+    <div class="mk" style="left:48.6%;top:52.6%"><div class="icw"><div class="ic"><b>E</b></div></div><div class="l">Suit up <i>4 m</i></div><div style="width:.12cqw;height:3.4cqw;background:linear-gradient(#fff,transparent)"></div></div>
+    <div class="mk g" style="left:58.2%;top:41.5%"><div class="icw" style="width:3cqw;height:3cqw"><div class="ic"></div></div><div class="l">Onionhead <i>38 m</i></div></div>
+    <div class="mk f" style="left:38.3%;top:47.5%"><div class="icw" style="width:3cqw;height:3cqw;animation:none"><div class="ic" style="width:2cqw;height:2cqw"><b style="font-size:1cqw">F</b></div></div><div class="l">Drive</div></div>
+    <div class="noti"><div class="av">J</div><div><small>JANINE · NOW</small><h4>Sedgewick Hotel</h4><p>Madison Ave at 43rd. Something green is eating the banquet. Class 5, $5,000.</p><div class="acc"><kbd>T</kbd>Take the job</div></div></div>
+    <svg class="map" viewBox="0 0 100 100"><g stroke="rgba(255,255,255,.28)" stroke-width="6"><line x1="35" y1="0" x2="35" y2="100"/><line x1="75" y1="0" x2="75" y2="100"/><line x1="0" y1="60" x2="100" y2="60"/><line x1="0" y1="18" x2="100" y2="18"/></g><polyline points="50,58 35,60 35,18 75,18" fill="none" stroke="#7dff5a" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/><polygon points="50,50 56,63 50,59 44,63" fill="#fff"/></svg>
+    <div class="cr"></div>
+  </div>
+</section>
+
+<script>
+const tabs = document.querySelectorAll('#tabs button'), secs = document.querySelectorAll('.v');
+const show = (v) => { tabs.forEach((b) => b.classList.toggle('on', b.dataset.v === v)); secs.forEach((s) => s.classList.toggle('on', s.dataset.v === v)); try { localStorage.setItem('gb.uiv', v); } catch {} };
+tabs.forEach((b) => (b.onclick = () => show(b.dataset.v)));
+addEventListener('keydown', (e) => { const i = '1234'.indexOf(e.key); if (i >= 0) show('ABCD'[i]); });
+try { const v = localStorage.getItem('gb.uiv'); if (v) show(v); } catch {}
+</script>
+</body>
+</html>

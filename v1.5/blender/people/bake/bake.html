@@ -1,0 +1,202 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<base href="/">
+<title>Crowd anim bake</title>
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/" } }
+</script>
+</head>
+<body>
+<script type="module">
+// Bakes the pedestrian clip set (UAL retargeted through the game's Animator plus scripted overlays) into a bone-matrix animation texture.
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { Animator } from './src/game/anim.js';
+
+const FPS = 30;
+const CLIPS = [
+  { name: 'walk', src: 'Walk_Loop', measure: true },
+  { name: 'run', src: 'Jog_Fwd_Loop', measure: true },
+  { name: 'idle', src: 'Idle_Loop' },
+  { name: 'idle_fold', src: 'Idle_FoldArms_Loop' },
+  { name: 'talk', src: 'Idle_Talking_Loop', fx: 'talk' },
+  { name: 'look_up', src: 'Idle_Loop', fx: 'look_up' },
+  { name: 'point', src: 'Idle_Loop', fx: 'point' },
+  { name: 'scream', src: 'Idle_Loop', fx: 'scream' },
+  { name: 'cower', src: 'Crouch_Idle_Loop', fx: 'cower' },
+];
+
+const gltf = await new GLTFLoader().loadAsync('assets/people/ped_p01.glb');
+const root = gltf.scene;
+root.updateMatrixWorld(true);
+const bones = new Map();
+root.traverse((o) => { if (o.isBone) bones.set(o.name, o); });
+const rest = new Map(), rq = new Map(), rp = new Map();
+for (const [n, b] of bones) { rest.set(n, { p: b.position.clone(), q: b.quaternion.clone(), s: b.scale.clone() }); rq.set(n, b.getWorldQuaternion(new THREE.Quaternion())); rp.set(n, b.getWorldPosition(new THREE.Vector3())); }
+const d = { root, bones, rest, restWorldQ: rq, restWorldP: rp };
+const anim = await Animator.create(d);
+let mesh = null;
+root.traverse((o) => { if (o.isSkinnedMesh && o.name === 'Ped') mesh = o; });
+const skel = mesh.skeleton;
+const cols = skel.bones.map((b, i) => ({ name: b.name, i })).filter((c) => !c.name.startsWith('Hair_'));
+const NB = cols.length, W = NB * 3;
+const mixer = new THREE.AnimationMixer(root);
+const B = (n) => bones.get(n);
+const V1 = new THREE.Vector3(), V2 = new THREE.Vector3(), V3 = new THREE.Vector3(), Q1 = new THREE.Quaternion(), Q2 = new THREE.Quaternion();
+const X = new THREE.Vector3(1, 0, 0), Y = new THREE.Vector3(0, 1, 0), Z = new THREE.Vector3(0, 0, 1);
+const pos = (b) => b.getWorldPosition(new THREE.Vector3());
+
+function resetRest() {
+  for (const [n, b] of bones) { const r = rest.get(n); b.position.copy(r.p); b.quaternion.copy(r.q); b.scale.copy(r.s); }
+}
+function rotWorld(b, dq) {
+  b.getWorldQuaternion(Q1);
+  b.parent.getWorldQuaternion(Q2);
+  b.quaternion.copy(Q2.invert().multiply(dq.clone().multiply(Q1))).normalize();
+  b.updateMatrixWorld(true);
+}
+const axis = (ax, a) => new THREE.Quaternion().setFromAxisAngle(ax, a);
+function aim(b, child, dir) {
+  const p = pos(b), c = pos(child);
+  const cur = c.sub(p).normalize();
+  rotWorld(b, new THREE.Quaternion().setFromUnitVectors(cur, dir.clone().normalize()));
+}
+function ik(side, target, pole) {
+  const up = B(side + 'Arm'), lo = B(side + 'ForeArm'), hd = B(side + 'Hand');
+  const S = pos(up), E = pos(lo), H = pos(hd);
+  const a = E.distanceTo(S), b = H.distanceTo(E);
+  const tv = target.clone().sub(S); const dd = Math.min(Math.max(tv.length(), 0.05), (a + b) * 0.999);
+  const u = tv.normalize();
+  const w = pole.clone().sub(u.clone().multiplyScalar(pole.dot(u))).normalize();
+  const ca = (a * a + dd * dd - b * b) / (2 * a * dd), sa = Math.sqrt(Math.max(0, 1 - ca * ca));
+  const Ep = S.clone().add(u.clone().multiplyScalar(a * ca)).add(w.clone().multiplyScalar(a * sa));
+  aim(up, lo, Ep.clone().sub(S));
+  const Tp = S.clone().add(u.clone().multiplyScalar(dd));
+  aim(lo, hd, Tp.sub(pos(lo)));
+}
+function look(pitch, yaw = 0) {
+  rotWorld(B('Neck'), axis(X, -pitch * 0.4).multiply(axis(Y, yaw * 0.4)));
+  rotWorld(B('Head'), axis(X, -pitch * 0.6).multiply(axis(Y, yaw * 0.6)));
+}
+const jaw = (a) => rotWorld(B('Jaw'), axis(X, a));
+const eyeY = rp.get('LeftEye').y, eyeZ = rp.get('LeftEye').z, eyeX = Math.abs(rp.get('LeftEye').x);
+
+function overlay(fx, t, dur) {
+  const ph = (t / dur) * Math.PI * 2;
+  root.updateMatrixWorld(true);
+  if (fx === 'talk') {
+    jaw(0.13 * (0.5 + 0.5 * Math.sin(ph * 11)) * (0.55 + 0.45 * Math.sin(ph * 3 + 1)));
+  } else if (fx === 'look_up') {
+    rotWorld(B('Spine2'), axis(X, -0.09));
+    look(0.55 + 0.05 * Math.sin(ph), 0.32 * Math.sin(ph));
+    jaw(0.05 + 0.03 * Math.sin(ph * 2));
+  } else if (fx === 'point') {
+    rotWorld(B('Spine2'), axis(X, -0.05));
+    look(0.32 + 0.02 * Math.sin(ph * 2), -0.12);
+    const dir = new THREE.Vector3(-0.28, 0.48 + 0.03 * Math.sin(ph * 3), 1).normalize();
+    aim(B('RightArm'), B('RightForeArm'), dir);
+    aim(B('RightForeArm'), B('RightHand'), dir);
+    aim(B('RightHand'), B('RightHandMiddle1'), dir);
+    for (const k of ['1', '2', '3']) { const n = 'RightHandIndex' + k; B(n).quaternion.copy(rest.get(n).q); }
+    jaw(0.1 + 0.08 * Math.max(0, Math.sin(ph * 4)));
+  } else if (fx === 'scream') {
+    const tr = 0.025 * Math.sin(ph * 23) + 0.015 * Math.sin(ph * 37);
+    rotWorld(B('Spine1'), axis(X, -0.06 + tr));
+    rotWorld(B('Spine2'), axis(X, -0.08));
+    look(0.2 + tr, 0.06 * Math.sin(ph * 5));
+    root.updateMatrixWorld(true);
+    const hp = pos(B('Head')); const off = rp.get('LeftEye').clone().sub(rp.get('Head'));
+    for (const [s, sg] of [['Left', 1], ['Right', -1]]) {
+      const cheek = hp.clone().add(new THREE.Vector3(sg * (eyeX + 0.035), off.y - 0.06, off.z - 0.02));
+      ik(s, cheek.add(new THREE.Vector3(sg * 0.03, -0.09, 0.03)), new THREE.Vector3(sg * 0.7, -1, -0.1));
+    }
+    jaw(0.36 + 0.04 * Math.sin(ph * 7));
+  } else if (fx === 'cower') {
+    const tr = 0.02 * Math.sin(ph * 19) + 0.012 * Math.sin(ph * 31);
+    rotWorld(B('Spine2'), axis(X, 0.18 + tr));
+    look(-0.45, 0);
+    root.updateMatrixWorld(true);
+    const hp = pos(B('Head'));
+    for (const [s, sg] of [['Left', 1], ['Right', -1]]) {
+      const top = hp.clone().add(new THREE.Vector3(sg * 0.07, 0.17, 0.09));
+      ik(s, top, new THREE.Vector3(sg * 1, -0.3, 0.6));
+    }
+    jaw(0.12);
+  }
+  root.updateMatrixWorld(true);
+}
+
+const half = (v) => THREE.DataUtils.toHalfFloat(v);
+const rows = [], table = {};
+const M = new THREE.Matrix4();
+const report = {};
+let row = 0;
+for (const c of CLIPS) {
+  const src = anim.clips.get(c.src);
+  const dur = src.dur, n = Math.max(2, Math.round(dur * FPS));
+  mixer.stopAllAction();
+  const acts = [mixer.clipAction(src.lo), mixer.clipAction(src.up)];
+  for (const a of acts) { a.reset(); a.setLoop(THREE.LoopRepeat, Infinity); a.setEffectiveWeight(1); a.play(); }
+  const sample = (t) => {
+    resetRest();
+    for (const a of acts) a.time = t % dur;
+    mixer.update(0);
+    root.updateMatrixWorld(true);
+    if (c.fx) overlay(c.fx, t, dur);
+  };
+  sample(0); const h0 = pos(B('Hips'));
+  sample(dur - 1e-4); const h1 = pos(B('Hips'));
+  const drift = h1.sub(h0); drift.y = 0;
+  const feet = [];
+  for (let f = 0; f < n; f++) {
+    const t = (f / n) * dur;
+    sample(t);
+    const dx = -drift.x * (t / dur), dz = -drift.z * (t / dur);
+    const buf = new Float32Array(W * 4);
+    cols.forEach((cl, j) => {
+      M.multiplyMatrices(skel.bones[cl.i].matrixWorld, skel.boneInverses[cl.i]).multiply(mesh.bindMatrix);
+      const e = M.elements;
+      for (let r = 0; r < 3; r++) {
+        const o = (j * 3 + r) * 4;
+        buf[o] = e[r]; buf[o + 1] = e[4 + r]; buf[o + 2] = e[8 + r]; buf[o + 3] = e[12 + r] + (r === 0 ? dx : r === 2 ? dz : 0);
+      }
+    });
+    rows.push(buf);
+    if (c.measure) feet.push([pos(B('LeftToeBase')), pos(B('RightToeBase'))]);
+  }
+  let speed = 0;
+  if (c.measure) {
+    const v = [];
+    for (const k of [0, 1]) {
+      const ys = feet.map((p) => p[k].y), mn = Math.min(...ys);
+      for (let f = 0; f < n; f++) {
+        const a = feet[f][k], b = feet[(f + 1) % n][k];
+        if (a.y < mn + 0.012 && b.y < mn + 0.012) v.push(-(b.z - a.z) * n / dur);
+      }
+    }
+    v.sort((a, b) => a - b);
+    speed = v.length ? v[v.length >> 1] : 0;
+  }
+  table[c.name] = { row, frames: n, dur: +dur.toFixed(4), loop: true, speed: +speed.toFixed(3), src: c.src };
+  report[c.name] = { drift: [+drift.x.toFixed(3), +drift.z.toFixed(3)], speed: +speed.toFixed(3) };
+  row += n;
+}
+const H = rows.length;
+const out = new Uint16Array(W * H * 4);
+for (let r = 0; r < H; r++) { const b = rows[r]; for (let k = 0; k < b.length; k++) out[r * W * 4 + k] = half(b[k]); }
+const bytes = new Uint8Array(out.buffer);
+let bin = '';
+for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+const meta = {
+  version: 1, fps: FPS, format: 'rgba16f', width: W, height: H, bones: cols.map((c) => c.name),
+  layout: 'row = frame, texel x = bone*3 + k holds row k of the 3x4 bone matrix (bone.matrixWorld * boneInverse * bindMatrix, character root space, rig scale 1)',
+  clips: table,
+};
+window.__bake = { meta, b64: btoa(bin), report };
+</script>
+</body>
+</html>

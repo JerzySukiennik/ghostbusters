@@ -1,0 +1,618 @@
+{
+ "asset": "assets/landmarks/firehouse.glb",
+ "id": "firehouse",
+ "version": 2,
+ "name": "Ghostbusters Firehouse (Hook & Ladder 8, 14 N Moore St) as in Ghostbusters (1984)",
+ "frame": "glTF metres, +Y up. Front (N Moore St) faces +Z, Varick St side faces +X. Origin = front-centre of the whole lot (city mapdef FIREHOUSE box, 16 x 30 m) at sidewalk-top level (y=0 = garage floor = sidewalk top). The real-width firehouse (8.6 m, as in the film) stands on the Varick corner of the lot (x 3.7 +- 4.3); the rest of the lot (x -8 .. -0.6) is the 5-storey neighbour loft, part of this GLB. Node Building is translated +3.7 m in x; all empties below are given in the root (lot) frame.",
+ "source": "blender/landmarks/fh_build.py (Blender 4.5, regenerable), textures blender/landmarks/tex_gen.py",
+ "size": {
+  "lot_width": 16.0,
+  "lot_depth": 30.0,
+  "firehouse_width": 8.6,
+  "height_roof": 15.25,
+  "height_parapet": 16.34,
+  "neighbour_height": 18.700000000000003
+ },
+ "footprint": [
+  [
+   -8.0,
+   0.0
+  ],
+  [
+   8.0,
+   0.0
+  ],
+  [
+   8.0,
+   -30.0
+  ],
+  [
+   -8.0,
+   -30.0
+  ]
+ ],
+ "firehouse_footprint": [
+  [
+   -0.5999999999999996,
+   0.0
+  ],
+  [
+   8.0,
+   0.0
+  ],
+  [
+   8.0,
+   -30.0
+  ],
+  [
+   -0.5999999999999996,
+   -30.0
+  ]
+ ],
+ "frontDir": [
+  0,
+  0,
+  1
+ ],
+ "anchor": {
+  "note": "src/city/mapdef.js FIREHOUSE box [-31, -40.5, -15, -10.5], frontDir [0, 1]: root at the lot front-centre on the N Moore St property line, y = sidewalk top (SIDEWALK_H 0.15)",
+  "pos": [
+   -23.0,
+   0.15,
+   -10.5
+  ],
+  "yaw": 0.0
+ },
+ "driveway": {
+  "note": "kerb cut in front of the arch (world x); the arch is 3.5 m wide, centred at world x -19.3",
+  "x": [
+   -21.4,
+   -17.2
+  ],
+  "arch_centre_world": [
+   -19.3,
+   0.15,
+   -10.5
+  ]
+ },
+ "levels": {
+  "ground_floor": 0.0,
+  "ground_ceiling": 5.6,
+  "upper_floor": 6.0,
+  "upper_ceiling": 9.8,
+  "basement_floor": -3.6,
+  "basement_ceiling": -0.35,
+  "basement_z_range": [
+   -29.6,
+   -12.0
+  ],
+  "roof": 15.25
+ },
+ "interior_box": {
+  "x": [
+   -0.19999999999999973,
+   7.550000000000001
+  ],
+  "z": [
+   -29.6,
+   -0.6
+  ],
+  "note": "root (lot) frame"
+ },
+ "integration": {
+  "ground": "The GLB brings its own garage floor at y = 0 (sidewalk top) and a basement stair hole: the city must draw no lot/sidewalk surface and build no ground collider inside the lot footprint (world x -31..-15, z -40.5..-10.5; the firehouse part is world x -23.6..-15), otherwise the garage floor z-fights and the basement stair is capped.",
+  "materials": "Do not patch materials whose name contains Emit; DoorGlassEmit (garage door panes + fanlight) is meant to be emissive only, give it envMapIntensity 0 if a scene.environment is set.",
+  "signs": "X_SignEmit = lit No-Ghost lightbox (setSign), X_WinEmit = lit upper-floor windows (warm room cell), DoorGlassEmit = garage glass (setGarageGlow, ~0.07..0.3)."
+ },
+ "groups": {
+  "Exterior": "facades, cornices, windows (opaque night glass), roof, signs (SignEmit = lit No-Ghost lightbox, GHOSTBUSTERS board), bollards. Always visible. LOD: whole exterior is ~11362 tris.",
+  "Interior_Garage": "ground floor hall: Ecto bay, Janine, pole, stairs, columns, tin ceiling. Show when the camera is inside, or outside within ~60 m in front (+Z half-space) while a garage door is open.",
+  "Interior_Upper": "upper floor: bunk room + pole hole, office, Egon lab. Show only when the camera is inside the footprint.",
+  "Interior_Basement": "basement with the ECU. Show only when the camera is inside and below y=1.5 or in the rear (z < -15).",
+  "Colliders": "hidden convex hulls (Collider_*), <= 8-20 vertices each; build fixed Rapier convex hulls in the landmark frame. Door colliders are children of the door nodes (kinematic)."
+ },
+ "bakedLighting": {
+  "attribute": "COLOR_0 on meshes that carry a _TINT attribute (Garage_Mesh, Upper_Mesh, Basement_Mesh, ECU_Body, ECU_Lever_Mesh, ECU_SlotDoor_Mesh; materials I_*)",
+  "scale": 8.0,
+  "meaning": "B = COLOR_0.rgb * 8 multiplies the albedo (outgoing = albedo * B, i.e. three.js irradiance = PI * B). Use src/landmarks/index.js (patchBaked) which turns COLOR_0 into indirect irradiance instead of a base colour multiply; dynamic lights still add on top.",
+  "practicals": "garage: 5 globe pendants (GlobeEmit), Janine desk lamp; upper: 3 ceiling globes, office desk lamp, 2 fluorescent fixtures (TubeEmit) in the lab; basement: 2 fluorescent fixtures, monitor cabinet green lights. All baked; no real lights needed."
+ },
+ "doors": {
+  "GarageDoor_L": {
+   "hinge": [
+    1.95,
+    0.0,
+    -0.46
+   ],
+   "axis_local": [
+    0,
+    1,
+    0
+   ],
+   "open_deg": 92.0,
+   "note": "swing door leaf in the arch, hinged at the west jamb; positive rotation about +Y swings it inward (toward -Z)",
+   "size": [
+    1.75,
+    3.3000000000000003,
+    0.07
+   ]
+  },
+  "GarageDoor_R": {
+   "hinge": [
+    5.45,
+    0.0,
+    -0.46
+   ],
+   "axis_local": [
+    0,
+    1,
+    0
+   ],
+   "open_deg": -92.0,
+   "note": "east leaf, negative rotation swings it inward",
+   "size": [
+    1.75,
+    3.3000000000000003,
+    0.07
+   ]
+  },
+  "timing_s": {
+   "open": 2.2,
+   "close": 2.6,
+   "stagger_R": 0.25
+  },
+  "opening_clear_width": 3.5,
+  "opening_height_at_centre": 4.85,
+  "fixed_transom": "arched glazed fanlight above the leaves (DoorGlassEmit glows from inside, emissiveIntensity 0..2)"
+ },
+ "pole": {
+  "PoleTop": [
+   0.8,
+   6.0,
+   -8.6
+  ],
+  "PoleBottom": [
+   0.8,
+   0.0,
+   -8.6
+  ],
+  "radius": 0.045,
+  "note": "slide: feet from PoleTop (upper floor level) to PoleBottom (garage floor) along the brass pole axis, body offset ~0.3 m from the axis; enter from PoleEntry (gap in the brass guard rail, facing the pole); land facing PoleExit. Floor hole radius 0.42 m."
+ },
+ "ECU": {
+  "root": {
+   "position": [
+    3.25,
+    -3.6,
+    -12.75
+   ],
+   "quaternion_xyzw": [
+    -0.0,
+    -1.0,
+    0.0,
+    0.0
+   ]
+  },
+  "note": "Ecto Containment Unit on the basement front wall; ECU local +Z = out of the cabinet toward the player, +X = viewer's right",
+  "ECU_Slot": {
+   "position": [
+    3.25,
+    -2.615,
+    -12.5
+   ],
+   "quaternion_xyzw": [
+    0.0,
+    0.0,
+    -0.0,
+    1.0
+   ],
+   "note": "trap root pose when fully inserted (trap origin bottom-centre, trap front +Z points into the cabinet)"
+  },
+  "ECU_SlotOut": {
+   "position": [
+    3.25,
+    -2.615,
+    -13.1
+   ],
+   "quaternion_xyzw": [
+    0.0,
+    0.0,
+    -0.0,
+    1.0
+   ],
+   "note": "trap pose at the slot mouth before sliding in (same orientation); slide 0.6 m along ECU -Z"
+  },
+  "ECU_SlotDoor": {
+   "hinge": [
+    3.25,
+    -2.63,
+    -12.75
+   ],
+   "axis_local": [
+    1,
+    0,
+    0
+   ],
+   "open_deg": 95.0,
+   "note": "flap hinged at its bottom edge; positive rotation about local +X drops it outward/down"
+  },
+  "ECU_Lever": {
+   "pivot": [
+    2.73,
+    -2.35,
+    -12.81
+   ],
+   "axis_local": [
+    1,
+    0,
+    0
+   ],
+   "rest_deg": -12.0,
+   "pulled_deg": 115.0,
+   "note": "red-handled lever on the right of the slot; rotate about local +X from rest (-12, pointing up) to pulled (+115, pointing down toward the player)"
+  },
+  "ECU_LightEmit": {
+   "segments": 3,
+   "attribute": "_seg",
+   "map": {
+    "0": "red: caged lamp left + red indicator",
+    "1": "green: caged lamp right + green indicator",
+    "2": "amber indicator"
+   },
+   "note": "lens colours come from the emissive map (palette), drive with src/engine/segments.js segmentize(): set levels[0]=1 for red, levels[1]=1 for green"
+  },
+  "ECU_DoorEmit": {
+   "note": "glow around the slot door and inside the slot; ramp emissiveIntensity 0..4 while sealing"
+  },
+  "ECU_Light": {
+   "position": [
+    3.25,
+    -0.8,
+    -12.25
+   ],
+   "quaternion_xyzw": [
+    -0.0,
+    -1.0,
+    0.0,
+    0.0
+   ],
+   "note": "optional: a single real PointLight here (red/green, ~6 cd, range 6 m) while the lights flash"
+  },
+  "sequence_s": {
+   "slot_door_open": [
+    0.0,
+    0.5
+   ],
+   "insert": [
+    0.5,
+    1.3
+   ],
+   "slot_door_close": [
+    1.3,
+    1.7
+   ],
+   "lever_pull": [
+    1.8,
+    2.4
+   ],
+   "red_to_green": 2.6,
+   "door_glow": [
+    1.7,
+    2.8
+   ]
+  }
+ },
+ "empties": {
+  "JanineSeat": {
+   "position": [
+    0.32,
+    0.47,
+    -3.8
+   ],
+   "quaternion_xyzw": [
+    0.0,
+    0.70711,
+    -0.0,
+    0.70711
+   ],
+   "parent": "Interior_Garage",
+   "note": "Janine hips pose: seat surface centre at 0.47 m, facing +X (her desk, phone and computer)"
+  },
+  "AlarmBell": {
+   "position": [
+    -0.05,
+    3.35,
+    -4.0
+   ],
+   "quaternion_xyzw": [
+    0.0,
+    0.70711,
+    -0.0,
+    0.70711
+   ],
+   "parent": "Interior_Garage",
+   "note": "alarm bell sound source"
+  },
+  "EctoBay": {
+   "position": [
+    3.95,
+    0.0,
+    -7.25
+   ],
+   "quaternion_xyzw": [
+    0.0,
+    0.0,
+    -0.0,
+    1.0
+   ],
+   "parent": "Interior_Garage",
+   "note": "Ecto-1 root pose when parked (car front +Z toward the garage door)"
+  },
+  "PlayerSpawn": {
+   "position": [
+    2.15,
+    0.0,
+    -12.2
+   ],
+   "quaternion_xyzw": [
+    0.0,
+    0.0,
+    -0.0,
+    1.0
+   ],
+   "parent": "Interior_Garage",
+   "note": "player root pose inside the garage, left of the car behind the pole, facing the garage doors"
+  },
+  "PoleBottom": {
+   "position": [
+    0.8,
+    0.0,
+    -8.6
+   ],
+   "quaternion_xyzw": [
+    0.0,
+    0.0,
+    -0.0,
+    1.0
+   ],
+   "parent": "Interior_Garage",
+   "note": "pole axis at garage floor"
+  },
+  "PoleExit": {
+   "position": [
+    1.4,
+    0.0,
+    -7.85
+   ],
+   "quaternion_xyzw": [
+    0.0,
+    0.70711,
+    -0.0,
+    0.70711
+   ],
+   "parent": "Interior_Garage",
+   "note": "player root after landing"
+  },
+  "StairBottom": {
+   "position": [
+    0.375,
+    0.0,
+    -10.6
+   ],
+   "quaternion_xyzw": [
+    -0.0,
+    -1.0,
+    0.0,
+    0.0
+   ],
+   "parent": "Interior_Garage",
+   "note": "foot of the main stair (garage)"
+  },
+  "BasementStairTop": {
+   "position": [
+    6.975,
+    0.0,
+    -24.9
+   ],
+   "quaternion_xyzw": [
+    0.0,
+    0.0,
+    -0.0,
+    1.0
+   ],
+   "parent": "Interior_Basement",
+   "note": "top of the steel basement stair (garage rear)"
+  },
+  "GarageDoorOutside": {
+   "position": [
+    3.7,
+    0.0,
+    2.5
+   ],
+   "quaternion_xyzw": [
+    -0.0,
+    -1.0,
+    0.0,
+    0.0
+   ],
+   "parent": "Building",
+   "note": "just outside the arch on the sidewalk, facing the doors"
+  },
+  "GarageDoorInside": {
+   "position": [
+    3.7,
+    0.0,
+    -1.5
+   ],
+   "quaternion_xyzw": [
+    0.0,
+    0.0,
+    -0.0,
+    1.0
+   ],
+   "parent": "Interior_Garage",
+   "note": "just inside the doors"
+  },
+  "PoleTop": {
+   "position": [
+    0.8,
+    6.0,
+    -8.6
+   ],
+   "quaternion_xyzw": [
+    0.0,
+    0.0,
+    -0.0,
+    1.0
+   ],
+   "parent": "Interior_Upper",
+   "note": "pole axis at upper floor level"
+  },
+  "PoleEntry": {
+   "position": [
+    0.0639,
+    6.0,
+    -8.175
+   ],
+   "quaternion_xyzw": [
+    0.0,
+    -0.5,
+    -0.0,
+    0.86603
+   ],
+   "parent": "Interior_Upper",
+   "note": "player stands here (upper floor) facing the pole to grab it"
+  },
+  "StairTop": {
+   "position": [
+    0.375,
+    6.0,
+    -18.56
+   ],
+   "quaternion_xyzw": [
+    -0.0,
+    -1.0,
+    0.0,
+    0.0
+   ],
+   "parent": "Interior_Upper",
+   "note": "top of the main stair (upper floor)"
+  },
+  "OfficeDesk": {
+   "position": [
+    5.65,
+    6.0,
+    -15.4
+   ],
+   "quaternion_xyzw": [
+    0.0,
+    0.0,
+    -0.0,
+    1.0
+   ],
+   "parent": "Interior_Upper",
+   "note": "Venkman's desk chair"
+  },
+  "UpgradeBench": {
+   "position": [
+    6.3,
+    6.0,
+    -22.1
+   ],
+   "quaternion_xyzw": [
+    0.0,
+    0.70711,
+    -0.0,
+    0.70711
+   ],
+   "parent": "Interior_Upper",
+   "note": "player root pose at Egon's lab bench (upgrade shop), facing the bench (+X)"
+  },
+  "ECU_Front": {
+   "position": [
+    3.25,
+    -3.6,
+    -13.65
+   ],
+   "quaternion_xyzw": [
+    0.0,
+    0.0,
+    -0.0,
+    1.0
+   ],
+   "parent": "Interior_Basement",
+   "note": "player root pose in front of the ECU, facing it"
+  },
+  "BasementStairBottom": {
+   "position": [
+    6.975,
+    -3.6,
+    -21.1
+   ],
+   "quaternion_xyzw": [
+    -0.0,
+    -1.0,
+    0.0,
+    0.0
+   ],
+   "parent": "Interior_Basement",
+   "note": "foot of the basement stair"
+  }
+ },
+ "colliders": {
+  "count": 76,
+  "names_prefix": "Collider_",
+  "note": "convex hulls; Collider_GarageDoor_L/R are children of the door nodes"
+ },
+ "stats": {
+  "triangles": {
+   "exterior": 11362,
+   "garage": 15829,
+   "upper": 11806,
+   "basement": 4446,
+   "doors": 532,
+   "total": 43975
+  },
+  "glb_mb": 13.2,
+  "materials": 24,
+  "material_names": [
+   "DoorGlassEmit",
+   "ECU_DoorEmit",
+   "ECU_LightEmit",
+   "I_Atlas",
+   "I_Block",
+   "I_Conc",
+   "I_Diamond",
+   "I_Floor",
+   "I_Glazed",
+   "I_Grunge",
+   "I_LightEmit",
+   "I_Metal",
+   "I_Oak",
+   "I_PanelEmit",
+   "I_Tin",
+   "I_TubeEmit",
+   "X_Atlas",
+   "X_Brick",
+   "X_CBrick",
+   "X_Glass",
+   "X_Paint",
+   "X_SignEmit",
+   "X_Stone",
+   "X_WinEmit"
+  ]
+ },
+ "audio_emitters": {
+  "AlarmBell": "the brass fire alarm bell on the wall behind Janine (ring when a call comes in)",
+  "ECU": "containment unit hum, insert, lever, seal"
+ },
+ "log": [
+  "[fh] geometry built 4.9s",
+  "[bake] 70373 corners -> 29093 samples, 17 lights",
+  "[bake] direct 26.0s",
+  "[bake] bounce 32.5s",
+  "[bake] buried samples filled 5475",
+  "[bake] done 62.4s, B mean 0.356 max 77.05",
+  "[fh] triangles {'exterior': 11362, 'garage': 15829, 'upper': 11806, 'basement': 4446, 'doors': 532, 'total': 43975}"
+ ]
+}

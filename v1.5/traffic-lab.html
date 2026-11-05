@@ -1,0 +1,299 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Traffic lab</title>
+<style>
+html,body{margin:0;height:100%;background:#000;overflow:hidden;font:12px/1.4 -apple-system,system-ui,sans-serif;color:#cfd3d6}
+#view{position:fixed;inset:0}
+#view canvas{width:100%;height:100%;display:block}
+#hud{position:fixed;left:10px;top:8px;white-space:pre;pointer-events:none;text-shadow:0 1px 2px #000;opacity:.88}
+#help{position:fixed;left:10px;bottom:8px;pointer-events:none;opacity:.6}
+#bench{position:fixed;right:10px;top:8px;background:#1b1e22cc;color:#d8dde2;border:1px solid #444;border-radius:4px;padding:5px 10px;font:12px system-ui;cursor:pointer}
+.hide{display:none}
+</style>
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/",
+  "rapier": "https://cdn.jsdelivr.net/npm/@dimforge/rapier3d-compat@0.19.3/rapier.mjs" } }
+</script>
+</head>
+<body>
+<div id="view"></div>
+<div id="hud"></div>
+<button id="bench">bench</button>
+<div id="help">drag orbit · WASD/QE fly · F drive test car (WASD, space brake) · H siren · R ram nearest car · G ghost · P pedestrian · C clear · B bench · 1-6 cameras</div>
+<script type="module">
+import * as THREE from 'three';
+import RAPIER from 'rapier';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { Renderer } from './src/engine/renderer.js';
+import { AudioSys } from './src/engine/audio.js';
+import { createTraffic } from './src/traffic/index.js';
+
+const P = new URLSearchParams(location.search);
+const quality = P.get('q') || 'medium';
+const hudOn = P.get('hud') !== '0';
+if (!hudOn) for (const id of ['hud', 'help', 'bench']) document.getElementById(id).classList.add('hide');
+
+await RAPIER.init();
+const world = new RAPIER.World({ x: 0, y: -9.81, z: 0 });
+world.timestep = 1 / 60;
+const view = document.getElementById('view');
+const R = new Renderer(view);
+R.setPreset(quality);
+const renderer = R.renderer;
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(58, innerWidth / innerHeight, 0.05, 1200);
+R.build(scene, camera);
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true; controls.dampingFactor = 0.12; controls.maxDistance = 600;
+
+const CAMS = {
+  1: [[16, 9, 30], [0, 0.5, 0]],
+  2: [[3.5, 1.5, 26], [-1, 1.2, -10]],
+  3: [[-14, 2.2, 12], [4, 0.6, -4]],
+  4: [[0, 120, 0.1], [0, 0, 0]],
+  5: [[9, 1.2, -18], [-2, 1.0, 12]],
+  6: [[-24, 14, -26], [0, 0, 2]],
+};
+const setCam = (k) => { const c = CAMS[k] || CAMS[1]; camera.position.set(...c[0]); controls.target.set(...c[1]); controls.update(); };
+setCam(P.get('cam') || 1);
+if (P.get('pos')) { const v = P.get('pos').split(',').map(Number); camera.position.set(...v); }
+if (P.get('look')) { const v = P.get('look').split(',').map(Number); controls.target.set(...v); controls.update(); }
+
+const t0 = performance.now();
+let stage = null, city = null, stageName = P.get('stage') || 'auto';
+if (stageName !== 'plate' && stageName !== 'map') {
+  try {
+    const m = await import('./src/city/index.js');
+    if (m.createCity) { city = await m.createCity({ THREE, RAPIER, world, scene, renderer, camera, quality, seed: 1984 }); stage = city; stageName = 'city'; }
+  } catch (e) { if (stageName === 'city') console.warn('[lab] city failed', e); city = null; }
+}
+let mapRoads = null;
+if (!stage && stageName === 'map') {
+  const map = await (await fetch('assets/city/map.json')).json();
+  mapRoads = map.roads;
+  scene.background = new THREE.Color(0x06080d);
+  scene.fog = new THREE.FogExp2(0x0a0c12, 0.0085);
+  scene.add(new THREE.HemisphereLight(0x8a96b8, 0x2a2420, 0.9));
+  const [x0, z0, x1, z1] = map.bounds, W = x1 - x0, D = z1 - z0;
+  const road = new THREE.Mesh(new THREE.PlaneGeometry(W, D).rotateX(-Math.PI / 2).translate((x0 + x1) / 2, 0, (z0 + z1) / 2), new THREE.MeshStandardMaterial({ color: 0x17181b, roughness: 0.92 }));
+  scene.add(road);
+  const { mergeGeometries } = await import('three/addons/utils/BufferGeometryUtils.js');
+  const gs = [];
+  for (const b of map.blocks) { const sh = new THREE.Shape(b.kerb.map((p) => new THREE.Vector2(p[0], -p[1]))); gs.push(new THREE.ShapeGeometry(sh).rotateX(-Math.PI / 2).translate(0, map.sidewalkH || 0.15, 0)); }
+  const walk = new THREE.Mesh(mergeGeometries(gs), new THREE.MeshStandardMaterial({ color: 0x34353a, roughness: 0.95 }));
+  gs.forEach((g) => g.dispose());
+  scene.add(walk);
+  const fixed = world.createRigidBody(RAPIER.RigidBodyDesc.fixed());
+  world.createCollider(RAPIER.ColliderDesc.cuboid(W / 2, 0.5, D / 2).setTranslation((x0 + x1) / 2, -0.5, (z0 + z1) / 2).setCollisionGroups(((0x0001 << 16) | 0xffff) >>> 0), fixed);
+  stage = { update() {}, spawns: { ecto: { pos: new THREE.Vector3(17.6, 0, 4.64), yaw: -1.57 } }, lights: null };
+}
+if (!stage) {
+  const m = await import('./src/world/plate.js');
+  stage = await m.createPlate({ THREE, RAPIER, world, scene, renderer, camera, quality });
+  stageName = 'plate';
+}
+const audio = new AudioSys();
+await audio.load();
+addEventListener('pointerdown', () => audio.unlock(), { once: true });
+addEventListener('keydown', () => audio.unlock(), { once: true });
+
+const ectoSpawn = stage.spawns?.ecto?.pos || new THREE.Vector3(8.75, 0, 24.5);
+const traffic = await createTraffic({
+  THREE, RAPIER, world, scene, audio, quality,
+  city: city || null,
+  roads: mapRoads || undefined,
+  lamps: city ? undefined : stage.lights?.uniforms,
+  bounds: city || mapRoads ? null : [-56, -56, 56, 56],
+  spawnRange: city || mapRoads ? undefined : [24, 70],
+  avoid: [[ectoSpawn.x, ectoSpawn.z, 9]],
+  cars: P.get('cars') ? +P.get('cars') : (city || mapRoads ? undefined : 12),
+});
+const loadMs = performance.now() - t0;
+
+const car = { root: new THREE.Group(), siren: false, body: null, on: false, steer: 0 };
+car.root.name = 'TestCar';
+scene.add(car.root);
+try {
+  const g = await new GLTFLoader().loadAsync('assets/ecto1/ecto1.glb');
+  g.scene.traverse((o) => { if (o.isMesh) { if (/^Collider/.test(o.name) || /^Collider/.test(o.parent?.name || '')) o.visible = false; o.castShadow = true; } });
+  car.root.add(g.scene);
+} catch { car.root.add(new THREE.Mesh(new THREE.BoxGeometry(2.1, 1.5, 6.2).translate(0, 1.0, 0), new THREE.MeshStandardMaterial({ color: 0xeeeeee, roughness: 0.4 }))); }
+const beacon = new THREE.PointLight(0xff2a20, 0, 18, 2);
+beacon.position.set(0, 2.2, 0.6);
+car.root.add(beacon);
+function placeCar(x, z, yaw) {
+  if (car.body) world.removeRigidBody(car.body);
+  car.body = world.createRigidBody(RAPIER.RigidBodyDesc.dynamic().setTranslation(x, 0.05, z).setRotation({ x: 0, y: Math.sin(yaw / 2), z: 0, w: Math.cos(yaw / 2) }).setLinearDamping(0.15).setAngularDamping(2.5).setCcdEnabled(true));
+  const cg = ((0x0008 << 16) | 0xffff) >>> 0;
+  world.createCollider(RAPIER.ColliderDesc.cuboid(1.0, 0.55, 3.05).setTranslation(0, 0.95, 0).setMass(900).setFriction(0).setFrictionCombineRule(RAPIER.CoefficientCombineRule.Min).setCollisionGroups(cg), car.body);
+  world.createCollider(RAPIER.ColliderDesc.cuboid(0.85, 0.16, 2.6).setTranslation(0, 0.2, 0).setMass(1700).setFriction(0).setFrictionCombineRule(RAPIER.CoefficientCombineRule.Min).setCollisionGroups(cg), car.body);
+}
+placeCar(ectoSpawn.x, ectoSpawn.z, stage.spawns?.ecto?.yaw ?? Math.PI);
+
+const keys = new Set();
+addEventListener('keydown', (e) => {
+  keys.add(e.code);
+  if (e.code === 'KeyF') car.on = !car.on;
+  if (e.code === 'KeyH') car.siren = !car.siren;
+  if (e.code === 'KeyG') spawnGhost();
+  if (e.code === 'KeyP') ped.on = !ped.on;
+  if (e.code === 'KeyC') traffic.clear();
+  if (e.code === 'KeyB') runBench();
+  if (e.code === 'KeyR') ram();
+  if (/^Digit[1-6]$/.test(e.code)) { car.on = false; setCam(e.code.slice(5)); }
+});
+addEventListener('keyup', (e) => keys.delete(e.code));
+
+const ghost = { on: false, t: 0, mesh: new THREE.Mesh(new THREE.SphereGeometry(0.9, 18, 12), new THREE.MeshBasicMaterial({ color: new THREE.Color(0.4, 2.2, 0.5) })), pos: new THREE.Vector3(), radius: 1, scary: true };
+ghost.mesh.visible = false; scene.add(ghost.mesh);
+function spawnGhost() { ghost.on = true; ghost.t = 0; ghost.mesh.visible = true; }
+const ped = { on: P.get('ped') === '1', pos: new THREE.Vector3(), mesh: new THREE.Mesh(new THREE.CapsuleGeometry(0.28, 1.2, 4, 8).translate(0, 0.9, 0), new THREE.MeshStandardMaterial({ color: 0xc8a070 })) };
+scene.add(ped.mesh);
+
+const auto = P.get('drive');
+function ram() {
+  const back = P.get('ram') === 'rear', d = back ? 13 : 20;
+  const [bx0, bz0, bx1, bz1] = traffic.net.bounds, tg = controls.target;
+  const clear = (x, z) => {
+    if (x < bx0 + 8 || x > bx1 - 8 || z < bz0 + 8 || z > bz1 - 8) return false;
+    for (const o of traffic.cars) if (o.state !== 'off' && Math.hypot(o.object3D.position.x - x, o.object3D.position.z - z) < 7) return false;
+    const pk = traffic.parked;
+    for (let i = 0; i < pk.n; i++) if (Math.hypot(pk.x[i] - x, pk.z[i] - z) < 4) return false;
+    return true;
+  };
+  const cands = [];
+  for (const c of traffic.cars) {
+    if (c.state !== 'drive' || c.speed < 1.5) continue;
+    const o = c.object3D, q = o.quaternion, yaw = 2 * Math.atan2(q.y, q.w);
+    const x = o.position.x + Math.sin(yaw) * (back ? -d : d), z = o.position.z + Math.cos(yaw) * (back ? -d : d);
+    if (clear(x, z)) cands.push({ c, x, z, yaw, k: o.position.distanceToSquared(tg) });
+  }
+  if (!cands.length) return false;
+  const p = cands.reduce((a, b) => (a.k < b.k ? a : b));
+  const ry = back ? p.yaw : p.yaw + Math.PI;
+  placeCar(p.x, p.z, ry);
+  const v0 = back ? p.c.speed + 6 : 6;
+  car.body.setLinvel({ x: Math.sin(ry) * v0, y: 0, z: Math.cos(ry) * v0 }, true);
+  car.ram = p.c;
+  car.ramT = 0;
+  return true;
+}
+if (P.get('siren') === '1') car.siren = true;
+const tmpV = new THREE.Vector3(), fwd = new THREE.Vector3(), right = new THREE.Vector3(), camOff = new THREE.Vector3();
+function driveCar(dt, t) {
+  if (!car.body) return;
+  const tr = car.body.translation(), rq = car.body.rotation();
+  car.root.position.set(tr.x, tr.y, tr.z);
+  car.root.quaternion.set(rq.x, rq.y, rq.z, rq.w);
+  let thr = 0, st = 0, brk = keys.has('Space');
+  if (car.on) { thr = (keys.has('KeyW') ? 1 : 0) - (keys.has('KeyS') ? 0.6 : 0); st = (keys.has('KeyA') ? 1 : 0) - (keys.has('KeyD') ? 1 : 0); }
+  if (auto && t > +(P.get('at') || 2)) { thr = 1; st = 0; }
+  if (car.ram) {
+    car.ramT += dt;
+    const o = car.ram.object3D.position, dx = o.x - tr.x, dz = o.z - tr.z;
+    const fy = 2 * Math.atan2(rq.y, rq.w);
+    let da = Math.atan2(dx, dz) - fy;
+    da = Math.atan2(Math.sin(da), Math.cos(da));
+    thr = 1; st = Math.max(-1, Math.min(1, da * 3));
+    if (car.ramT > 5) car.ram = null;
+  }
+  const lv = car.body.linvel();
+  fwd.set(0, 0, 1).applyQuaternion(car.root.quaternion); fwd.y = 0; fwd.normalize();
+  right.set(-fwd.z, 0, fwd.x);
+  const vf = lv.x * fwd.x + lv.z * fwd.z, vr = lv.x * right.x + lv.z * right.z;
+  const vmax = +(P.get('vmax') || (car.ram ? 22 : 16));
+  let nvf = vf + (thr * 7 - (brk ? Math.sign(vf) * 12 : 0) - vf * 0.15) * dt;
+  if (thr > 0 && nvf > vmax) nvf = vmax;
+  if (brk && Math.abs(nvf) < 0.5) nvf = 0;
+  const nvr = vr * 0.8;
+  car.body.setLinvel({ x: fwd.x * nvf + right.x * nvr, y: lv.y, z: fwd.z * nvf + right.z * nvr }, true);
+  car.steer += (st * 0.55 - car.steer) * Math.min(1, dt * 6);
+  const av = car.body.angvel();
+  car.body.setAngvel({ x: av.x, y: car.steer * nvf / 3.4, z: av.z }, true);
+  beacon.intensity = car.siren ? (Math.sin(t * 12) > 0 ? 40 : 4) : 0;
+}
+
+const focusPt = new THREE.Vector3(), focus = [focusPt, new THREE.Vector3()];
+const hud = document.getElementById('hud');
+let last = performance.now(), frames = 0, acc = 0, fps = 0, simT = 0, readyFrames = 0, physAcc = 0;
+const ectoProxy = { root: car.root, get siren() { return car.siren; }, get body() { return car.body; } };
+function frame(now) {
+  const dt = Math.min(0.05, (now - last) / 1000);
+  last = now; simT += dt;
+  if (!car.on && keys.size) {
+    camera.getWorldDirection(fwd); right.crossVectors(fwd, camera.up).normalize();
+    const sp = (keys.has('ShiftLeft') ? 30 : 10) * dt, mv = tmpV.set(0, 0, 0);
+    if (keys.has('KeyW')) mv.add(fwd); if (keys.has('KeyS')) mv.sub(fwd);
+    if (keys.has('KeyD')) mv.add(right); if (keys.has('KeyA')) mv.sub(right);
+    if (keys.has('KeyE')) mv.y += 1; if (keys.has('KeyQ')) mv.y -= 1;
+    mv.multiplyScalar(sp); camera.position.add(mv); controls.target.add(mv);
+  }
+  driveCar(dt, simT);
+  physAcc = Math.min(physAcc + dt, 4 / 60);
+  while (physAcc >= 1 / 60) { world.step(); physAcc -= 1 / 60; }
+  if (car.on || P.get('follow') === '1') {
+    camOff.set(0, 3.2, -10).applyQuaternion(car.root.quaternion);
+    camera.position.lerp(tmpV.copy(car.root.position).add(camOff), Math.min(1, dt * 4));
+    controls.target.copy(car.root.position).add(tmpV.set(0, 1.2, 0));
+  }
+  controls.update();
+  focusPt.set(controls.target.x, 0, controls.target.z);
+  focus[1].copy(car.root.position);
+  if (ghost.on) {
+    ghost.t += dt;
+    ghost.pos.set(-14 + ghost.t * 7, 1.6 + Math.sin(ghost.t * 3) * 0.4, -2 + Math.sin(ghost.t) * 3);
+    ghost.mesh.position.copy(ghost.pos);
+    if (ghost.t > 4.5) { ghost.on = false; ghost.mesh.visible = false; }
+  }
+  ped.mesh.visible = ped.on;
+  if (ped.on) { ped.pos.set(controls.target.x, 0, controls.target.z); ped.mesh.position.copy(ped.pos); }
+  const fl = ped.on ? [ped.pos, focus[1]] : focus;
+  traffic.update(dt, { focus: fl, time: simT, ecto: ectoProxy, ghosts: ghost.on ? [ghost] : [], camera });
+  stage.update(dt, { focus: fl });
+  audio.update(camera);
+  R.render(simT, dt);
+  if (!window.__ready && ++readyFrames >= 6) window.__ready = true;
+  frames++; acc += dt;
+  if (acc > 0.5) {
+    fps = frames / acc; frames = 0; acc = 0;
+    const s = traffic.stats;
+    const sig = traffic.net.signals.length ? traffic.signal(traffic.net.signals.reduce((a, b) => (Math.hypot(a.node.x, a.node.z) < Math.hypot(b.node.x, b.node.z) ? a : b)).id) : '-';
+    if (hudOn) hud.textContent = `traffic lab  ${stageName}  ${quality}  ${fps.toFixed(0)} fps  calls ${renderer.info.render.calls}  tris ${(renderer.info.render.triangles / 1000).toFixed(0)}k  load ${(loadMs / 1000).toFixed(1)} s\n` +
+      `traffic  ${s.ms.toFixed(2)} ms avg  ${s.msMax.toFixed(2)} max  cars ${s.active}  parked ${s.parkedDrawn} (bodies ${s.parkedBodies})  draws ${s.calls}  tris ${(s.tris / 1000).toFixed(0)}k  glows ${s.glows}\n` +
+      `signal ${sig}  siren ${car.siren ? 'ON' : 'off'}  ${car.on ? 'DRIVING' : 'orbit'}  states ${traffic.cars.map((c) => c.state[0]).join('')}`;
+  }
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame((n) => { last = n; requestAnimationFrame(frame); });
+
+async function runBench(n = 300) {
+  const ms = [];
+  const upd = traffic.update;
+  for (let i = 0; i < n; i++) {
+    simT += 1 / 60;
+    const a = performance.now();
+    upd(1 / 60, { focus, time: simT, ecto: ectoProxy, ghosts: [], camera });
+    ms.push(performance.now() - a);
+    world.step();
+  }
+  ms.sort((a, b) => a - b);
+  renderer.info.reset();
+  R.render(simT, 1 / 60);
+  const out = { n, p50: +ms[n >> 1].toFixed(3), p95: +ms[Math.floor(n * 0.95)].toFixed(3), max: +ms[n - 1].toFixed(3), cars: traffic.stats.active, parkedDrawn: traffic.stats.parkedDrawn, parkedBodies: traffic.stats.parkedBodies, trafficDraws: traffic.stats.calls, trafficTris: traffic.stats.tris, frameCalls: renderer.info.render.calls, frameTris: renderer.info.render.triangles, loadMs: Math.round(loadMs), stage: stageName };
+  console.log('[bench]', JSON.stringify(out));
+  hud.textContent += '\nbench ' + JSON.stringify(out);
+  return out;
+}
+document.getElementById('bench').onclick = () => runBench();
+if (P.get('ram')) { const tryRam = () => { if (!ram()) setTimeout(tryRam, 150); }; setTimeout(tryRam, +(P.get('at') || 2) * 1000); }
+window.__lab = { THREE, scene, camera, renderer, world, traffic, car, stage, setCam, runBench, controls, placeCar, ghost, spawnGhost, ped, ram };
+window.__bench = runBench;
+</script>
+</body>
+</html>

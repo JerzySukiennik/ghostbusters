@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>City lab</title>
+<style>
+html,body{margin:0;height:100%;background:#000;overflow:hidden;font:12px/1.4 -apple-system,system-ui,sans-serif;color:#cfd3d6}
+#view{position:fixed;inset:0}
+#view canvas{width:100%;height:100%;display:block}
+#hud{position:fixed;left:10px;top:8px;white-space:pre;pointer-events:none;text-shadow:0 1px 2px #000;opacity:.85}
+#help{position:fixed;left:10px;bottom:8px;pointer-events:none;opacity:.6}
+#load{position:fixed;inset:0;display:grid;place-items:center;font-size:14px;letter-spacing:.08em}
+.hide{display:none}
+</style>
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/",
+  "rapier": "https://cdn.jsdelivr.net/npm/@dimforge/rapier3d-compat@0.19.3/rapier.mjs" } }
+</script>
+</head>
+<body>
+<div id="view"></div>
+<div id="load">LOADING CITY</div>
+<div id="hud"></div>
+<div id="help">drag look · WASD fly · QE down/up · shift fast · 1-9 places · T top view · H hud</div>
+<script type="module">
+import * as THREE from 'three';
+import RAPIER from 'rapier';
+import { Renderer } from './src/engine/renderer.js';
+import { createCity } from './src/city/index.js';
+const P = new URLSearchParams(location.search);
+const quality = P.get('q') || 'medium';
+await RAPIER.init();
+const world = new RAPIER.World({ x: 0, y: -9.81, z: 0 });
+world.timestep = 1 / 60;
+const R = new Renderer(document.getElementById('view'));
+R.setPreset(quality);
+const renderer = R.renderer;
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(62, innerWidth / innerHeight, 0.05, 1600);
+R.build(scene, camera);
+const PLACES = {
+  corner: [[11.6, 1.75, 31], [2, 2.2, -20]],
+  firehouse: [[-10, 1.8, 2], [-23, 6, -14]],
+  varick: [[3, 1.75, -150], [0, 3, -400]],
+  above: [[60, 70, 90], [-20, 0, -120]],
+  canal: [[0, 1.8, -330], [-60, 3, -330]],
+  wtc: [[-120, 2, 360], [-200, 80, 520]],
+  battery: [[-60, 2, 690], [-200, 0, 760]],
+  river: [[-330, 4, -60], [-1200, 0, -60]],
+  bridge: [[480, 6, 260], [900, 40, 320]],
+};
+const look = { yaw: 0, pitch: 0 };
+function setCam(name) {
+  const c = PLACES[name] || PLACES.corner;
+  camera.position.set(...c[0]);
+  const d = new THREE.Vector3(...c[1]).sub(camera.position).normalize();
+  look.yaw = Math.atan2(-d.x, -d.z);
+  look.pitch = Math.asin(d.y);
+}
+setCam(P.get('cam') || 'corner');
+if (P.get('pos')) { const v = P.get('pos').split(',').map(Number); camera.position.set(v[0], v[1], v[2]); }
+const applyLook = () => camera.quaternion.setFromEuler(new THREE.Euler(look.pitch, look.yaw, 0, 'YXZ'));
+applyLook();
+const t0 = performance.now();
+const loadEl = document.getElementById('load');
+const city = await createCity({ THREE, RAPIER, world, scene, renderer, camera, quality, onProgress: (k, t) => { loadEl.textContent = `${t.toUpperCase()} ${Math.round(k * 100)}%`; } });
+const loadMs = performance.now() - t0;
+loadEl.classList.add('hide');
+const keys = new Set();
+let drag = null, hudOn = P.get('hud') !== '0', top = false;
+if (!hudOn) document.getElementById('hud').classList.add('hide');
+renderer.domElement.addEventListener('pointerdown', (e) => { drag = [e.clientX, e.clientY]; renderer.domElement.setPointerCapture(e.pointerId); });
+renderer.domElement.addEventListener('pointermove', (e) => {
+  if (!drag) return;
+  look.yaw -= (e.clientX - drag[0]) * 0.004;
+  look.pitch = Math.max(-1.5, Math.min(1.5, look.pitch - (e.clientY - drag[1]) * 0.004));
+  drag = [e.clientX, e.clientY];
+  applyLook();
+});
+addEventListener('pointerup', () => (drag = null));
+addEventListener('keydown', (e) => {
+  keys.add(e.code);
+  const n = parseInt(e.key, 10);
+  if (n >= 1 && n <= 9) { setCam(Object.keys(PLACES)[n - 1]); applyLook(); }
+  if (e.code === 'KeyT') { top = !top; if (top) { camera.position.y = 420; look.pitch = -1.5; } else { camera.position.y = 1.8; look.pitch = 0; } applyLook(); }
+  if (e.code === 'KeyH') { hudOn = !hudOn; document.getElementById('hud').classList.toggle('hide', !hudOn); document.getElementById('help').classList.toggle('hide', !hudOn); }
+});
+addEventListener('keyup', (e) => keys.delete(e.code));
+const hud = document.getElementById('hud');
+const fw = new THREE.Vector3(), rt = new THREE.Vector3();
+let simT = 0, last = performance.now(), fpsT = 0, frames = 0, fps = 0, hudT = 0;
+function step(dt) {
+  const sp = (keys.has('ShiftLeft') || keys.has('ShiftRight') ? 60 : 12) * dt;
+  camera.getWorldDirection(fw); rt.crossVectors(fw, camera.up).normalize();
+  if (keys.has('KeyW')) camera.position.addScaledVector(fw, sp);
+  if (keys.has('KeyS')) camera.position.addScaledVector(fw, -sp);
+  if (keys.has('KeyD')) camera.position.addScaledVector(rt, sp);
+  if (keys.has('KeyA')) camera.position.addScaledVector(rt, -sp);
+  if (keys.has('KeyE')) camera.position.y += sp;
+  if (keys.has('KeyQ')) camera.position.y = Math.max(0.4, camera.position.y - sp);
+  simT += dt;
+  city.update(dt);
+  world.step();
+}
+function info() {
+  const r = renderer.info.render;
+  return { calls: r.calls, tris: r.triangles, programs: renderer.info.programs.length, textures: renderer.info.memory.textures, geometries: renderer.info.memory.geometries, loadMs: Math.round(loadMs), ...city.stats() };
+}
+function frame() {
+  const now = performance.now(), dt = Math.min(0.05, (now - last) / 1000);
+  last = now;
+  step(dt);
+  R.render(simT, dt);
+  frames++; fpsT += dt;
+  if (fpsT > 0.5) { fps = frames / fpsT; frames = 0; fpsT = 0; }
+  hudT -= dt;
+  if (hudOn && hudT <= 0) {
+    hudT = 0.25;
+    const p = camera.position, s = city.surfaceAt(p.x, p.z), I = info();
+    hud.textContent = `${fps.toFixed(0)} fps  ${quality}\ncalls ${I.calls}  tris ${(I.tris / 1000).toFixed(0)}k  prog ${I.programs}\nchunks A ${I.chunksA}  B ${I.chunksB}  col ${I.colliders}  lamps ${I.lamps}  shops ${I.shops}\npos ${p.x.toFixed(0)}, ${p.y.toFixed(1)}, ${p.z.toFixed(0)}  ${s?.kind || ''} ${s?.street || ''}\nload ${(loadMs / 1000).toFixed(1)} s`;
+  }
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+window.__lab = { THREE, scene, camera, renderer, R, world, city, setCam: (n) => { setCam(n); applyLook(); }, look, applyLook, info };
+window.__bench = (n = 60, dt = 1 / 60, move = null) => {
+  let worst = 0, sum = 0;
+  for (let i = 0; i < n; i++) {
+    if (move) camera.position.add(new THREE.Vector3(...move).multiplyScalar(dt));
+    const t = performance.now(); step(dt); const s = performance.now() - t; worst = Math.max(worst, s); sum += s;
+    R.render(simT, dt);
+  }
+  return { ...info(), stepAvg: +(sum / n).toFixed(2), stepWorst: +worst.toFixed(1) };
+};
+window.__snap = (w = 640) => {
+  R.render(simT, 1 / 60);
+  const c = renderer.domElement, k = w / c.width, o = document.createElement('canvas');
+  o.width = w; o.height = Math.round(c.height * k);
+  o.getContext('2d').drawImage(c, 0, 0, o.width, o.height);
+  return o.toDataURL('image/jpeg', 0.8);
+};
+window.__gpu = async (n = 60) => {
+  const gl = renderer.getContext(), ext = gl.getExtension('EXT_disjoint_timer_query_webgl2');
+  if (!ext) return -1;
+  for (let i = 0; i < 10; i++) { step(1 / 60); R.render(simT, 1 / 60); }
+  gl.finish();
+  const qs = [];
+  for (let i = 0; i < n; i++) { step(1 / 60); const q = gl.createQuery(); gl.beginQuery(ext.TIME_ELAPSED_EXT, q); R.render(simT, 1 / 60); gl.endQuery(ext.TIME_ELAPSED_EXT); qs.push(q); }
+  gl.finish();
+  await new Promise((r) => setTimeout(r, 250));
+  const ms = qs.filter((q) => gl.getQueryParameter(q, gl.QUERY_RESULT_AVAILABLE)).map((q) => gl.getQueryParameter(q, gl.QUERY_RESULT) / 1e6).sort((a, b) => a - b);
+  return { median: +ms[ms.length >> 1]?.toFixed(2), p90: +ms[Math.floor(ms.length * 0.9)]?.toFixed(2), n: ms.length };
+};
+</script>
+</body>
+</html>

@@ -1,0 +1,332 @@
+{
+ "file": "jurek_gb.glb",
+ "version": "1.0",
+ "skeleton": {
+  "root": "Jurek.Rig",
+  "joints": 92,
+  "rig": "v1 Jurek.Rig (Avatar/Output/full-v1, A-pose rest), no extra bones",
+  "jointNames": [
+   "Hips",
+   "Spine",
+   "Spine1",
+   "Spine2",
+   "Neck",
+   "Head",
+   "Jaw",
+   "LeftEye",
+   "RightEye",
+   "Hair_Root",
+   "Hair_Fringe_A_1",
+   "Hair_Fringe_A_2",
+   "Hair_Fringe_A_3",
+   "Hair_Fringe_A_4",
+   "Hair_Fringe_B_1",
+   "Hair_Fringe_B_2",
+   "Hair_Fringe_B_3",
+   "Hair_Fringe_B_4",
+   "Hair_Fringe_C_1",
+   "Hair_Fringe_C_2",
+   "Hair_Fringe_C_3",
+   "Hair_Fringe_C_4",
+   "Hair_Side_L_1",
+   "Hair_Side_L_2",
+   "Hair_Side_L_3",
+   "Hair_Side_L_4",
+   "Hair_Side_R_1",
+   "Hair_Side_R_2",
+   "Hair_Side_R_3",
+   "Hair_Side_R_4",
+   "Hair_Back_L_1",
+   "Hair_Back_L_2",
+   "Hair_Back_L_3",
+   "Hair_Back_L_4",
+   "Hair_Back_C_1",
+   "Hair_Back_C_2",
+   "Hair_Back_C_3",
+   "Hair_Back_C_4",
+   "Hair_Back_R_1",
+   "Hair_Back_R_2",
+   "Hair_Back_R_3",
+   "Hair_Back_R_4",
+   "Hair_Top_1",
+   "Hair_Top_2",
+   "Hair_Top_3",
+   "Hair_Top_4",
+   "LeftShoulder",
+   "LeftArm",
+   "LeftForeArm",
+   "LeftHand",
+   "LeftHandIndex1",
+   "LeftHandIndex2",
+   "LeftHandIndex3",
+   "LeftHandMiddle1",
+   "LeftHandMiddle2",
+   "LeftHandMiddle3",
+   "LeftHandRing1",
+   "LeftHandRing2",
+   "LeftHandRing3",
+   "LeftHandLittle1",
+   "LeftHandLittle2",
+   "LeftHandLittle3",
+   "LeftHandThumb1",
+   "LeftHandThumb2",
+   "LeftHandThumb3",
+   "RightShoulder",
+   "RightArm",
+   "RightForeArm",
+   "RightHand",
+   "RightHandIndex1",
+   "RightHandIndex2",
+   "RightHandIndex3",
+   "RightHandMiddle1",
+   "RightHandMiddle2",
+   "RightHandMiddle3",
+   "RightHandRing1",
+   "RightHandRing2",
+   "RightHandRing3",
+   "RightHandLittle1",
+   "RightHandLittle2",
+   "RightHandLittle3",
+   "RightHandThumb1",
+   "RightHandThumb2",
+   "RightHandThumb3",
+   "LeftUpLeg",
+   "LeftLeg",
+   "LeftFoot",
+   "LeftToeBase",
+   "RightUpLeg",
+   "RightLeg",
+   "RightFoot",
+   "RightToeBase"
+  ]
+ },
+ "units": "metres, Y up, faces +Z, left = +X",
+ "triangles": {
+  "Body": 3752,
+  "Head": 9627,
+  "EyeL": 906,
+  "EyeR": 906,
+  "Hair": 5352,
+  "Suit": 15948,
+  "Boots": 2013,
+  "Belt": 1476,
+  "NameTag": 172,
+  "Patch": 308,
+  "Harness": 3496,
+  "total": 43956
+ },
+ "meshes": {
+  "Body": "neck and hands only (regions under the suit removed)",
+  "Head": "head, teeth, lashes, brows; morph targets kept",
+  "EyeL": "child of joint LeftEye",
+  "EyeR": "child of joint RightEye",
+  "Hair": "alpha-tested cards",
+  "Suit": "one material atlas: suit, collar, lapels, tee, zips, cuffs, elbow pads; doubleSided",
+  "Boots": "black paratrooper boots",
+  "Belt": "pistol belt with black hardware",
+  "NameTag": "own 0..1 UV rectangle (u across 110 mm, v up 30 mm); paint the nickname into a CanvasTexture with aspect about 11:3",
+  "Patch": "No-Ghost patch, wearer right upper arm",
+  "Harness": "ALICE straps, chest strap, waist strap as worn; hidden by default (extras.hiddenByDefault)"
+ },
+ "morphTargets": [
+  "eyeBlinkLeft",
+  "eyeBlinkRight",
+  "jawOpen",
+  "mouthSmileLeft",
+  "mouthSmileRight",
+  "corr_eyeBlinkArcLeft",
+  "corr_eyeBlinkArcRight",
+  "mouthClose",
+  "browInnerUp",
+  "browDownLeft",
+  "browDownRight",
+  "eyeSquintLeft",
+  "eyeSquintRight",
+  "eyeWideLeft",
+  "eyeWideRight",
+  "mouthFunnel",
+  "mouthPucker",
+  "cheekSquintLeft",
+  "cheekSquintRight"
+ ],
+ "clips": {
+  "don_pack": {
+   "duration": 5.7,
+   "fps": 30,
+   "loop": false
+  },
+  "fire_ready": {
+   "duration": 2.0,
+   "fps": 30,
+   "loop": true
+  },
+  "fire_aim": {
+   "duration": 2.0,
+   "fps": 30,
+   "loop": true
+  },
+  "wrangle": {
+   "duration": 2.4,
+   "fps": 30,
+   "loop": true
+  },
+  "throw_trap": {
+   "duration": 2.0,
+   "fps": 30,
+   "loop": false
+  },
+  "stomp_pedal": {
+   "duration": 1.4,
+   "fps": 30,
+   "loop": false
+  },
+  "celebrate": {
+   "duration": 2.6,
+   "fps": 30,
+   "loop": false
+  }
+ },
+ "events": {
+  "don_pack": {
+   "grab": 0.62,
+   "lift": 0.8,
+   "strapR": 1.72,
+   "strapL": 2.78,
+   "buckle": 4.12,
+   "wandDraw": 4.7,
+   "powerUp": 5.24
+  },
+  "throw_trap": {
+   "release": 1.02
+  },
+  "stomp_pedal": {
+   "contact": 0.62
+  }
+ },
+ "harnessShowAt": 2.78,
+ "carriers": {
+  "PackCarrier": "ProtonPack root pose",
+  "WandCarrier": "Wand root pose",
+  "TrapCarrier": "Trap root pose; in throw_trap free flight after release"
+ },
+ "nominalGrab": {
+  "PackCarrier": {
+   "position": [
+    0,
+    1.06,
+    0.55
+   ],
+   "rotationY_deg": 180
+  }
+ },
+ "packWorn": {
+  "bone": "Spine2",
+  "position": [
+   0.0,
+   -0.072018,
+   -0.136332
+  ],
+  "quaternion": [
+   0.042266,
+   -0.0,
+   0.0,
+   0.999106
+  ]
+ },
+ "wandGrip": {
+  "fire_ready": {
+   "bone": "RightHand",
+   "position": [
+    -0.0,
+    0.066,
+    0.024
+   ],
+   "quaternion": [
+    0.692292,
+    0.143988,
+    0.692291,
+    0.143988
+   ]
+  },
+  "fire_aim": {
+   "bone": "RightHand",
+   "position": [
+    0.0,
+    0.066,
+    0.024
+   ],
+   "quaternion": [
+    0.692291,
+    0.143988,
+    0.692292,
+    0.143988
+   ]
+  },
+  "wrangle": {
+   "bone": "RightHand",
+   "position": [
+    0.0,
+    0.066,
+    0.024
+   ],
+   "quaternion": [
+    0.692291,
+    0.143988,
+    0.692291,
+    0.143988
+   ]
+  }
+ },
+ "leftHandIK": {
+  "target": "Wand/GripFront",
+  "leftPalmCentreInLeftHand": [
+   0.0,
+   0.066,
+   0.024
+  ],
+  "note": "left palm centre = LeftHand joint origin + this offset; place it on Wand GripFront",
+  "gripFrontInLeftPalm": {
+   "fire_ready": {
+    "position": [
+     0.0,
+     -0.002995,
+     0.01162
+    ],
+    "quaternion": [
+     -0.433135,
+     0.433135,
+     0.558922,
+     0.558922
+    ]
+   },
+   "fire_aim": {
+    "position": [
+     0.0,
+     -0.002995,
+     0.01162
+    ],
+    "quaternion": [
+     -0.433135,
+     0.433135,
+     0.558922,
+     0.558922
+    ]
+   },
+   "wrangle": {
+    "position": [
+     -0.01652,
+     0.048819,
+     0.046765
+    ],
+    "quaternion": [
+     -0.433135,
+     0.433135,
+     0.558922,
+     0.558922
+    ]
+   }
+  }
+ },
+ "groundContact": "boot soles at y = 0 in the rest pose",
+ "source": "blender/avatar (build_all.sh), refit guide blender/avatar/SUIT-REFIT.md"
+}

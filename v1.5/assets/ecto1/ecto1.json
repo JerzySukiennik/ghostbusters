@@ -1,0 +1,565 @@
+{
+ "asset": "assets/ecto1/ecto1.glb",
+ "version": 1,
+ "frame": "glTF metres, +Y up, front = +Z, driver side (US left) = +X, origin on the ground (tyre contact) under the middle of the wheelbase",
+ "source": "blender/ecto1/build_ecto1.py (Blender 4.5, regenerable), textures blender/ecto1/make_textures.py",
+ "dimensions": {
+  "length": 6.32,
+  "width_body": 2.04,
+  "height_roof": 1.68,
+  "height_overall_rack": 2.638,
+  "front_overhang": 0.82,
+  "rear_overhang": 1.538
+ },
+ "wheelbase": 3.962,
+ "track_front": 1.55,
+ "track_rear": 1.55,
+ "wheel_radius": 0.36,
+ "wheel_width": 0.21,
+ "mass_kg": 2650,
+ "ride_height": 0.285,
+ "ground_clearance_min": 0.2,
+ "center_of_mass": [
+  0.0,
+  0.66,
+  -0.149
+ ],
+ "wheels": {
+  "Wheel_FL": {
+   "position": [
+    0.775,
+    0.36,
+    1.981
+   ],
+   "spin_axis_local": [
+    1,
+    0,
+    0
+   ],
+   "forward_roll_sign": "positive rotation about local +X rolls the car forward (+Z)"
+  },
+  "Wheel_FR": {
+   "position": [
+    -0.775,
+    0.36,
+    1.981
+   ],
+   "spin_axis_local": [
+    1,
+    0,
+    0
+   ],
+   "forward_roll_sign": "positive rotation about local +X rolls the car forward (+Z)"
+  },
+  "Wheel_RL": {
+   "position": [
+    0.775,
+    0.36,
+    -1.981
+   ],
+   "spin_axis_local": [
+    1,
+    0,
+    0
+   ],
+   "forward_roll_sign": "positive rotation about local +X rolls the car forward (+Z)"
+  },
+  "Wheel_RR": {
+   "position": [
+    -0.775,
+    0.36,
+    -1.981
+   ],
+   "spin_axis_local": [
+    1,
+    0,
+    0
+   ],
+   "forward_roll_sign": "positive rotation about local +X rolls the car forward (+Z)"
+  }
+ },
+ "steering": {
+  "front_wheels_steer": [
+   "Wheel_FL",
+   "Wheel_FR"
+  ],
+  "max_wheel_angle_deg": 36.0,
+  "turning_circle_m": 15.2
+ },
+ "Door_FL": {
+  "hinge": [
+   0.968,
+   0.62,
+   0.939
+  ],
+  "axis_local": [
+   0,
+   1,
+   0
+  ],
+  "open_deg": -68.0,
+  "note": "negative = rear edge swings out to +X"
+ },
+ "Door_FR": {
+  "hinge": [
+   -0.968,
+   0.62,
+   0.939
+  ],
+  "axis_local": [
+   0,
+   1,
+   0
+  ],
+  "open_deg": 68.0,
+  "note": "positive = rear edge swings out to -X"
+ },
+ "RearDoor": {
+  "hinge": [
+   -0.712,
+   0.9,
+   -3.167
+  ],
+  "axis_local": [
+   0,
+   1,
+   0
+  ],
+  "open_deg": 100.0,
+  "note": "single side-hinged door, hinge on the passenger (-X) side as on the 1959 Miller-Meteor; positive = free edge swings rearward (-Z)"
+ },
+ "PackTray": {
+  "origin": [
+   0.0,
+   0.672,
+   -2.399
+  ],
+  "axis_local": [
+   0,
+   0,
+   -1
+  ],
+  "travel_m": 2.04,
+  "note": "telescoping beam, slides straight out of the rear door opening (local -Z = car rear)"
+ },
+ "PackTray2": {
+  "parent": "PackTray",
+  "origin_rest": [
+   0.0,
+   0.672,
+   -2.399
+  ],
+  "axis_local": [
+   0,
+   1,
+   0
+  ],
+  "angle_deg": 90.0,
+  "note": "swing rack on a turntable at the end of the beam; packs ride stored facing +X, after +90 deg about +Y they stand in one row behind the car, contact faces toward -Z"
+ },
+ "pack_sequence_s": {
+  "rear_door_open": [
+   0.0,
+   0.9
+  ],
+  "tray_slide": [
+   0.8,
+   2.4
+  ],
+  "rack_swing": [
+   2.4,
+   3.3
+  ],
+  "ready": 3.3,
+  "stow": "reverse order; rack_swing back to 0 first, then slide, then door"
+ },
+ "SteeringWheel": {
+  "hub": [
+   0.395,
+   0.905,
+   0.466
+  ],
+  "axis_local": [
+   0,
+   0,
+   1
+  ],
+  "axis_note": "local +Z points along the column toward the driver; local +Y = 12 o'clock",
+  "positive": "counter-clockwise as seen by the driver = steer left",
+  "ratio": 19.5,
+  "lock_to_lock_turns": 3.9
+ },
+ "Beacon": {
+  "position": [
+   0.06,
+   1.8862,
+   -0.079
+  ],
+  "axis_local": [
+   0,
+   1,
+   0
+  ],
+  "rpm": 90,
+  "note": "red Mars-style rotating light at the front of the rack, lens = child BeaconEmit"
+ },
+ "emissive": {
+  "HeadlightEmit": {
+   "note": "4 sealed beams + 4 front bumper parking lamps"
+  },
+  "TailLightEmit": {
+   "note": "twin bullet tail lights, 2 per fin"
+  },
+  "BeaconEmit": {
+   "note": "red rotating lens, child of Beacon"
+  },
+  "LightBarEmit": {
+   "segments": 9,
+   "attribute": "_seg",
+   "map": {
+    "0": "front bar, driver half (+X)",
+    "1": "front bar, passenger half (-X)",
+    "2": "rear bar, driver half",
+    "3": "rear bar, passenger half",
+    "4": "front dome lamp driver",
+    "5": "front dome lamp passenger",
+    "6": "rear dome lamp driver",
+    "7": "rear dome lamp passenger",
+    "8": "cowl dome lamp (driver A-pillar base)"
+   },
+   "colour": "blue"
+  },
+  "GrilleLightEmit": {
+   "note": "two amber grille flashers"
+  },
+  "InteriorEmit": {
+   "note": "dash gauges, dome light, equipment LEDs"
+  },
+  "emissive_factor_note": "each *Emit material carries its light colour as emissiveFactor (strength 1); the game drives material.emissiveIntensity (0 = off, >1 blooms); InteriorGaugesEmit uses the gauge texture as emissive map"
+ },
+ "empties": {
+  "Seat_Driver": {
+   "position": [
+    0.395,
+    0.765,
+    -0.099
+   ],
+   "quaternion_xyzw": [
+    0.0,
+    0.0,
+    -0.0,
+    1.0
+   ],
+   "parent": "Ecto1",
+   "note": "avatar hips pose when seated, facing +Z"
+  },
+  "Exit_Driver": {
+   "position": [
+    1.42,
+    0.0,
+    -0.249
+   ],
+   "quaternion_xyzw": [
+    0.0,
+    0.70711,
+    -0.0,
+    0.70711
+   ],
+   "parent": "Ecto1",
+   "note": "avatar root pose after getting out (beside the B-pillar, facing out +X)"
+  },
+  "TrapStow": {
+   "position": [
+    0.5,
+    0.65,
+    -2.859
+   ],
+   "quaternion_xyzw": [
+    -0.0,
+    -1.0,
+    0.0,
+    0.0
+   ],
+   "parent": "Ecto1",
+   "note": "full trap on the cargo floor behind the rear door, trap front toward the door"
+  },
+  "Siren": {
+   "position": [
+    -0.36,
+    2.0062,
+    0.081
+   ],
+   "quaternion_xyzw": [
+    0.0,
+    0.0,
+    -0.0,
+    1.0
+   ],
+   "parent": "Ecto1",
+   "note": "siren speaker on the rack, sound source"
+  },
+  "Exhaust": {
+   "position": [
+    0.58,
+    0.3,
+    -3.379
+   ],
+   "quaternion_xyzw": [
+    -0.0,
+    -1.0,
+    0.0,
+    0.0
+   ],
+   "parent": "Ecto1",
+   "note": "tail pipe under the rear bumper, local +Z = gas direction (rearward)"
+  },
+  "Headlight_L": {
+   "position": [
+    0.8025,
+    0.7,
+    2.766
+   ],
+   "quaternion_xyzw": [
+    0.0,
+    0.0,
+    -0.0,
+    1.0
+   ],
+   "parent": "Ecto1",
+   "note": "spot origin, local +Z forward (driver side)"
+  },
+  "Headlight_R": {
+   "position": [
+    -0.8025,
+    0.7,
+    2.766
+   ],
+   "quaternion_xyzw": [
+    0.0,
+    0.0,
+    -0.0,
+    1.0
+   ],
+   "parent": "Ecto1",
+   "note": "spot origin, local +Z forward"
+  },
+  "PackSlot_1": {
+   "position": [
+    0.15,
+    1.06,
+    -1.419
+   ],
+   "quaternion_xyzw": [
+    0.0,
+    0.70711,
+    -0.0,
+    0.70711
+   ],
+   "parent": "PackTray2",
+   "world_when_deployed": {
+    "position": [
+     0.98,
+     1.06,
+     -4.589
+    ],
+    "quaternion_xyzw": [
+     -0.0,
+     -1.0,
+     0.0,
+     0.0
+    ]
+   },
+   "note": "pack root pose on the rack; child of PackTray2; world_when_deployed = after tray travel + rack swing (pack +Z = car -Z)"
+  },
+  "PackSlot_2": {
+   "position": [
+    0.15,
+    1.06,
+    -1.899
+   ],
+   "quaternion_xyzw": [
+    0.0,
+    0.70711,
+    -0.0,
+    0.70711
+   ],
+   "parent": "PackTray2",
+   "world_when_deployed": {
+    "position": [
+     0.5,
+     1.06,
+     -4.589
+    ],
+    "quaternion_xyzw": [
+     -0.0,
+     -1.0,
+     0.0,
+     0.0
+    ]
+   },
+   "note": "pack root pose on the rack; child of PackTray2; world_when_deployed = after tray travel + rack swing (pack +Z = car -Z)"
+  },
+  "PackSlot_3": {
+   "position": [
+    0.15,
+    1.06,
+    -2.379
+   ],
+   "quaternion_xyzw": [
+    0.0,
+    0.70711,
+    -0.0,
+    0.70711
+   ],
+   "parent": "PackTray2",
+   "world_when_deployed": {
+    "position": [
+     0.02,
+     1.06,
+     -4.589
+    ],
+    "quaternion_xyzw": [
+     -0.0,
+     -1.0,
+     0.0,
+     0.0
+    ]
+   },
+   "note": "pack root pose on the rack; child of PackTray2; world_when_deployed = after tray travel + rack swing (pack +Z = car -Z)"
+  },
+  "PackSlot_4": {
+   "position": [
+    0.15,
+    1.06,
+    -2.859
+   ],
+   "quaternion_xyzw": [
+    0.0,
+    0.70711,
+    -0.0,
+    0.70711
+   ],
+   "parent": "PackTray2",
+   "world_when_deployed": {
+    "position": [
+     -0.46,
+     1.06,
+     -4.589
+    ],
+    "quaternion_xyzw": [
+     -0.0,
+     -1.0,
+     0.0,
+     0.0
+    ]
+   },
+   "note": "pack root pose on the rack; child of PackTray2; world_when_deployed = after tray travel + rack swing (pack +Z = car -Z)"
+  },
+  "PackPickup_1": {
+   "position": [
+    0.98,
+    0.0,
+    -5.139
+   ],
+   "quaternion_xyzw": [
+    0.0,
+    0.0,
+    -0.0,
+    1.0
+   ],
+   "parent": "Ecto1",
+   "note": "avatar root pose facing the car that puts PackSlot_1 (deployed) at (0, 1.06, 0.55) rotated 180 deg about Y"
+  },
+  "PackPickup_2": {
+   "position": [
+    0.5,
+    0.0,
+    -5.139
+   ],
+   "quaternion_xyzw": [
+    0.0,
+    0.0,
+    -0.0,
+    1.0
+   ],
+   "parent": "Ecto1",
+   "note": "avatar root pose facing the car that puts PackSlot_2 (deployed) at (0, 1.06, 0.55) rotated 180 deg about Y"
+  },
+  "PackPickup_3": {
+   "position": [
+    0.02,
+    0.0,
+    -5.139
+   ],
+   "quaternion_xyzw": [
+    0.0,
+    0.0,
+    -0.0,
+    1.0
+   ],
+   "parent": "Ecto1",
+   "note": "avatar root pose facing the car that puts PackSlot_3 (deployed) at (0, 1.06, 0.55) rotated 180 deg about Y"
+  },
+  "PackPickup_4": {
+   "position": [
+    -0.46,
+    0.0,
+    -5.139
+   ],
+   "quaternion_xyzw": [
+    0.0,
+    0.0,
+    -0.0,
+    1.0
+   ],
+   "parent": "Ecto1",
+   "note": "avatar root pose facing the car that puts PackSlot_4 (deployed) at (0, 1.06, 0.55) rotated 180 deg about Y"
+  }
+ },
+ "colliders": {
+  "Collider_Body": {
+   "vertices": 50,
+   "convex": true
+  },
+  "Collider_Cabin": {
+   "vertices": 38,
+   "convex": true
+  },
+  "Collider_Rack": {
+   "vertices": 8,
+   "convex": true
+  }
+ },
+ "stats": {
+  "triangles": 130402,
+  "materials": 25,
+  "material_names": [
+   "BeaconEmit",
+   "Chrome",
+   "Decal_NoGhost",
+   "Equipment_Panels",
+   "Glass",
+   "GrilleLightEmit",
+   "HeadlightEmit",
+   "Hose_Blue",
+   "InteriorEmit",
+   "InteriorGaugesEmit",
+   "Interior_Carpet",
+   "Interior_Dark",
+   "Interior_Vinyl",
+   "Lens_Clear",
+   "LightBarEmit",
+   "Paint_Red",
+   "Paint_White",
+   "Plate_ECTO1",
+   "Rack_Paint",
+   "Steel_Satin",
+   "TailLightEmit",
+   "Trim_Black",
+   "Tyre_Rubber",
+   "Tyre_Whitewall",
+   "Underbody"
+  ],
+  "glb_mb": 4.3
+ }
+}

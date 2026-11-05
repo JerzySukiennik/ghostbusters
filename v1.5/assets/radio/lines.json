@@ -1,0 +1,250 @@
+{
+ "job_hotdog_corner": {
+  "text": "Ecto-1, come in. We got one. The hot dog stand on North Moore and Varick, right around the corner. Something green is eating everything on the cart. Then the cart.",
+  "dur": 12.59,
+  "files": [
+   "job_hotdog_corner.ogg",
+   "job_hotdog_corner.mp3"
+  ]
+ },
+ "job_chinatown": {
+  "text": "Ecto-1, we got a call. Golden Dragon on Mott and Canal. Something is eating the whole kitchen, and the owner wants to know who's paying for the duck.",
+  "dur": 11.31,
+  "files": [
+   "job_chinatown.ogg",
+   "job_chinatown.mp3"
+  ]
+ },
+ "job_wtc_plaza": {
+  "text": "Ecto-1, come in. World Trade Center plaza, Church and Vesey. Security says there's a pack of little glowing things on the fountain. A lot of them.",
+  "dur": 10.63,
+  "files": [
+   "job_wtc_plaza.ogg",
+   "job_wtc_plaza.mp3"
+  ]
+ },
+ "job_wall_street": {
+  "text": "Guys, Trinity Church, Broadway and Wall. The organist says the graveyard is, quote, getting up. I didn't ask.",
+  "dur": 9.75,
+  "files": [
+   "job_wall_street.ogg",
+   "job_wall_street.mp3"
+  ]
+ },
+ "job_battery_pier": {
+  "text": "Ecto-1, Battery pier, all the way down at the tip. A cab drove off the pier. The driver's still in it. He's been dead since nineteen forty.",
+  "dur": 10.43,
+  "files": [
+   "job_battery_pier.ogg",
+   "job_battery_pier.mp3"
+  ]
+ },
+ "job_soho_loft": {
+  "text": "Ecto-1, Greene and Spring, the old cast iron lofts. An artist says his sculptures are howling. He thinks it's a ghost, I think it's the sculptures.",
+  "dur": 11.95,
+  "files": [
+   "job_soho_loft.ogg",
+   "job_soho_loft.mp3"
+  ]
+ },
+ "job_subway_canal": {
+  "text": "Canal Street subway, Canal and Seventh Avenue South. The token booth lady says the trains are coming out of the tunnel with nobody driving.",
+  "dur": 9.23,
+  "files": [
+   "job_subway_canal.ogg",
+   "job_subway_canal.mp3"
+  ]
+ },
+ "job_washington_square": {
+  "text": "Ecto-1, Washington Square, by the arch. Something big and black with red eyes is chasing the chess players. They want their money back.",
+  "dur": 10.27,
+  "files": [
+   "job_washington_square.ogg",
+   "job_washington_square.mp3"
+  ]
+ },
+ "job_herald_square": {
+  "text": "Herald Square, Broadway and Thirty-Fourth. A taxi with no driver keeps doing laps around the square. Honking. At night.",
+  "dur": 9.67,
+  "files": [
+   "job_herald_square.ogg",
+   "job_herald_square.mp3"
+  ]
+ },
+ "job_library_steps": {
+  "text": "Ecto-1, come in. Library steps, Fifth Avenue and Forty-Second. There's an old lady floating between the lions, telling people to be quiet.",
+  "dur": 10.07,
+  "files": [
+   "job_library_steps.ogg",
+   "job_library_steps.mp3"
+  ]
+ },
+ "job_library_reading_room": {
+  "text": "We got one inside the New York Public Library, the main reading room. Books flying off the shelves. The librarian is very upset, and I mean the live one.",
+  "dur": 11.95,
+  "files": [
+   "job_library_reading_room.ogg",
+   "job_library_reading_room.mp3"
+  ]
+ },
+ "job_times_square": {
+  "text": "Ecto-1, Times Square, Broadway and Seventh. Half the city is out there watching something eat a hot dog truck. Try not to be on TV.",
+  "dur": 10.99,
+  "files": [
+   "job_times_square.ogg",
+   "job_times_square.mp3"
+  ]
+ },
+ "nav_left_next": {
+  "text": "Left at the next corner.",
+  "dur": 2.47,
+  "files": [
+   "nav_left_next.ogg",
+   "nav_left_next.mp3"
+  ]
+ },
+ "nav_right_next": {
+  "text": "Right at the next corner.",
+  "dur": 2.39,
+  "files": [
+   "nav_right_next.ogg",
+   "nav_right_next.mp3"
+  ]
+ },
+ "nav_left_now": {
+  "text": "Left here. Left!",
+  "dur": 3.03,
+  "files": [
+   "nav_left_now.ogg",
+   "nav_left_now.mp3"
+  ]
+ },
+ "nav_right_now": {
+  "text": "Right here, take the right!",
+  "dur": 2.91,
+  "files": [
+   "nav_right_now.ogg",
+   "nav_right_now.mp3"
+  ]
+ },
+ "nav_bear_left": {
+  "text": "Keep left.",
+  "dur": 1.95,
+  "files": [
+   "nav_bear_left.ogg",
+   "nav_bear_left.mp3"
+  ]
+ },
+ "nav_bear_right": {
+  "text": "Keep right.",
+  "dur": 2.23,
+  "files": [
+   "nav_bear_right.ogg",
+   "nav_bear_right.mp3"
+  ]
+ },
+ "nav_uturn": {
+  "text": "You passed it. Turn around.",
+  "dur": 3.43,
+  "files": [
+   "nav_uturn.ogg",
+   "nav_uturn.mp3"
+  ]
+ },
+ "nav_recalc": {
+  "text": "Okay, wrong turn. Hold on, I'm finding you another way.",
+  "dur": 5.35,
+  "files": [
+   "nav_recalc.ogg",
+   "nav_recalc.mp3"
+  ]
+ },
+ "nav_close": {
+  "text": "It's right up ahead.",
+  "dur": 2.51,
+  "files": [
+   "nav_close.ogg",
+   "nav_close.mp3"
+  ]
+ },
+ "nav_on_left": {
+  "text": "It's on your left.",
+  "dur": 2.47,
+  "files": [
+   "nav_on_left.ogg",
+   "nav_on_left.mp3"
+  ]
+ },
+ "nav_on_right": {
+  "text": "It's on your right.",
+  "dur": 2.71,
+  "files": [
+   "nav_on_right.ogg",
+   "nav_on_right.mp3"
+  ]
+ },
+ "nav_arrive": {
+  "text": "That's the place. Go get it.",
+  "dur": 2.91,
+  "files": [
+   "nav_arrive.ogg",
+   "nav_arrive.mp3"
+  ]
+ },
+ "cap_1": {
+  "text": "You got it? Nice. Now get it back here before it gets out.",
+  "dur": 5.27,
+  "files": [
+   "cap_1.ogg",
+   "cap_1.mp3"
+  ]
+ },
+ "cap_2": {
+  "text": "That's one. Bring the trap home, the containment unit is waiting.",
+  "dur": 5.55,
+  "files": [
+   "cap_2.ogg",
+   "cap_2.mp3"
+  ]
+ },
+ "slime_1": {
+  "text": "Did it slime you? Do not get that in the car.",
+  "dur": 4.67,
+  "files": [
+   "slime_1.ogg",
+   "slime_1.mp3"
+  ]
+ },
+ "dmg_2": {
+  "text": "Was that a fire hydrant?",
+  "dur": 3.55,
+  "files": [
+   "dmg_2.ogg",
+   "dmg_2.mp3"
+  ]
+ },
+ "paid_1": {
+  "text": "The city paid. Minus the damage. Again.",
+  "dur": 5.47,
+  "files": [
+   "paid_1.ogg",
+   "paid_1.mp3"
+  ]
+ },
+ "paid_2": {
+  "text": "Payment's in. You broke less stuff this time. Barely.",
+  "dur": 5.15,
+  "files": [
+   "paid_2.ogg",
+   "paid_2.mp3"
+  ]
+ },
+ "nav_home": {
+  "text": "Okay, head back to the Firehouse. I'll talk you in.",
+  "dur": 4.79,
+  "files": [
+   "nav_home.ogg",
+   "nav_home.mp3"
+  ]
+ }
+}

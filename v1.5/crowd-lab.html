@@ -1,0 +1,341 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Crowd lab</title>
+<style>
+html,body{margin:0;height:100%;background:#000;overflow:hidden;font:12px/1.4 -apple-system,system-ui,sans-serif;color:#cfd3d6}
+#view{position:fixed;inset:0}
+#view canvas{width:100%;height:100%;display:block}
+#hud{position:fixed;left:10px;top:8px;white-space:pre;pointer-events:none;text-shadow:0 1px 2px #000;opacity:.85}
+#help{position:fixed;left:10px;bottom:8px;pointer-events:none;opacity:.6}
+.hide{display:none}
+</style>
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/",
+  "rapier": "https://cdn.jsdelivr.net/npm/@dimforge/rapier3d-compat@0.19.3/rapier.mjs" } }
+</script>
+</head>
+<body>
+<div id="view"></div>
+<div id="hud"></div>
+<div id="help" data-crowd="1">drag orbit · right-drag pan · wheel zoom · WASD/QE fly · G ghost on/off · H hover ghost · J swoop · F stream · P panic at target · K lineup · R release crowd · 1-8 cameras</div>
+<script type="module">
+// Crowd lab: the V1 night plate with a stub sidewalk graph, a test ghost and stream, instanced pedestrians and perf probes.
+import * as THREE from 'three';
+import RAPIER from 'rapier';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { Renderer } from './src/engine/renderer.js';
+import { AudioSys } from './src/engine/audio.js';
+import { createPlate } from './src/world/plate.js';
+import { createCrowd } from './src/crowd/index.js';
+import { createJanine } from './src/crowd/janine.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+
+const P = new URLSearchParams(location.search);
+const quality = P.get('q') || 'medium';
+const hudOn = P.get('hud') !== '0';
+if (!hudOn) { document.getElementById('hud').classList.add('hide'); document.getElementById('help').classList.add('hide'); }
+if (P.get('seed')) { let s = +P.get('seed') >>> 0 || 1; Math.random = () => { s = (s + 0x6d2b79f5) >>> 0; let t = s; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+
+function stubWalks() {
+  const nodes = [], lanes = [], signals = [{ id: 'sig_corner', node: 'c', p: [0, 0], groups: ['ns', 'ew'] }];
+  const N = (id, x, z) => nodes.push({ id, p: [x, z] });
+  const Lk = (id, from, to, width = 3, crossing = false) => {
+    const a = nodes.find((n) => n.id === from).p, b = nodes.find((n) => n.id === to).p;
+    lanes.push({ id, from, to, pts: [a, b], width, speed: 1.4, oneWay: false, crossing, signal: crossing ? 'sig_corner' : undefined });
+  };
+  const X = 12.6, Z = 8.3, E = 53, CX = 10.35, CZ = 6.25;
+  N('nw', -X, -Z); N('ne', X, -Z); N('sw', -X, Z); N('se', X, Z);
+  N('w_n', -X, -E); N('w_s', -X, E); N('e_n', X, -E); N('e_s', X, E);
+  N('n_w', -E, -Z); N('n_e', E, -Z); N('s_w', -E, Z); N('s_e', E, Z);
+  N('w_mid_n', -X, -30); N('e_mid_n', X, -30); N('w_mid_s', -X, 30); N('e_mid_s', X, 30);
+  N('n_mid_w', -30, -Z); N('n_mid_e', 30, -Z); N('s_mid_w', -30, Z); N('s_mid_e', 30, Z);
+  for (const [k, sx, sz] of [['nw', -1, -1], ['ne', 1, -1], ['sw', -1, 1], ['se', 1, 1]]) { N(k + '_x', sx * CX, sz * Z); N(k + '_z', sx * X, sz * CZ); }
+  Lk('w1', 'w_n', 'w_mid_n'); Lk('w2', 'w_mid_n', 'nw', 3.2); Lk('w3', 'sw', 'w_mid_s', 3.2); Lk('w4', 'w_mid_s', 'w_s');
+  Lk('e1', 'e_n', 'e_mid_n'); Lk('e2', 'e_mid_n', 'ne', 3.2); Lk('e3', 'se', 'e_mid_s', 3.2); Lk('e4', 'e_mid_s', 'e_s');
+  Lk('n1', 'n_w', 'n_mid_w'); Lk('n2', 'n_mid_w', 'nw', 3.0); Lk('n3', 'ne', 'n_mid_e', 3.0); Lk('n4', 'n_mid_e', 'n_e');
+  Lk('s1', 's_w', 's_mid_w'); Lk('s2', 's_mid_w', 'sw', 3.0); Lk('s3', 'se', 's_mid_e', 3.0); Lk('s4', 's_mid_e', 's_e');
+  for (const k of ['nw', 'ne', 'sw', 'se']) { Lk(k + '_tx', k, k + '_x', 3); Lk(k + '_tz', k, k + '_z', 3); }
+  Lk('x_north', 'nw_x', 'ne_x', 3, true); Lk('x_south', 'sw_x', 'se_x', 3, true);
+  Lk('x_west', 'nw_z', 'sw_z', 3, true); Lk('x_east', 'ne_z', 'se_z', 3, true);
+  return { nodes, lanes, signals };
+}
+const CYCLE = [['ns', 26], ['all_red', 2.5], ['ew', 20], ['all_red', 2.5]], CYCLE_T = CYCLE.reduce((s, c) => s + c[1], 0);
+function signalState(id, t) {
+  let u = ((t % CYCLE_T) + CYCLE_T) % CYCLE_T;
+  for (const [s, d] of CYCLE) { if (u < d) return s; u -= d; }
+  return 'ns';
+}
+
+await RAPIER.init();
+const world = new RAPIER.World({ x: 0, y: -9.81, z: 0 });
+world.timestep = 1 / 60;
+const view = document.getElementById('view');
+const R = new Renderer(view);
+R.setPreset(quality);
+const renderer = R.renderer;
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(62, innerWidth / innerHeight, 0.05, 900);
+R.build(scene, camera);
+
+
+async function runJanine() {
+  document.getElementById('help').textContent = 'drag orbit · 1 desk_idle · 2 type · 3 answer phone · 4 hang up · 5 call out · 6 phone_talk · C cameras';
+  const CAMS = {
+    front: [[0.35, 1.42, 3.0], [0, 0.98, 0.25]],
+    face: [[0.22, 1.24, 1.05], [0, 1.16, 0.02]],
+    side: [[2.3, 1.35, 0.7], [0, 0.95, 0.25]],
+    phone: [[-1.25, 1.35, 1.55], [-0.15, 1.05, 0.2]],
+    back: [[-1.4, 1.6, -1.9], [0, 0.95, 0.4]],
+  };
+  const controls = new OrbitControls(camera, renderer.domElement);
+  controls.enableDamping = true; controls.dampingFactor = 0.12;
+  const camNames = Object.keys(CAMS);
+  let camI = Math.max(0, camNames.indexOf(P.get('cam') || 'front'));
+  const setCam = (n) => { const c = CAMS[n]; camera.position.set(...c[0]); controls.target.set(...c[1]); controls.update(); };
+  setCam(camNames[camI]);
+  if (P.get('pos')) { const v = P.get('pos').split(',').map(Number); camera.position.set(v[0], v[1], v[2]); }
+  if (P.get('look')) { const v = P.get('look').split(',').map(Number); controls.target.set(v[0], v[1], v[2]); controls.update(); }
+  camera.fov = +(P.get('fov') || 45); camera.updateProjectionMatrix();
+  scene.background = new THREE.Color(0x0b0807);
+  scene.fog = new THREE.Fog(0x0b0807, 6, 16);
+  const pm = new THREE.PMREMGenerator(renderer);
+  scene.environment = pm.fromScene(new RoomEnvironment(), 0.04).texture;
+  scene.environmentIntensity = 0.16;
+  scene.add(new THREE.HemisphereLight(0xffe2c0, 0x1a1410, 0.12));
+  const lamp = new THREE.SpotLight(0xffc98a, 7, 9, 0.75, 0.6, 1.6);
+  lamp.position.set(0.6, 2.9, 1.1); lamp.target.position.set(0, 0.8, 0.3);
+  lamp.castShadow = true; lamp.shadow.mapSize.set(1024, 1024); lamp.shadow.bias = -0.0004; lamp.shadow.normalBias = 0.02;
+  scene.add(lamp, lamp.target);
+  const fill = new THREE.PointLight(0x8fb4ff, 0.7, 6, 1.5); fill.position.set(-1.8, 1.6, 2.4); scene.add(fill);
+  const SEAT_Y = 0.422;
+  const seat = new THREE.Object3D(); seat.name = 'JanineSeat'; seat.position.set(0, SEAT_Y, 0); scene.add(seat);
+  const M = (c, r = 0.75, m = 0) => new THREE.MeshStandardMaterial({ color: c, roughness: r, metalness: m });
+  const box = (w, h, d, x, y, z, mat, parent = seat) => { const o = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat); o.position.set(x, y, z); o.castShadow = o.receiveShadow = true; parent.add(o); return o; };
+  const floor = new THREE.Mesh(new THREE.PlaneGeometry(14, 14), M(0x2a2622, 0.9)); floor.rotation.x = -Math.PI / 2; floor.receiveShadow = true; scene.add(floor);
+  const wall = new THREE.Mesh(new THREE.PlaneGeometry(14, 5), M(0x5a2c22, 0.95)); wall.position.set(0, 2.5, -1.7); wall.receiveShadow = true; scene.add(wall);
+  const wood = M(0x4a2e1c, 0.55), steel = M(0x3a3d40, 0.5, 0.6), beige = M(0xb8ab92, 0.5), dark = M(0x1c1a18, 0.6);
+  box(1.55, 0.04, 0.76, 0, 0.28, 0.645, wood);
+  box(1.55, 0.62, 0.03, 0, -0.03, 1.01, wood);
+  box(0.42, 0.68, 0.7, 0.55, -0.06, 0.645, wood); box(0.42, 0.68, 0.7, -0.55, -0.06, 0.645, wood);
+  box(0.46, 0.06, 0.46, 0, -0.03, -0.02, M(0x3b2618, 0.8));
+  box(0.44, 0.5, 0.05, 0, 0.3, -0.27, M(0x3b2618, 0.8));
+  box(0.05, 0.36, 0.05, 0, -0.24, -0.02, steel);
+  const janine = await createJanine({ THREE, scene, seat });
+  const dk = janine.meta.desk;
+  box(0.45, 0.028, 0.17, dk.keyboard[0], dk.keyboard[1] - 0.004, dk.keyboard[2], beige);
+  const crt = new THREE.Group(); crt.position.set(dk.monitor[0], dk.top, dk.monitor[2]); crt.rotation.y = dk.monitorYaw; seat.add(crt);
+  box(0.36, 0.31, 0.38, 0, 0.17, 0, beige, crt);
+  const screen = new THREE.Mesh(new THREE.PlaneGeometry(0.27, 0.2), new THREE.MeshBasicMaterial({ color: new THREE.Color(0.05, 0.22, 0.09) }));
+  screen.position.set(0, 0.18, -0.192); screen.rotation.y = Math.PI; crt.add(screen);
+  box(0.26, 0.012, 0.2, 0.05, dk.top + 0.006, dk.front + 0.38, M(0x9c968a, 0.9));
+  const clipQ = P.get('clip');
+  if (clipQ) { janine.play(clipQ, 0); janine.update(+(P.get('t') || 0)); }
+  addEventListener('keydown', (e) => {
+    if (e.key === '1') janine.type(false);
+    if (e.key === '2') janine.type(true);
+    if (e.key === '3') janine.answer();
+    if (e.key === '4') janine.hangUp();
+    if (e.key === '5') janine.callOut();
+    if (e.key === '6') janine.play('phone_talk');
+    if (e.code === 'KeyC') { camI = (camI + 1) % camNames.length; setCam(camNames[camI]); }
+  });
+  const hud = document.getElementById('hud');
+  let last = performance.now(), simT = 0, readyFrames = 0, acc = 0, frames = 0;
+  const frozen = P.get('freeze') === '1';
+  function frame(now) {
+    const dt = Math.min(0.05, (now - last) / 1000); last = now; simT += dt;
+    controls.update();
+    if (!frozen) janine.update(dt);
+    R.render(simT, dt);
+    if (!window.__crowdReady && ++readyFrames >= 4) window.__crowdReady = true;
+    frames++; acc += dt;
+    if (acc > 0.5 && hudOn) { hud.textContent = `janine lab  ${(frames / acc).toFixed(0)} fps  calls ${renderer.info.render.calls}  tris ${(renderer.info.render.triangles / 1000).toFixed(1)}k\nclip ${janine.state}  clips ${janine.clips.join(' ')}\nseat ${janine.meta.seat.height} m  tris ${janine.meta.tris.character} + phone ${janine.meta.tris.phone}`; frames = 0; acc = 0; }
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame((n) => { last = n; requestAnimationFrame(frame); });
+  window.__lab = { THREE, scene, camera, renderer, R, janine, setCam, controls };
+}
+
+async function runCrowd() {
+  const CAMS = {
+    corner: [[14.5, 1.7, 17.5], [-4, 1.6, -6]],
+    street: [[11.6, 1.75, 31], [2, 2.2, -20]],
+    wide: [[30, 14, 30], [0, 0, -2]],
+    lineup: [[-30, 1.45, -1.4], [-30, 1.0, -8.5]],
+    close: [[-28.2, 1.6, -5.4], [-28.6, 1.2, -8.4]],
+    top: [[0, 70, 0.1], [0, 0, 0]],
+    north: [[-1, 1.7, -40], [0, 3, 10]],
+    gawk: [[13.4, 1.65, 19.5], [-1, 3.4, -3]],
+  };
+  const controls = new OrbitControls(camera, renderer.domElement);
+  controls.enableDamping = true; controls.dampingFactor = 0.12; controls.maxDistance = 300;
+  const setCam = (name) => { const c = CAMS[name] || CAMS.corner; camera.position.set(...c[0]); controls.target.set(...c[1]); controls.update(); };
+  setCam(P.get('cam') || 'corner');
+  if (P.get('pos')) { const v = P.get('pos').split(',').map(Number); camera.position.set(v[0], v[1], v[2]); }
+  if (P.get('look')) { const v = P.get('look').split(',').map(Number); controls.target.set(v[0], v[1], v[2]); controls.update(); }
+  if (P.get('fov')) { camera.fov = +P.get('fov'); camera.updateProjectionMatrix(); }
+
+  const glowTex = (() => {
+    const c = document.createElement('canvas'); c.width = c.height = 128;
+    const g = c.getContext('2d'), gr = g.createRadialGradient(64, 64, 0, 64, 64, 64);
+    gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(0.25, 'rgba(255,255,255,0.55)'); gr.addColorStop(1, 'rgba(255,255,255,0)');
+    g.fillStyle = gr; g.fillRect(0, 0, 128, 128);
+    const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
+  })();
+  const ghostObj = new THREE.Group();
+  const ghostCore = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, color: new THREE.Color(0.55, 1.0, 0.35).multiplyScalar(2.2), blending: THREE.AdditiveBlending, depthWrite: false, transparent: true }));
+  ghostCore.scale.setScalar(2.4);
+  const ghostHalo = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, color: new THREE.Color(0.3, 0.8, 0.2), blending: THREE.AdditiveBlending, depthWrite: false, transparent: true, opacity: 0.6 }));
+  ghostHalo.scale.setScalar(6);
+  const ghostLight = new THREE.PointLight(new THREE.Color(0.55, 1.0, 0.4), 0, 16, 1.6);
+  ghostObj.add(ghostCore, ghostHalo, ghostLight);
+  scene.add(ghostObj);
+  const streamGeo = new THREE.BufferGeometry().setAttribute('position', new THREE.Float32BufferAttribute(new Float32Array(6), 3));
+  const stream = new THREE.Line(streamGeo, new THREE.LineBasicMaterial({ color: new THREE.Color(1.0, 0.55, 0.25).multiplyScalar(3), blending: THREE.AdditiveBlending, transparent: true }));
+  stream.frustumCulled = false; stream.visible = false;
+  scene.add(stream);
+
+  const t0 = performance.now();
+  const plate = await createPlate({ THREE, RAPIER, world, scene, renderer, camera, quality });
+  const audio = new AudioSys();
+  await audio.load();
+  addEventListener('pointerdown', () => audio.unlock(), { once: true });
+  const city = { walks: stubWalks(), roads: { signals: [] }, signalState, heightAt: (x, z) => (Math.abs(x) < 10 || Math.abs(z) < 6 ? 0 : 0.15), lights: plate.lights };
+  const crowd = await createCrowd({ THREE, scene, city, audio, quality, camera });
+  const loadMs = performance.now() - t0;
+
+  const G = { on: P.get('ghost') === '1' || P.get('ghost') === 'hover' || P.get('ghost') === 'swoop', mode: P.get('ghost') === 'swoop' ? 'swoop' : 'hover', t: 0, pos: new THREE.Vector3(0, 6, -2), target: new THREE.Vector3(), swoopT: 0 };
+  const ghostList = [{ pos: G.pos, radius: 1.2, scary: 0.8 }];
+  const streams = [];
+  const streamSeg = { a: new THREE.Vector3(14, 1.3, 14), b: new THREE.Vector3() };
+  let firing = P.get('stream') === '1';
+  const keys = new Set();
+  addEventListener('keydown', (e) => {
+    keys.add(e.code);
+    if (e.code === 'KeyG') G.on = !G.on;
+    if (e.code === 'KeyH') { G.on = true; G.mode = 'hover'; }
+    if (e.code === 'KeyJ') swoop();
+    if (e.code === 'KeyF') firing = !firing;
+    if (e.code === 'KeyP') crowd.panic(controls.target, 10);
+    if (e.code === 'KeyK') crowd.lineup(P.get('clip') || 'walk', -30, -8.6, 0, 1.15);
+    if (e.code === 'KeyR') crowd.release();
+    const n = parseInt(e.key, 10);
+    if (n >= 1 && n <= 8) setCam(Object.keys(CAMS)[n - 1]);
+  });
+  addEventListener('keyup', (e) => keys.delete(e.code));
+  function swoop() {
+    G.on = true; G.mode = 'swoop'; G.swoopT = 0;
+    let best = null, bd = 1e9;
+    for (const a of crowd.agents) if (a.on) { let n = 0; for (const b of crowd.agents) if (b.on && Math.hypot(a.x - b.x, a.z - b.z) < 7) n++; const d = Math.hypot(a.x - G.pos.x, a.z - G.pos.z) - n * 6; if (d < bd) { bd = d; best = a; } }
+    G.target.set(best ? best.x : 0, 1.4, best ? best.z : 0);
+  }
+
+  function ghostStep(dt) {
+    G.t += dt;
+    if (G.mode === 'hover') {
+      const tx = Math.sin(G.t * 0.21) * 9, tz = -2 + Math.sin(G.t * 0.13) * 7, ty = 5.5 + Math.sin(G.t * 0.7) * 1.2;
+      G.pos.x += (tx - G.pos.x) * Math.min(1, dt * 0.8); G.pos.y += (ty - G.pos.y) * Math.min(1, dt * 0.8); G.pos.z += (tz - G.pos.z) * Math.min(1, dt * 0.8);
+    } else {
+      G.swoopT += dt;
+      const k = Math.min(1, dt * (G.swoopT < 1.6 ? 2.6 : 0.9));
+      const tgt = G.swoopT < 1.6 ? G.target : new THREE.Vector3(0, 7, -2);
+      G.pos.lerp(tgt, k);
+      if (G.swoopT > 4.5) G.mode = 'hover';
+    }
+    ghostObj.position.copy(G.pos);
+    ghostObj.visible = G.on;
+    ghostLight.intensity = G.on ? 22 + Math.sin(G.t * 9) * 4 : 0;
+    ghostCore.material.rotation = G.t * 0.6;
+    ghostList[0].scary = G.mode === 'swoop' ? 1 : 0.6;
+    streams.length = 0;
+    stream.visible = firing && G.on;
+    if (stream.visible) {
+      streamSeg.b.copy(G.pos);
+      streams.push(streamSeg);
+      const p = streamGeo.attributes.position.array;
+      p[0] = streamSeg.a.x; p[1] = streamSeg.a.y; p[2] = streamSeg.a.z; p[3] = G.pos.x + Math.sin(G.t * 40) * 0.2; p[4] = G.pos.y; p[5] = G.pos.z;
+      streamGeo.attributes.position.needsUpdate = true;
+    }
+  }
+
+  if (P.get('lineup')) crowd.lineup(P.get('lineup'), +(P.get('lx') || -30), +(P.get('lz') || -8.6), +(P.get('lyaw') || 0), +(P.get('gap') || 1.15));
+
+  const hud = document.getElementById('hud');
+  let last = performance.now(), frames = 0, acc = 0, fps = 0, simT = +(P.get('t') || 0), readyFrames = 0;
+  const fwd = new THREE.Vector3(), right = new THREE.Vector3();
+  const focus = [camera.position];
+  const ctx = { focus, time: 0, ghosts: [], streams, camera };
+  function simulate(dt) {
+    simT += dt;
+    ghostStep(dt);
+    ctx.time = simT;
+    ctx.ghosts = G.on ? ghostList : [];
+    crowd.update(dt, ctx);
+    plate.update(dt);
+  }
+  function frame(now) {
+    const dt = Math.min(0.05, (now - last) / 1000);
+    last = now;
+    if (keys.size) {
+      camera.getWorldDirection(fwd); right.crossVectors(fwd, camera.up).normalize();
+      const sp = (keys.has('ShiftLeft') ? 24 : 8) * dt, mv = new THREE.Vector3();
+      if (keys.has('KeyW')) mv.add(fwd); if (keys.has('KeyS')) mv.sub(fwd);
+      if (keys.has('KeyD')) mv.add(right); if (keys.has('KeyA')) mv.sub(right);
+      if (keys.has('KeyE')) mv.y += 1; if (keys.has('KeyQ')) mv.y -= 1;
+      mv.multiplyScalar(sp); camera.position.add(mv); controls.target.add(mv);
+    }
+    controls.update();
+    simulate(dt);
+    audio.update(camera);
+    R.render(simT, dt);
+    if (!window.__crowdReady && ++readyFrames >= 4) window.__crowdReady = true;
+    frames++; acc += dt;
+    if (acc > 0.5) {
+      fps = frames / acc; frames = 0; acc = 0;
+      if (hudOn) {
+        const s = crowd.stats, st = Object.entries(s.states).filter((e) => e[1]).map((e) => e.join(' ')).join('  ');
+        const sig = signalState('sig_corner', simT);
+        hud.textContent = `crowd lab  ${quality}  ${fps.toFixed(0)} fps  calls ${renderer.info.render.calls}  tris ${(renderer.info.render.triangles / 1000).toFixed(0)}k\ncrowd: agents ${s.agents}  visible ${s.visible}  lod0 ${s.lod0}  tris ${(s.tris / 1000).toFixed(1)}k  draws ${s.drawCalls}  cpu ${s.cpu.toFixed(3)} ms\nsignal ${sig}  ghost ${G.on ? G.mode : 'off'}  stream ${firing ? 'on' : 'off'}\n${st}`;
+      }
+    }
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame((n) => { last = n; const pre = +(P.get('pre') || 0); for (let i = 0; i < pre * 30; i++) simulate(1 / 30); if (P.get('swoop')) setTimeout(swoop, +P.get('swoop')); requestAnimationFrame(frame); });
+
+  async function gpuMs(n, toggle) {
+    const gl = renderer.getContext();
+    const ext = gl.getExtension('EXT_disjoint_timer_query_webgl2');
+    if (!ext) return -1;
+    const sz = renderer.getDrawingBufferSize(new THREE.Vector2());
+    const rt = window.__benchRT || (window.__benchRT = new THREE.WebGLRenderTarget(sz.x, sz.y, { type: THREE.HalfFloatType, samples: R.preset.msaa }));
+    const vis = crowd.root.visible;
+    crowd.root.visible = toggle;
+    const qs = [];
+    for (let i = 0; i < n; i++) { simulate(1 / 60); const q = gl.createQuery(); gl.beginQuery(ext.TIME_ELAPSED_EXT, q); renderer.setRenderTarget(rt); renderer.render(scene, camera); renderer.setRenderTarget(null); gl.endQuery(ext.TIME_ELAPSED_EXT); qs.push(q); }
+    gl.finish();
+    for (let k = 0; k < 20 && !gl.getQueryParameter(qs[qs.length - 1], gl.QUERY_RESULT_AVAILABLE); k++) await new Promise((r) => setTimeout(r, 60));
+    const ms = [];
+    for (const q of qs) if (gl.getQueryParameter(q, gl.QUERY_RESULT_AVAILABLE)) ms.push(gl.getQueryParameter(q, gl.QUERY_RESULT) / 1e6);
+    crowd.root.visible = vis;
+    ms.sort((a, b) => a - b);
+    return ms.length ? +ms[ms.length >> 1].toFixed(3) : -1;
+  }
+  window.__bench = async (n = 60) => {
+    const on = await gpuMs(n, true), off = await gpuMs(n, false), on2 = await gpuMs(n, true), off2 = await gpuMs(n, false);
+    const cpu = [];
+    for (let i = 0; i < 120; i++) { const t = performance.now(); crowd.update(1 / 60, ctx); cpu.push(performance.now() - t); }
+    cpu.sort((a, b) => a - b);
+    return { gpuWith: Math.min(on, on2), gpuWithout: Math.min(off, off2), crowdGpu: +(Math.min(on, on2) - Math.min(off, off2)).toFixed(3), cpuMedian: +cpu[60].toFixed(3), cpuP90: +cpu[108].toFixed(3), stats: { ...crowd.stats, states: { ...crowd.stats.states } }, loadMs: Math.round(loadMs), graph: crowd.graph };
+  };
+  window.__lab = { THREE, scene, camera, renderer, R, plate, crowd, city, G, swoop, setCam, controls, signalState, fire: (v = true) => { firing = v; } };
+}
+
+if (P.get('mode') === 'janine') await runJanine(); else await runCrowd();
+</script>
+</body>
+</html>

@@ -1,0 +1,181 @@
+{
+ "voice": "Kore",
+ "lines": [
+  {
+   "id": "nav_left_next",
+   "text": "Left at the next corner."
+  },
+  {
+   "id": "nav_right_next",
+   "text": "Right at the next corner."
+  },
+  {
+   "id": "nav_left_now",
+   "text": "Left here. Left!"
+  },
+  {
+   "id": "nav_right_now",
+   "text": "Right here, take the right!"
+  },
+  {
+   "id": "nav_bear_left",
+   "text": "Keep left."
+  },
+  {
+   "id": "nav_bear_right",
+   "text": "Keep right."
+  },
+  {
+   "id": "nav_straight",
+   "text": "Stay on this one, straight ahead."
+  },
+  {
+   "id": "nav_uturn",
+   "text": "You passed it. Turn around."
+  },
+  {
+   "id": "nav_recalc",
+   "text": "Okay, wrong turn. Hold on, I'm finding you another way."
+  },
+  {
+   "id": "nav_close",
+   "text": "It's right up ahead."
+  },
+  {
+   "id": "nav_on_left",
+   "text": "It's on your left."
+  },
+  {
+   "id": "nav_on_right",
+   "text": "It's on your right."
+  },
+  {
+   "id": "nav_arrive",
+   "text": "That's the place. Go get it."
+  },
+  {
+   "id": "cap_1",
+   "text": "You got it? Nice. Now get it back here before it gets out."
+  },
+  {
+   "id": "cap_2",
+   "text": "That's one. Bring the trap home, the containment unit is waiting."
+  },
+  {
+   "id": "slime_1",
+   "text": "Did it slime you? Do not get that in the car."
+  },
+  {
+   "id": "dmg_1",
+   "text": "The city is gonna bill us for that."
+  },
+  {
+   "id": "dmg_2",
+   "text": "Was that a fire hydrant?"
+  },
+  {
+   "id": "paid_1",
+   "text": "The city paid. Minus the damage. Again."
+  },
+  {
+   "id": "paid_2",
+   "text": "Payment's in. You broke less stuff this time. Barely."
+  },
+  {
+   "id": "nav_home",
+   "text": "Okay, head back to the Firehouse. I'll talk you in."
+  },
+  {
+   "id": "nav_home_arrive",
+   "text": "You're home. Back it in, and mind the door this time."
+  },
+  {
+   "id": "start_1",
+   "text": "Ecto-1, radio check. You're on. Suit up when you get there."
+  },
+  {
+   "id": "idle_1",
+   "text": "Quiet night. Don't get used to it."
+  },
+  {
+   "id": "job_hotdog_corner",
+   "text": "Ecto-1, come in. We got one. The hot dog stand on North Moore and Varick, right around the corner. Something green is eating everything on the cart. Then the cart."
+  },
+  {
+   "id": "job_tribeca_dock",
+   "text": "Loading dock on Washington and Beach, in Tribeca. The night guard says something with horns is chewing on the crates. He sounded sober."
+  },
+  {
+   "id": "job_chinatown",
+   "text": "Ecto-1, we got a call. Golden Dragon on Mott and Canal. Something is eating the whole kitchen, and the owner wants to know who's paying for the duck."
+  },
+  {
+   "id": "job_wtc_plaza",
+   "text": "Ecto-1, come in. World Trade Center plaza, Church and Vesey. Security says there's a pack of little glowing things on the fountain. A lot of them."
+  },
+  {
+   "id": "job_wall_street",
+   "text": "Guys, Trinity Church, Broadway and Wall. The organist says the graveyard is, quote, getting up. I didn't ask."
+  },
+  {
+   "id": "job_battery_pier",
+   "text": "Ecto-1, Battery pier, all the way down at the tip. A cab drove off the pier. The driver's still in it. He's been dead since nineteen forty."
+  },
+  {
+   "id": "job_seaport",
+   "text": "South Street Seaport, South and Fulton. Something is eating the fish market, and the fish market is not happy."
+  },
+  {
+   "id": "job_soho_loft",
+   "text": "Ecto-1, Greene and Spring, the old cast iron lofts. An artist says his sculptures are howling. He thinks it's a ghost, I think it's the sculptures."
+  },
+  {
+   "id": "job_subway_canal",
+   "text": "Canal Street subway, Canal and Seventh Avenue South. The token booth lady says the trains are coming out of the tunnel with nobody driving."
+  },
+  {
+   "id": "job_washington_square",
+   "text": "Ecto-1, Washington Square, by the arch. Something big and black with red eyes is chasing the chess players. They want their money back."
+  },
+  {
+   "id": "job_herald_square",
+   "text": "Herald Square, Broadway and Thirty-Fourth. A taxi with no driver keeps doing laps around the square. Honking. At night."
+  },
+  {
+   "id": "job_library_steps",
+   "text": "Ecto-1, come in. Library steps, Fifth Avenue and Forty-Second. There's an old lady floating between the lions, telling people to be quiet."
+  },
+  {
+   "id": "job_library_reading_room",
+   "text": "We got one inside the New York Public Library, the main reading room. Books flying off the shelves. The librarian is very upset, and I mean the live one."
+  },
+  {
+   "id": "job_times_square",
+   "text": "Ecto-1, Times Square, Broadway and Seventh. Half the city is out there watching something eat a hot dog truck. Try not to be on TV."
+  },
+  {
+   "id": "job_sedgewick_ballroom",
+   "text": "Sedgewick Hotel, Madison and Forty-Third. Something green is eating the whole banquet in the ballroom. The manager says, and I quote, discretion."
+  },
+  {
+   "id": "job_columbus_circle",
+   "text": "Ecto-1, Columbus Circle. A cab with no driver is going around and around the statue. The other cabs are getting jealous."
+  },
+  {
+   "id": "job_spook_central",
+   "text": "Fifty-Five Central Park West. Tenants say there's a dog on the roof. A big dog. With horns. Doorman quit an hour ago."
+  },
+  {
+   "id": "job_tavern_green",
+   "text": "Ecto-1, Tavern on the Green, Central Park West and Sixty-Seventh. Something is terrorizing the guests through the windows. Reservations are canceled."
+  },
+  {
+   "id": "job_cp_pond",
+   "text": "Central Park, the pond by Fifth Avenue. Joggers see little glowing things skimming over the water. Lots of little glowing things."
+  },
+  {
+   "id": "job_bethesda",
+   "text": "Ecto-1, Bethesda Fountain in the middle of the park. The angel on the fountain is screaming. Statues aren't supposed to do that, right?"
+  }
+ ]
+}
